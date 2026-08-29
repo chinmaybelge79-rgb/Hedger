@@ -56,19 +56,12 @@
     .logo { display: flex; align-items: center; gap: 8px; margin-left: -16px; }
     .logo img { height: 26px; width: auto; }
     .logo-text { font-size: 16px; font-weight: 800; letter-spacing: 0.14em; line-height: 1; color: var(--ink); }
-    .logo-mark { font-weight: 700; letter-spacing: -0.03em; font-size: 22px; line-height: 1; }
-    .logo-sub { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ash); border-left: 1px solid var(--hairline); padding-left: 12px; }
-    /* dark mode */
+            /* dark mode */
     body.dark { --paper: #0A0A0A; --ink: #F0F0F0; --graphite: #B0B0B0; --ash: #6A6A6A; --hairline: #2A2A2A; --fog: #141414; }
-    body.dark .logo img.dark { display: block; filter: invert(1); }
-    body.dark .logo img.light { display: none; }
-    body:not(.dark) .logo img.dark { display: none; }
-    body:not(.dark) .logo img.light { display: block; }
+    body.dark .logo img.dark { display: block; filter: none; }
     
     
-    
-    
-    
+    body:not(.dark) .logo img.dark { display: block; filter: invert(1); }
     
     .nav-links { display: flex; gap: 22px; align-items: center; }
     .nav-links a { font-size: 12.5px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--graphite); padding: 3px 0; border-bottom: 1px solid transparent; transition: border-color 140ms, color 140ms; white-space: nowrap; }
@@ -84,7 +77,7 @@
     .profile-wrap { position: relative; }
     .profile-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--hairline); background: var(--paper); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--ink); transition: border-color 140ms, background 140ms; }
     .profile-btn:hover { border-color: var(--ink); background: var(--fog); }
-    .profile-panel { position: absolute; top: calc(100% + 8px); right: 0; width: 232px; background: var(--paper); border: 1px solid var(--hairline); border-radius: 2px; display: none; z-index: 30; overflow: hidden; }
+    .profile-panel { position: absolute; top: calc(100% + 8px); right: 0; width: 260px; background: var(--paper); border: 1px solid var(--hairline); border-radius: 2px; display: none; z-index: 30; overflow: hidden; }
     .profile-wrap:hover .profile-panel, .profile-wrap:focus-within .profile-panel, .profile-panel.open { display: block; }
     .profile-panel a, .profile-panel button { width: 100%; text-align: left; display: block; padding: 10px 14px; font-size: 13px; color: var(--graphite); background: var(--paper); border: none; border-bottom: 1px solid var(--hairline); cursor: pointer; }
     .profile-panel a:hover, .profile-panel button:hover { background: var(--fog); color: var(--ink); }
@@ -216,6 +209,7 @@
     .trend-up { color: #2d8a4e !important; }
     .trend-down { color: #c0392b !important; }
     body.dark .footer-logo { filter: invert(1); }
+    body:not(.dark) .footer-logo { filter: none; }
 
     /* command palette */
     .cmd-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); z-index: 100; display: none; align-items: flex-start; justify-content: center; padding-top: 18vh; }
@@ -251,13 +245,16 @@
     .pref-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; border-bottom: 1px solid var(--hairline); }
     .pref-row span { font-size: 12px; color: var(--graphite); }
     .pref-icon { font-size: 13px; margin-right: 6px; }
-    .mini-toggle { position: relative; width: 28px; height: 16px; background: var(--hairline); border-radius: 8px; border: none; cursor: pointer; transition: background 140ms; padding: 0; flex-shrink: 0; }
-    .mini-toggle::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--paper); border: 1px solid var(--ash); transition: transform 140ms; }
-    .mini-toggle.on { background: var(--ink); }
-    .mini-toggle.on::after { transform: translateX(12px); background: var(--paper); border-color: var(--ink); }
+    .mini-toggle { position: relative; width: 40px !important; min-width: 40px; max-width: 40px; height: 22px; background: var(--hairline); border-radius: 11px; border: none; cursor: pointer; transition: background 200ms; padding: 0; flex: 0 0 40px; }
+    .mini-toggle::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--paper); box-shadow: 0 1px 2px rgba(0,0,0,0.15); transition: transform 200ms; }
+    .mini-toggle.on { background: #2d8a4e; }
+    .mini-toggle.on::after { transform: translateX(20px); background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
     .pref-slider { width: 100%; margin: 2px 0 0; accent-color: var(--ink); }
-    body.reading-mode { font-size: 18px; line-height: 1.8; }
-    body.reading-mode .wrap { max-width: 720px; }
+    body.reading-mode { background: #f5f0e8 !important; color: #3d3426 !important; }
+    body.reading-mode .wrap { max-width: var(--max); }
+    
+    
+    
 
     @media (max-width: 640px) { .wrap { padding-left: 20px; padding-right: 20px; } }
   </style>
@@ -267,17 +264,13 @@
 <!-- NAV -->
 <nav class="nav">
   <div class="wrap nav-inner">
-    <a href="#" class="logo" onclick="showView('home');return false">
-      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAfQAAAH0CAIAAABEtEjdAAAAtGVYSWZJSSoACAAAAAYAEgEDAAEAAAABAAAAGgEFAAEAAABWAAAAGwEFAAEAAABeAAAAKAEDAAEAAAACAAAAEwIDAAEAAAABAAAAaYcEAAEAAABmAAAAAAAAAGAAAAABAAAAYAAAAAEAAAAGAACQBwAEAAAAMDIxMAGRBwAEAAAAAQIDAACgBwAEAAAAMDEwMAGgAwABAAAA//8AAAKgBAABAAAA9AEAAAOgBAABAAAA9AEAAAAAAAAA4cNEAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAFRGlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSfvu78nIGlkPSdXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQnPz4KPHg6eG1wbWV0YSB4bWxuczp4PSdhZG9iZTpuczptZXRhLyc+CjxyZGY6UkRGIHhtbG5zOnJkZj0naHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyc+CgogPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9JycKICB4bWxuczpBdHRyaWI9J2h0dHA6Ly9ucy5hdHRyaWJ1dGlvbi5jb20vYWRzLzEuMC8nPgogIDxBdHRyaWI6QWRzPgogICA8cmRmOlNlcT4KICAgIDxyZGY6bGkgcmRmOnBhcnNlVHlwZT0nUmVzb3VyY2UnPgogICAgIDxBdHRyaWI6Q3JlYXRlZD4yMDI2LTA4LTE4PC9BdHRyaWI6Q3JlYXRlZD4KICAgICA8QXR0cmliOkRhdGE+eyZxdW90O2RvYyZxdW90OzomcXVvdDtEQUhTcUhCeFBsOCZxdW90OywmcXVvdDt1c2VyJnF1b3Q7OiZxdW90O1VBR2pZeG1YTXFJJnF1b3Q7LCZxdW90O2JyYW5kJnF1b3Q7OiZxdW90O0JBR2pZNWxENXdnJnF1b3Q7fTwvQXR0cmliOkRhdGE+CiAgICAgPEF0dHJpYjpFeHRJZD43ZDYyYzk0ZS0zNGI5LTRiYTktOTYxMC1jOTdhYjVjMmU1YmE8L0F0dHJpYjpFeHRJZD4KICAgICA8QXR0cmliOkZiSWQ+NTI1MjY1OTE0MTc5NTgwPC9BdHRyaWI6RmJJZD4KICAgICA8QXR0cmliOlRvdWNoVHlwZT4yPC9BdHRyaWI6VG91Y2hUeXBlPgogICAgPC9yZGY6bGk+CiAgIDwvcmRmOlNlcT4KICA8L0F0dHJpYjpBZHM+CiA8L3JkZjpEZXNjcmlwdGlvbj4KCiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0nJwogIHhtbG5zOmRjPSdodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyc+CiAgPGRjOnRpdGxlPgogICA8cmRmOkFsdD4KICAgIDxyZGY6bGkgeG1sOmxhbmc9J3gtZGVmYXVsdCc+VW50aXRsZWQgZGVzaWduIC0gMTwvcmRmOmxpPgogICA8L3JkZjpBbHQ+CiAgPC9kYzp0aXRsZT4KIDwvcmRmOkRlc2NyaXB0aW9uPgoKIDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PScnCiAgeG1sbnM6cGRmPSdodHRwOi8vbnMuYWRvYmUuY29tL3BkZi8xLjMvJz4KICA8cGRmOkF1dGhvcj5DaGlubWF5IEJlbGdlPC9wZGY6QXV0aG9yPgogPC9yZGY6RGVzY3JpcHRpb24+CgogPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9JycKICB4bWxuczp4bXA9J2h0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8nPgogIDx4bXA6Q3JlYXRvclRvb2w+Q2FudmEgZG9jPURBSFNxSEJ4UGw4IHVzZXI9VUFHall4bVhNcUkgYnJhbmQ9QkFHalk1bEQ1d2c8L3htcDpDcmVhdG9yVG9vbD4KIDwvcmRmOkRlc2NyaXB0aW9uPgo8L3JkZjpSREY+CjwveDp4bXBtZXRhPgo8P3hwYWNrZXQgZW5kPSdyJz8+LahQhwAABx1JREFUeJzt1LFNZFkURdFGaqcwoDy8SoAQJiOymXiqREw4Y4HUU8dFz+r3pf/+Ya0Mrs7V/vULAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANjIw8PD0xYeHx/3PoW4D7HJoPfH2PsUYML5fP6zhev1uvcpxO1222TQ+2PsfQowQdzLiDsQ4l5G3IEQ9zLiDoS4lxF3IMS9jLgDIe5lxB0IcS8j7kCIexlxB0Lcy4g7EOJeRtyBEPcy4g6EuJcRdyDEvYy4AyHuZcQdCHEvI+5AiHsZcQdC3MuIOxDiXkbcgRD3MuIOhLiXEXcgxL2MuAMh7mXEHQhxLyPuQIh7GXEHQtzLiDsQ4l5G3IEQ9zLiDoS4lxF3IMS9jLgDIe5lxB0IcS8j7kCIexlxB0Lcy4g7EOJeRtyBEPcy4g6EuJcRdyDEvYy4AyHuZcQdCHEvI+5AiHsZcQdC3MuIOxDiXkbcgRD3MuIOhLiXEXcgxL2MuAMh7mXEHQhxLyPuQIh7GXEHQtzLiDsQ4l5G3IEQ9zLiDoS4lxF3IMS9jLgDIe5lxB0IcS8j7kCIexlxB0Lcy4g7EOJeRtyBEPcy4g6EuJcRdyDEvYy4AyHuZcQdCHEvI+5AiHsZcQdC3MuIOxDiXkbcgRD3MuIOhLiXEXcgxL2MuAMh7mXEHQhxLyPuQIh7GXEHQtzLiDsQ4l5G3IEQ9zLiDoS4lxF3IMS9jLgDIe5lxB0IcS8j7kCIexlxB0Lcy4g7EJfLZZMW/ExfX197D/iduAMh7jPEHViUuM8Qd2BR4j5D3IFFifsMcQcWJe4zxB1YlLjPEHdgUeI+Q9yBRYn7DHEHFiXuM8QdWJS4zxB3YFHiPkPcgUWJ+wxxBxYl7jPEHViUuM8Qd2BR4j5D3IFFifsMcQcWJe4zxB1YlLjPEHdgUeI+Q9yBRYn7DHEHFiXuM8QdWJS4zxB3YFHiPkPcAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvvv4+PiPv/X09LT3gAAjn5+ff/hbz8/Pew8IMCLuM8QdWJS4zxB3YFHiPkPcgUWJ+wxxh2M7nU7/buHt7W3vU74T9xkvLy97DwhMOJ/Pm7Tger3ufcp34j7jcrnsPSAwQdwZEnc4NnFnSNzh2MSdIXGHYxN3hsQdjk3cGRJ3ODZxZ0jc4djEnSFxh2MTd4bEHY5N3BkSdzg2cWdI3OHYxJ0hcYdjE3eGxB2OTdwZEnc4NnFnSNzh2MSdIXGHYxN3hsQdjq047qfT6fHneX9/32TQ+2PsPSAwoTjuP9PtdttkUHGHYxP3MuIOhLiXEXcgxL2MuAMh7mXEHQhxLyPuQIh7GXEHQtzLiDsQ4l5G3IEQ9zLiDoS4lxF3IMS9jLgDIe5lxB0IcS8j7kCIexlxB0Lcy4g7EOJeRtyBEPcy4g6EuJcRdyDEvYy4AyHuZcQdCHEvI+5AiHsZcQdC3MuIOxDiXkbcgRD3MuIOhLiXEXcgxL2MuAMh7mXEHQhxLyPuQIh7GXEHQtzLiDsQ4l5G3IEQ9zLiDoS4lxF3IMS9jLgDIe5lxB0IcS8j7kCIexlxB0Lcy4g7EOJeRtyBEPcy4g6EuJcRdyDEvYy4AyHuZcQdCHEvI+5AiHsZcQdC3MuIOxDiXkbcgRD3MuIOhLiXEXcgxL2MuAMh7mXEHQhxLyPuQIh7GXEHQtzLiDsQ4l5G3IEQ9zLiDoS4lxF3IMS9jLgDIe5lxB0IcS8j7kCIexlxB0Lcy4g7EOJeRtyBEPcy4g6EuJcRdyDEvYy4AyHuZcQdCHEvI+5AiHsZcQdC3MuIOxDiXkbcgRD3MuIOhLiXEXcgxL2MuAMh7mXEHQhxLyPuQIh7GXEHQtzLiDsQ4l5G3IEQ9zLiDoS4lxF3IMS9jLgDIe5lxB0IcS8j7kCIexlxB+L379//bOH19XXvU4j7EJsMen+MvU8BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGBr/wO7IaEUIj5dDwAAAABJRU5ErkJggg==" alt="Hedger" class="light">
-      <img src="data:image/png;base64,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" alt="Hedger" class="dark">
-    <span class="logo-text">HEDGER</span>
-    </a>
+    <a href="#" class="logo" onclick="showView('home');return false" style="font-size:16px;font-weight:800;letter-spacing:0.14em;color:var(--ink);text-decoration:none">HEDGER</a>
     <div class="nav-links" id="navLinks">
-      <button class="nav-search-small" onclick="openCmd()" style="display:flex;align-items:center;gap:8px;border:1px solid var(--hairline);border-radius:6px;padding:6px 12px;background:var(--paper);cursor:pointer;transition:border-color 140ms">
+      <div class="nav-search-bar" onclick="openCmd()" style="display:flex;align-items:center;gap:8px;border:1px solid var(--hairline);border-radius:6px;padding:6px 14px;background:var(--paper);cursor:pointer;transition:border-color 140ms;flex:1;max-width:400px">
         <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7.5" cy="7.5" r="5.5"/><path d="M11.5 11.5L16 16"/></svg>
-        <span style="font-size:12.5px;color:var(--ash)">Search...</span>
-        <kbd style="font-family:var(--font);font-size:10px;color:var(--ash);border:1px solid var(--hairline);border-radius:3px;padding:1px 5px;line-height:1;background:var(--fog);margin-left:8px">⌘K</kbd>
-        </button>
+        <span style="font-size:12.5px;color:var(--ash);flex:1">Search any ticker...</span>
+        <kbd style="font-family:var(--font);font-size:10px;color:var(--ash);border:1px solid var(--hairline);border-radius:3px;padding:1px 5px;line-height:1;background:var(--fog)">⌘K</kbd>
+      </div>
       <a href="#" data-nav="models" onclick="showView('models');return false">Models</a>
       <a href="#" data-nav="pricing" onclick="showView('pricing');return false">Pricing</a>
       <div class="profile-wrap">
@@ -288,11 +281,11 @@
           <div class="panel-head">Account</div>
           <button role="menuitem" onclick="alert('Sign in — coming soon')">Sign in</button>
           <button role="menuitem" onclick="alert('Create account — coming soon')">Create account</button>
+          
           <div class="panel-head">Appearance</div>
-          <div class="pref-row"><span><span class="pref-icon">☀</span>Dark mode</span><button class="mini-toggle" id="darkToggle" onclick="toggleDark()" aria-label="Toggle dark mode"></button></div>
-          <div class="pref-row" style="flex-direction:column;align-items:stretch;gap:2px"><span><span class="pref-icon">◐</span>Brightness</span><input type="range" class="pref-slider" id="brightnessSlider" min="50" max="100" value="100" oninput="setBrightness(this.value)" aria-label="Brightness"></div>
-          <div class="pref-row"><span><span class="pref-icon">📖</span>Reading mode</span><button class="mini-toggle" id="readingToggle" onclick="toggleReading()" aria-label="Toggle reading mode"></button></div>
-          <button role="menuitem" onclick="alert('Settings — coming soon')">Settings</button>
+        <div class="pref-row"><span><span class="pref-icon">☀</span>Dark mode</span><button class="mini-toggle" id="darkToggle" onclick="toggleDark()" aria-label="Toggle dark mode"></button></div>
+        <div class="pref-row"><span>Reading mode</span><button class="mini-toggle" id="readingToggle" onclick="toggleReading()" aria-label="Toggle reading mode"></button></div>
+        <button role="menuitem" onclick="showView('settings')">Settings</button>
         </div>
       </div>
     </div>
@@ -315,15 +308,12 @@
     <h1 style="font-size:clamp(48px,7vw,88px);line-height:0.92;letter-spacing:-0.03em;max-width:900px;margin:0 auto">Understand<br>the true value<br>of <span style="color:var(--ash)">any company</span></h1>
     <p style="color:var(--graphite);font-size:17px;line-height:1.6;max-width:520px;margin:24px auto 0">Institutional grade valuations in minutes.</p>
 
-    <!-- search -->
-    <div style="max-width:560px;margin:36px auto 0;position:relative">
-      <div style="display:flex;border:1px solid var(--hairline);border-radius:8px;overflow:hidden;background:var(--paper);transition:border-color 140ms,box-shadow 140ms" class="lp-search">
-        <span style="display:flex;align-items:center;justify-content:center;width:48px;flex-shrink:0;color:var(--ash)"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7.5" cy="7.5" r="5.5"/><path d="M11.5 11.5L16 16"/></svg></span>
-        <input id="heroSearch" type="text" placeholder="Search any ticker..." autocomplete="off" aria-label="Search ticker or company" style="flex:1;border:none;outline:none;background:transparent;font-size:15px;color:var(--ink);padding:0 4px;height:52px">
-        <button onclick="handleHeroSearch()" style="flex-shrink:0;height:100%;border:none;border-left:1px solid var(--hairline);background:var(--paper);color:var(--ink);font-size:12px;letter-spacing:0.06em;text-transform:uppercase;padding:0 20px;cursor:pointer;font-weight:600;transition:background 140ms">Search</button>
-      </div>
-      <div id="searchRecs" class="search-recs" role="listbox" aria-label="Company recommendations"></div>
+    <div onclick="openCmd()" role="button" tabindex="0" aria-label="Search tickers" style="display:flex;align-items:center;gap:10px;border:1px solid var(--hairline);border-radius:8px;padding:12px 18px;background:var(--paper);cursor:pointer;transition:border-color 140ms;max-width:480px;margin:32px auto 0;width:100%">
+      <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7.5" cy="7.5" r="5.5"/><path d="M11.5 11.5L16 16"/></svg>
+      <span style="flex:1;font-size:15px;color:var(--ash)">Search any ticker...</span>
+      <kbd style="font-family:var(--font);font-size:10px;color:var(--ash);border:1px solid var(--hairline);border-radius:3px;padding:1px 5px;line-height:1;background:var(--fog)">⌘K</kbd>
     </div>
+
 
     <!-- popular tickers -->
     <div style="margin-top:16px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap">
@@ -335,7 +325,6 @@
       <a href="#" onclick="setHeroSearch('TSLA');return false" class="mono" style="font-size:11px;color:var(--graphite);font-weight:600;letter-spacing:0.04em;border-bottom:1px solid var(--hairline);padding-bottom:1px;transition:color 140ms">TSLA</a>
     </div>
     <div class="search-hints" style="justify-content:center;max-width:560px;margin:12px auto 0">
-      <span class="search-hint" id="liveUpdated">Live · —</span>
     </div>
   </section>
 
@@ -461,7 +450,7 @@
     <h2 style="font-size:clamp(28px,3.5vw,40px);line-height:1.1;margin-bottom:12px">Built by investors, for investors.</h2>
     <p style="color:var(--graphite);max-width:480px;margin:0 auto 28px;line-height:1.6">Multiple perspectives over single-model certainty. Every table cites its source line, every assumption is editable.</p>
     <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-      <button class="btn-primary" onclick="document.getElementById('heroSearch').focus();window.scrollTo({top:0,behavior:'smooth'})">Start searching</button>
+      <button class="btn-primary" onclick="openCmd()">Start searching</button>
       <button class="btn-secondary" onclick="showView('models')">View all 3 models</button>
     </div>
   </section>
@@ -599,7 +588,7 @@
         <span class="mono" style="font-size:11px;letter-spacing:0.10em;text-transform:uppercase;color:var(--graphite);font-weight:600" id="chartTrend">Uptrend</span>
       </div>
       <div style="padding:20px">
-        <div id="priceChart" style="width:100%;height:340px;position:relative"></div>
+        <div id="priceChart" style="width:100%;height:480px;position:relative"></div>
       </div>
     </div>
 
@@ -644,6 +633,47 @@
 </section>
 
 <!-- COMMUNITY -->
+
+<!-- SETTINGS -->
+<section id="view-settings" class="view">
+  <div class="wrap" style="padding-top:32px;padding-bottom:60px;max-width:720px">
+    <div class="eyebrow" style="margin-bottom:24px"><a href="#" onclick="showView('home');return false" style="text-decoration:underline;text-underline-offset:3px;color:var(--ash)">← Home</a> &nbsp;·&nbsp; Settings</div>
+    <h1 style="font-size:28px;margin-bottom:32px">Settings</h1>
+
+    <!-- Appearance -->
+    <div style="margin-bottom:32px">
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--hairline)">Appearance</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--hairline)">
+        <div><div style="font-size:14px;font-weight:500">Dark mode</div><div style="font-size:12px;color:var(--ash);margin-top:2px">Switch between light and dark theme</div></div>
+        <button class="mini-toggle" id="settingsDarkToggle" onclick="toggleDark()" aria-label="Toggle dark mode"></button>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--hairline)">
+        <div><div style="font-size:14px;font-weight:500">Reading mode</div><div style="font-size:12px;color:var(--ash);margin-top:2px">Warm colors for comfortable night reading</div></div>
+        <button class="mini-toggle" id="settingsReadingToggle" onclick="toggleReading()" aria-label="Toggle reading mode"></button>
+      </div>
+    </div>
+
+    <!-- Account -->
+    <div style="margin-bottom:32px">
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--hairline)">Account</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--hairline)">
+        <div><div style="font-size:14px;font-weight:500">Email</div><div style="font-size:12px;color:var(--ash);margin-top:2px">Sign in to manage your account</div></div>
+        <button style="font-size:12px;color:var(--graphite);border:1px solid var(--hairline);border-radius:4px;padding:6px 12px;background:var(--paper);cursor:pointer">Sign in</button>
+      </div>
+    </div>
+
+    <!-- About -->
+    <div>
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--hairline)">About</h2>
+      <div style="padding:14px 0;font-size:13px;color:var(--graphite);line-height:1.6">
+        <p>Hedger v1.0 — Institutional-grade valuations for investors and portfolio managers.</p>
+        <p style="margin-top:8px">Built by <strong>Chinmay Belge</strong>. Not investment advice.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
 <footer class="footer">
   <div class="wrap">
     <div class="footer-grid">
@@ -755,7 +785,7 @@ function renderChart() {
   var stockColor = '#2d8a4e';  /* green for up, red for down — always green per request */
 
   /* SVG dimensions */
-  var w = 800, h = 320, pad = { top: 16, right: 60, bottom: 44, left: 16 };
+  var w = 800, h = 400, pad = { top: 16, right: 60, bottom: 44, left: 16 };
   var allVals = data.concat(inflation, ret7, ret10, ret15);
   var gMin = Math.min.apply(null, allVals);
   var gMax = Math.max.apply(null, allVals);
@@ -830,7 +860,7 @@ function renderChart() {
   var dot = '<circle cx="' + lastX.toFixed(1) + '" cy="' + lastY.toFixed(1) + '" r="4" fill="' + stockColor + '" stroke="var(--paper)" stroke-width="2"/>';
 
   /* legend at bottom */
-  var legendY = h - 0;
+  var legendY = h - 16;
   var legendItems = [
     { label: currentTicker, color: stockColor, dash: '' },
     { label: 'Inflation (2.5%)', color: '#999', dash: '6 4' },
@@ -1061,19 +1091,18 @@ function toggleDark() {
   document.body.classList.toggle('dark');
   var isDark = document.body.classList.contains('dark');
   localStorage.setItem('hedger-dark', isDark ? '1' : '0');
-  var btn = document.getElementById('darkToggle');
-  if (btn) btn.classList.toggle('on', isDark);
+  document.querySelectorAll('.mini-toggle').forEach(function(btn) {
+    if (btn.id === 'darkToggle' || btn.id === 'settingsDarkToggle') btn.classList.toggle('on', isDark);
+  });
 }
-function setBrightness(val) {
-  document.body.style.filter = 'brightness(' + (val / 100) + ')';
-  localStorage.setItem('hedger-brightness', val);
-}
+
 function toggleReading() {
   document.body.classList.toggle('reading-mode');
   var isOn = document.body.classList.contains('reading-mode');
   localStorage.setItem('hedger-reading', isOn ? '1' : '0');
-  var btn = document.getElementById('readingToggle');
-  if (btn) btn.classList.toggle('on', isOn);
+  document.querySelectorAll('.mini-toggle').forEach(function(btn) {
+    if (btn.id === 'readingToggle' || btn.id === 'settingsReadingToggle') btn.classList.toggle('on', isOn);
+  });
 }
 
 /* init */
@@ -1087,17 +1116,13 @@ renderAll();
     var btn = document.getElementById('darkToggle');
     if (btn) btn.classList.add('on');
   }
-  var savedBright = localStorage.getItem('hedger-brightness');
-  if (savedBright && savedBright !== '100') {
-    document.body.style.filter = 'brightness(' + (savedBright / 100) + ')';
-    var slider = document.getElementById('brightnessSlider');
-    if (slider) slider.value = savedBright;
-  }
+  
   var savedReading = localStorage.getItem('hedger-reading');
   if (savedReading === '1') {
     document.body.classList.add('reading-mode');
     var rbtn = document.getElementById('readingToggle');
     if (rbtn) rbtn.classList.add('on');
+    document.querySelectorAll('.mini-toggle').forEach(function(b) { if (b.id === 'readingToggle' || b.id === 'settingsReadingToggle') b.classList.add('on'); });
   }
 })();
 </script>
