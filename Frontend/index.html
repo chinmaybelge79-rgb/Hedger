@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Hedger — Multiple perspectives over single-model certainty</title>
-  <meta name="description" content="Institutional-grade valuations: DCF to SOTP, compared side by side. Eleven models, one view. For portfolio managers, investors, and analysts.">
+  <meta name="description" content="Institutional-grade valuations: DCF, valuation, and AI analysis — compared side by side. Three models, one view. For portfolio managers, investors, and analysts.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
@@ -53,9 +53,22 @@
     /* nav */
     .nav { border-bottom: 1px solid var(--hairline); position: sticky; top: 0; background: var(--paper); z-index: 20; }
     .nav-inner { height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-    .logo { display: flex; align-items: baseline; gap: 12px; }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo img { height: 32px; width: auto; }
     .logo-mark { font-weight: 700; letter-spacing: -0.03em; font-size: 22px; line-height: 1; }
     .logo-sub { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ash); border-left: 1px solid var(--hairline); padding-left: 12px; }
+    /* dark mode */
+    body.dark { --paper: #0A0A0A; --ink: #F0F0F0; --graphite: #B0B0B0; --ash: #6A6A6A; --hairline: #2A2A2A; --fog: #141414; }
+    body.dark .logo img.dark { display: block; filter: invert(1); }
+    body.dark .logo img.light { display: none; }
+    body:not(.dark) .logo img.dark { display: none; }
+    body:not(.dark) .logo img.light { display: block; }
+    .toggle-wrap { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--hairline); }
+    .toggle-wrap span { font-size: 13px; color: var(--graphite); }
+    .toggle { position: relative; width: 36px; height: 20px; background: var(--hairline); border-radius: 10px; border: none; cursor: pointer; transition: background 140ms; padding: 0; }
+    .toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--paper); border: 1px solid var(--ash); transition: transform 140ms, background 140ms; }
+    .toggle.on { background: var(--ink); }
+    .toggle.on::after { transform: translateX(16px); background: var(--paper); border-color: var(--ink); }
     .nav-links { display: flex; gap: 22px; align-items: center; }
     .nav-links a { font-size: 12.5px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--graphite); padding: 3px 0; border-bottom: 1px solid transparent; transition: border-color 140ms, color 140ms; white-space: nowrap; }
     .nav-links a:hover, .nav-links a.active { color: var(--ink); border-color: var(--ink); }
@@ -197,7 +210,6 @@
     /* responsive */
     @media (max-width: 900px) { #modelsGrid { grid-template-columns: 1fr 1fr !important; } }
     @media (max-width: 560px) { #modelsGrid { grid-template-columns: 1fr !important; } }
-    @media (max-width: 900px) { #communityGrid, #feedGrid { grid-template-columns: 1fr !important; } }
     @media (max-width: 640px) { .wrap { padding-left: 20px; padding-right: 20px; } }
   </style>
 </head>
@@ -207,8 +219,8 @@
 <nav class="nav">
   <div class="wrap nav-inner">
     <a href="#" class="logo" onclick="showView('home');return false">
-      <span class="logo-mark">HEDGER</span>
-      <span class="logo-sub">Research Desk &nbsp;·&nbsp; Est. 2024</span>
+      <img src="data:image/png;base64,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" alt="Hedger" class="light">
+      <img src="data:image/png;base64,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" alt="Hedger" class="dark">
     </a>
     <div class="nav-links" id="navLinks">
       <div class="nav-search-small">
@@ -217,9 +229,6 @@
         <div id="navSearchRecs" class="nav-search-recs" role="listbox"></div>
       </div>
       <a href="#" data-nav="models" onclick="showView('models');return false">Models</a>
-      <a href="#" data-nav="community" onclick="showView('community');return false">Community</a>
-      <a href="#" data-nav="feed" onclick="showView('feed');return false">AI Feed</a>
-      <a href="#" data-nav="about" onclick="showView('about');return false">About</a>
       <a href="#" data-nav="pricing" onclick="showView('pricing');return false">Pricing</a>
       <div class="profile-wrap">
         <button class="profile-btn" aria-label="Profile" aria-haspopup="true" aria-expanded="false" onclick="const p=document.querySelector('.profile-panel');const o=p.classList.toggle('open');this.setAttribute('aria-expanded',o)">
@@ -230,8 +239,8 @@
           <button role="menuitem" onclick="alert('Sign in — coming soon')">Sign in</button>
           <button role="menuitem" onclick="alert('Create account — coming soon')">Create account</button>
           <div class="panel-head">Preferences</div>
+          <div class="toggle-wrap"><span>Dark mode</span><button class="toggle" id="darkToggle" onclick="toggleDark()" aria-label="Toggle dark mode"></button></div>
           <button role="menuitem" onclick="alert('Settings — coming soon')">Settings</button>
-          <button role="menuitem" onclick="alert('Watchlist — open Research via search')">Watchlist</button>
         </div>
       </div>
     </div>
@@ -252,7 +261,7 @@
       <span style="width:20px;height:1px;background:var(--ash)"></span>
     </div>
     <h1 style="font-size:clamp(48px,7vw,88px);line-height:0.92;letter-spacing:-0.03em;max-width:900px;margin:0 auto">Understand<br>the true value<br>of <span style="color:var(--ash)">any company</span></h1>
-    <p style="color:var(--graphite);font-size:17px;line-height:1.6;max-width:520px;margin:24px auto 0">Professional valuation models built for investors who think beyond market price.</p>
+    <p style="color:var(--graphite);font-size:17px;line-height:1.6;max-width:520px;margin:24px auto 0">Institutional grade valuations in minutes.</p>
 
     <!-- search -->
     <div style="max-width:560px;margin:36px auto 0;position:relative">
@@ -367,81 +376,32 @@
     <div style="text-align:center;margin-bottom:40px">
       <div class="eyebrow" style="margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:12px">
         <span style="width:20px;height:1px;background:var(--ash)"></span>
-        11 MODELS
+        3 MODELS
         <span style="width:20px;height:1px;background:var(--ash)"></span>
       </div>
       <h2 style="font-size:clamp(28px,3.5vw,40px);line-height:1.1">Professional valuation models</h2>
-      <p style="color:var(--graphite);margin-top:10px;max-width:520px;margin-left:auto;margin-right:auto">Eleven institutional-grade approaches. Each includes full methodology, formulas, and guidance on when to use it.</p>
+      <p style="color:var(--graphite);margin-top:10px;max-width:520px;margin-left:auto;margin-right:auto">Three focused valuation approaches. Each includes full methodology, formulas, and guidance on when to use it.</p>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
       <a href="#" onclick="showView('ticker');return false" style="border:1px solid var(--hairline);border-radius:8px;padding:20px;background:var(--paper);transition:border-color 140ms;display:block;text-decoration:none">
         <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash);margin-bottom:12px">01</div>
         <div style="font-size:16px;font-weight:600;margin-bottom:6px">DCF</div>
-        <div style="font-size:13px;color:var(--graphite);line-height:1.5">Project future cash flows and discount to present value.</div>
+        <div style="font-size:13px;color:var(--graphite);line-height:1.5">Discounted cash flow with editable assumptions and sensitivity analysis.</div>
         <div style="margin-top:12px;display:flex;gap:8px"><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">85% accuracy</span><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">60 min</span></div>
       </a>
       <a href="#" onclick="showView('ticker');return false" style="border:1px solid var(--hairline);border-radius:8px;padding:20px;background:var(--paper);transition:border-color 140ms;display:block;text-decoration:none">
         <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash);margin-bottom:12px">02</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:6px">Comps</div>
-        <div style="font-size:13px;color:var(--graphite);line-height:1.5">Compare to peers using EV/EBITDA, P/E, and P/B multiples.</div>
-        <div style="margin-top:12px;display:flex;gap:8px"><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">75% accuracy</span><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">20 min</span></div>
-      </a>
-      <a href="#" onclick="showView('ticker');return false" style="border:1px solid var(--hairline);border-radius:8px;padding:20px;background:var(--paper);transition:border-color 140ms;display:block;text-decoration:none">
-        <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash);margin-bottom:12px">03</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:6px">SOTP</div>
-        <div style="font-size:13px;color:var(--graphite);line-height:1.5">Sum each business segment at its own multiple.</div>
-        <div style="margin-top:12px;display:flex;gap:8px"><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">80% accuracy</span><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">40 min</span></div>
-      </a>
-      <a href="#" onclick="showView('ticker');return false" style="border:1px solid var(--hairline);border-radius:8px;padding:20px;background:var(--paper);transition:border-color 140ms;display:block;text-decoration:none">
-        <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash);margin-bottom:12px">04</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:6px">DDM</div>
-        <div style="font-size:13px;color:var(--graphite);line-height:1.5">Dividend discount model for stable, income-paying stocks.</div>
-        <div style="margin-top:12px;display:flex;gap:8px"><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">70% accuracy</span><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">30 min</span></div>
-      </a>
-      <a href="#" onclick="showView('ticker');return false" style="border:1px solid var(--hairline);border-radius:8px;padding:20px;background:var(--paper);transition:border-color 140ms;display:block;text-decoration:none">
-        <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash);margin-bottom:12px">05</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:6px">Precedent</div>
-        <div style="font-size:13px;color:var(--graphite);line-height:1.5">Historical M&A transactions with control premiums.</div>
-        <div style="margin-top:12px;display:flex;gap:8px"><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">70% accuracy</span><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">45 min</span></div>
-      </a>
-      <a href="#" onclick="showView('ticker');return false" style="border:1px solid var(--hairline);border-radius:8px;padding:20px;background:var(--paper);transition:border-color 140ms;display:block;text-decoration:none">
-        <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash);margin-bottom:12px">06</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:6px">LBO</div>
-        <div style="font-size:13px;color:var(--graphite);line-height:1.5">Leveraged buyout returns and maximum purchase price.</div>
-        <div style="margin-top:12px;display:flex;gap:8px"><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">70% accuracy</span><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">90 min</span></div>
-      </a>
-      <a href="#" onclick="showView('ticker');return false" style="border:1px solid var(--hairline);border-radius:8px;padding:20px;background:var(--paper);transition:border-color 140ms;display:block;text-decoration:none">
-        <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash);margin-bottom:12px">07</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:6px">Residual Income</div>
-        <div style="font-size:13px;color:var(--graphite);line-height:1.5">Economic profit beyond accounting earnings.</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:6px">Valuation</div>
+        <div style="font-size:13px;color:var(--graphite);line-height:1.5">Intrinsic value across multiple independent methodologies.</div>
         <div style="margin-top:12px;display:flex;gap:8px"><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">80% accuracy</span><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">45 min</span></div>
       </a>
       <a href="#" onclick="showView('ticker');return false" style="border:1px solid var(--hairline);border-radius:8px;padding:20px;background:var(--paper);transition:border-color 140ms;display:block;text-decoration:none">
-        <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash);margin-bottom:12px">08</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:6px">Reverse DCF</div>
-        <div style="font-size:13px;color:var(--graphite);line-height:1.5">What growth rate does the current price imply?</div>
-        <div style="margin-top:12px;display:flex;gap:8px"><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">Instant</span><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">5 min</span></div>
-      </a>
-      <a href="#" onclick="showView('ticker');return false" style="border:1px solid var(--hairline);border-radius:8px;padding:20px;background:var(--paper);transition:border-color 140ms;display:block;text-decoration:none">
-        <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash);margin-bottom:12px">09</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:6px">EPV</div>
-        <div style="font-size:13px;color:var(--graphite);line-height:1.5">Earnings power value — what if growth is zero?</div>
-        <div style="margin-top:12px;display:flex;gap:8px"><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">75% accuracy</span><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">30 min</span></div>
-      </a>
-      <a href="#" onclick="showView('ticker');return false" style="border:1px solid var(--hairline);border-radius:8px;padding:20px;background:var(--paper);transition:border-color 140ms;display:block;text-decoration:none">
-        <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash);margin-bottom:12px">10</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:6px">Asset-Based</div>
-        <div style="font-size:13px;color:var(--graphite);line-height:1.5">Tangible book value and liquidation floor.</div>
-        <div style="margin-top:12px;display:flex;gap:8px"><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">75% accuracy</span><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">25 min</span></div>
-      </a>
-      <a href="#" onclick="showView('ticker');return false" style="border:1px solid var(--hairline);border-radius:8px;padding:20px;background:var(--paper);transition:border-color 140ms;display:block;text-decoration:none">
-        <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash);margin-bottom:12px">11</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:6px">APV</div>
-        <div style="font-size:13px;color:var(--graphite);line-height:1.5">Adjusted present value with tax shield benefit.</div>
-        <div style="margin-top:12px;display:flex;gap:8px"><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">75% accuracy</span><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">45 min</span></div>
+        <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash);margin-bottom:12px">03</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:6px">AI Analysis</div>
+        <div style="font-size:13px;color:var(--graphite);line-height:1.5">Synthesized investment assessment and conviction scoring.</div>
+        <div style="margin-top:12px;display:flex;gap:8px"><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">High</span><span class="mono" style="font-size:10px;border:1px solid var(--hairline);padding:2px 8px;border-radius:10px;color:var(--ash)">Instant</span></div>
       </a>
     </div>
-    <style>@media(max-width:900px) { [style*="grid-template-columns:repeat(4,1fr)"] { grid-template-columns: repeat(2,1fr) !important; } } @media(max-width:560px) { [style*="grid-template-columns:repeat(4,1fr)"] { grid-template-columns: 1fr !important; } }</style>
   </section>
 
   <!-- CTA -->
@@ -450,7 +410,7 @@
     <p style="color:var(--graphite);max-width:480px;margin:0 auto 28px;line-height:1.6">Multiple perspectives over single-model certainty. Every table cites its source line, every assumption is editable.</p>
     <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
       <button class="btn-primary" onclick="document.getElementById('heroSearch').focus();window.scrollTo({top:0,behavior:'smooth'})">Start searching</button>
-      <button class="btn-secondary" onclick="showView('models')">View all 11 models</button>
+      <button class="btn-secondary" onclick="showView('models')">View all 3 models</button>
     </div>
   </section>
 
@@ -461,21 +421,13 @@
   <div class="wrap" style="padding-top:32px">
     <div class="eyebrow"><a href="#" onclick="showView('home');return false" style="text-decoration:underline;text-underline-offset:3px;color:var(--ash)">← Home</a> &nbsp;·&nbsp; Models</div>
     <div style="margin-top:16px;max-width:720px">
-      <h1 style="font-size:40px;line-height:1">Eleven models.<br>One comparison.</h1>
-      <p style="color:var(--graphite);margin-top:10px;line-height:1.6">Every ticker runs DCF to APV. Click a model to open its ticker trace — assumptions are editable in the ticker view. Founder-built by Chinmay Belge.</p>
+      <h1 style="font-size:40px;line-height:1">Three models.<br>One comparison.</h1>
+      <p style="color:var(--graphite);margin-top:10px;line-height:1.6">Every ticker runs DCF, valuation, and AI analysis. Click a model to open its ticker trace — assumptions are editable in the ticker view. Founder-built by Chinmay Belge.</p>
     </div>
     <div style="margin-top:24px;border:1px solid var(--hairline);border-radius:2px;overflow:hidden;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--hairline)" id="modelsGrid">
       <a href="#" onclick="showView('ticker');return false" style="background:var(--paper);padding:16px;display:block"><div class="mono" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">01</div><div style="font-size:15px;font-weight:600;margin-top:4px">DCF</div><div style="font-size:12px;color:var(--graphite);margin-top:4px;line-height:1.5">Discounted cash flow · WACC · terminal growth</div></a>
-      <a href="#" onclick="showView('ticker');return false" style="background:var(--paper);padding:16px;display:block"><div class="mono" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">02</div><div style="font-size:15px;font-weight:600;margin-top:4px">DDM</div><div style="font-size:12px;color:var(--graphite);margin-top:4px;line-height:1.5">Dividend discount · buyback-adjusted</div></a>
-      <a href="#" onclick="showView('ticker');return false" style="background:var(--paper);padding:16px;display:block"><div class="mono" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">03</div><div style="font-size:15px;font-weight:600;margin-top:4px">Comps</div><div style="font-size:12px;color:var(--graphite);margin-top:4px;line-height:1.5">Trading comparables · EV/EBITDA</div></a>
-      <a href="#" onclick="showView('ticker');return false" style="background:var(--paper);padding:16px;display:block"><div class="mono" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">04</div><div style="font-size:15px;font-weight:600;margin-top:4px">Precedent</div><div style="font-size:12px;color:var(--graphite);margin-top:4px;line-height:1.5">Precedent transactions · control premium</div></a>
-      <a href="#" onclick="showView('ticker');return false" style="background:var(--paper);padding:16px;display:block"><div class="mono" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">05</div><div style="font-size:15px;font-weight:600;margin-top:4px">SOTP</div><div style="font-size:12px;color:var(--graphite);margin-top:4px;line-height:1.5">Sum of the parts · segment multiples</div></a>
-      <a href="#" onclick="showView('ticker');return false" style="background:var(--paper);padding:16px;display:block"><div class="mono" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">06</div><div style="font-size:15px;font-weight:600;margin-top:4px">LBO</div><div style="font-size:12px;color:var(--graphite);margin-top:4px;line-height:1.5">Leveraged buyout · IRR</div></a>
-      <a href="#" onclick="showView('ticker');return false" style="background:var(--paper);padding:16px;display:block"><div class="mono" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">07</div><div style="font-size:15px;font-weight:600;margin-top:4px">Residual Income</div><div style="font-size:12px;color:var(--graphite);margin-top:4px;line-height:1.5">Book value + excess return</div></a>
-      <a href="#" onclick="showView('ticker');return false" style="background:var(--paper);padding:16px;display:block"><div class="mono" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">08</div><div style="font-size:15px;font-weight:600;margin-top:4px">Reverse DCF</div><div style="font-size:12px;color:var(--graphite);margin-top:4px;line-height:1.5">Implied growth at current price</div></a>
-      <a href="#" onclick="showView('ticker');return false" style="background:var(--paper);padding:16px;display:block"><div class="mono" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">09</div><div style="font-size:15px;font-weight:600;margin-top:4px">EPV</div><div style="font-size:12px;color:var(--graphite);margin-top:4px;line-height:1.5">Earnings power value · no growth</div></a>
-      <a href="#" onclick="showView('ticker');return false" style="background:var(--paper);padding:16px;display:block"><div class="mono" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">10</div><div style="font-size:15px;font-weight:600;margin-top:4px">Asset-Based</div><div style="font-size:12px;color:var(--graphite);margin-top:4px;line-height:1.5">Tangible book · liquidation</div></a>
-      <a href="#" onclick="showView('ticker');return false" style="background:var(--paper);padding:16px;display:block"><div class="mono" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">11</div><div style="font-size:15px;font-weight:600;margin-top:4px">APV</div><div style="font-size:12px;color:var(--graphite);margin-top:4px;line-height:1.5">Adjusted present value · tax shield</div></a>
+      <a href="#" onclick="showView('ticker');return false" style="background:var(--paper);padding:16px;display:block"><div class="mono" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">02</div><div style="font-size:15px;font-weight:600;margin-top:4px">Valuation</div><div style="font-size:12px;color:var(--graphite);margin-top:4px;line-height:1.5">Intrinsic value across methodologies</div></a>
+      <a href="#" onclick="showView('ticker');return false" style="background:var(--paper);padding:16px;display:block"><div class="mono" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">03</div><div style="font-size:15px;font-weight:600;margin-top:4px">AI Analysis</div><div style="font-size:12px;color:var(--graphite);margin-top:4px;line-height:1.5">Synthesized investment assessment</div></a>
     </div>
   </div>
 </section>
@@ -502,50 +454,53 @@
           <div class="mono" style="font-size:11px;color:var(--ash);margin-top:4px">For exploring</div>
         </div>
         <div style="padding:16px 18px;flex:1;display:flex;flex-direction:column;gap:10px;font-size:13px;color:var(--graphite)">
-          <div style="display:flex;justify-content:space-between"><span>Tickers</span><span class="mono" style="color:var(--ink)">50 watchlist</span></div>
-          <div style="display:flex;justify-content:space-between"><span>Models</span><span class="mono">5 models</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Stocks to analyse</span><span class="mono" style="color:var(--ink)">5 stocks</span></div>
+          <div style="display:flex;justify-content:space-between"><span>3 financial statements</span><span class="check">✓</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Valuation + DCF</span><span class="check">✓</span></div>
+          <div style="display:flex;justify-content:space-between"><span>AI Analysis</span><span class="check">✓</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Download financials</span><span class="dash">—</span></div>
           <div style="display:flex;justify-content:space-between"><span>Assumption editing</span><span class="dash">—</span></div>
-          <div style="display:flex;justify-content:space-between"><span>Sensitivity</span><span class="dash">—</span></div>
-          <div style="display:flex;justify-content:space-between"><span>Export</span><span class="dash">—</span></div>
-          <div style="display:flex;justify-content:space-between"><span>Community</span><span class="mono">Read only</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Watchlist</span><span class="dash">—</span></div>
         </div>
-        <div style="padding:14px 18px;border-top:1px solid var(--hairline)"><a href="#" class="btn-secondary" style="width:100%;justify-content:center" onclick="event.preventDefault();alert('Free — no card required.')">Create free account</a></div>
+        <div style="padding:14px 18px;border-top:1px solid var(--hairline)"><a href="#" class="btn-secondary" style="width:100%;justify-content:center" onclick="event.preventDefault();alert('Free — no card required.')">Get started free</a></div>
       </div>
       <div class="card" style="display:flex;flex-direction:column;border-top:2px solid var(--ink)">
         <div style="padding:20px 18px;border-bottom:1px solid var(--hairline);background:var(--fog)">
           <div style="font-size:20px;font-weight:600">Pro <span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash);margin-left:6px">Most chosen</span></div>
-          <div class="mono" id="proPrice" style="font-size:24px;letter-spacing:-0.03em;margin-top:6px">$29 <span style="font-size:12px;color:var(--ash)">/ month</span></div>
-          <div class="mono" style="font-size:11px;color:var(--ash);margin-top:4px">Billed annually · Save 20%</div>
+          <div class="mono" id="proPrice" style="font-size:24px;letter-spacing:-0.03em;margin-top:6px">$19 <span style="font-size:12px;color:var(--ash)">/ month</span></div>
+          <div class="mono" style="font-size:11px;color:var(--ash);margin-top:4px">Billed annually</div>
         </div>
         <div style="padding:16px 18px;flex:1;display:flex;flex-direction:column;gap:10px;font-size:13px;color:var(--graphite)">
-          <div style="display:flex;justify-content:space-between"><span>Tickers</span><span class="mono" style="color:var(--ink)">Unlimited</span></div>
-          <div style="display:flex;justify-content:space-between"><span>Models</span><span class="mono">11 models</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Stocks to analyse</span><span class="mono" style="color:var(--ink)">Unlimited</span></div>
+          <div style="display:flex;justify-content:space-between"><span>3 financial statements</span><span class="check">✓</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Valuation + DCF</span><span class="check">✓</span></div>
+          <div style="display:flex;justify-content:space-between"><span>AI Analysis</span><span class="check">✓</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Download financials & analysis</span><span class="check">✓</span></div>
           <div style="display:flex;justify-content:space-between"><span>Assumption editing</span><span class="check">✓</span></div>
-          <div style="display:flex;justify-content:space-between"><span>Sensitivity</span><span class="check">✓</span></div>
-          <div style="display:flex;justify-content:space-between"><span>Export Sheets/Excel</span><span class="check">✓</span></div>
-          <div style="display:flex;justify-content:space-between"><span>API</span><span class="mono">1,000 / mo</span></div>
-          <div style="display:flex;justify-content:space-between"><span>Community</span><span class="mono">Post & chat</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Unlimited watchlists</span><span class="check">✓</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Devices</span><span class="mono">1 device</span></div>
         </div>
         <div style="padding:14px 18px;border-top:1px solid var(--hairline)"><a href="#" class="btn-primary" style="width:100%;justify-content:center" onclick="event.preventDefault();alert('Pro — annual billing.')">Start Pro trial — 14 days</a></div>
       </div>
       <div class="card" style="display:flex;flex-direction:column">
         <div style="padding:20px 18px;border-bottom:1px solid var(--hairline)">
           <div style="font-size:20px;font-weight:600">Team</div>
-          <div class="mono" id="teamPrice" style="font-size:24px;letter-spacing:-0.03em;margin-top:6px">$79 <span style="font-size:12px;color:var(--ash)">/ month · 3 seats</span></div>
-          <div class="mono" style="font-size:11px;color:var(--ash);margin-top:4px">For desks</div>
+          <div class="mono" id="teamPrice" style="font-size:24px;letter-spacing:-0.03em;margin-top:6px">$49 <span style="font-size:12px;color:var(--ash)">/ month</span></div>
+          <div class="mono" style="font-size:11px;color:var(--ash);margin-top:4px">Everything unlimited</div>
         </div>
         <div style="padding:16px 18px;flex:1;display:flex;flex-direction:column;gap:10px;font-size:13px;color:var(--graphite)">
-          <div style="display:flex;justify-content:space-between"><span>Tickers</span><span class="mono" style="color:var(--ink)">Unlimited</span></div>
-          <div style="display:flex;justify-content:space-between"><span>Models</span><span class="mono">11 models</span></div>
-          <div style="display:flex;justify-content:space-between"><span>Everything in Pro</span><span class="check">✓</span></div>
-          <div style="display:flex;justify-content:space-between"><span>Shared watchlists</span><span class="check">✓</span></div>
-          <div style="display:flex;justify-content:space-between"><span>API</span><span class="mono">10,000 / mo</span></div>
-          <div style="display:flex;justify-content:space-between"><span>Support</span><span class="mono">Slack + SSO</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Stocks to analyse</span><span class="mono" style="color:var(--ink)">Unlimited</span></div>
+          <div style="display:flex;justify-content:space-between"><span>3 financial statements</span><span class="check">✓</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Valuation + DCF</span><span class="check">✓</span></div>
+          <div style="display:flex;justify-content:space-between"><span>AI Analysis</span><span class="check">✓</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Download financials & analysis</span><span class="check">✓</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Unlimited everything</span><span class="check">✓</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Devices</span><span class="mono">Up to 3</span></div>
         </div>
-        <div style="padding:14px 18px;border-top:1px solid var(--hairline)"><a href="#" class="btn-secondary" style="width:100%;justify-content:center" onclick="event.preventDefault();alert('Team — contact sales.')">Talk to us</a></div>
+        <div style="padding:14px 18px;border-top:1px solid var(--hairline)"><a href="#" class="btn-secondary" style="width:100%;justify-content:center" onclick="event.preventDefault();alert('Team — annual billing.')">Start Team trial</a></div>
       </div>
     </div>
-    <p style="font-size:11px;color:var(--ash);margin-top:10px">All prices USD. Pro trial is 14 days, no card required. Team includes SSO and audit log.</p>
+    <p style="font-size:11px;color:var(--ash);margin-top:10px">All prices USD. Free forever, no card required. Pro trial is 14 days.</p>
     <div style="margin-top:24px;border:1px solid var(--hairline);border-radius:2px;padding:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
       <div><div class="mono" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">FAQ</div><div style="margin-top:8px;font-size:13px;color:var(--graphite);line-height:1.5"><strong style="color:var(--ink)">Can I do this without paying?</strong><br>Yes. Create a free account and explore. Paying unlocks editing and exports, not the data.</div></div>
       <div><div style="font-size:13px;color:var(--graphite);line-height:1.5"><strong style="color:var(--ink)">Do you provide investment advice?</strong><br>No. Hedger is a calculation and comparison tool. It does not recommend buys or sells.</div></div>
@@ -556,230 +511,101 @@
 
 <!-- TICKER -->
 <section id="view-ticker" class="view">
-  <div class="wrap" style="padding-top:28px">
-    <div class="eyebrow"><a href="#" onclick="showView('home');return false" style="text-decoration:underline;text-underline-offset:3px;color:var(--ash)">← Home</a> &nbsp;·&nbsp; Ticker &nbsp;·&nbsp; <span class="mono" id="tkrEyebrow">MSFT · NASDAQ</span></div>
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;margin-top:12px">
-      <div>
-        <h1 style="font-size:38px;line-height:1;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
-          <span id="tkrName">Microsoft Corp.</span>
-          <span class="mono" style="font-size:16px;letter-spacing:0.06em;color:var(--ash);font-weight:400" id="tkrSym">(MSFT)</span>
-        </h1>
-        <div style="display:flex;gap:16px;align-items:center;margin-top:8px;flex-wrap:wrap">
-          <span class="mono" style="font-size:22px;letter-spacing:-0.03em" id="tkrPrice">$412.34</span>
-          <span class="mono" style="font-size:12px" id="tkrDelta"><span class="delta up">▲ 1.04%</span> <span style="color:var(--ash)">· 2026-05-13 close</span></span>
-          <span style="font-size:12px;color:var(--ash)" id="tkrMeta">Market cap $3,064bn · FY24 revenue $245.1bn</span>
+  <!-- ticker bar -->
+  <div style="border-bottom:1px solid var(--hairline);background:var(--paper)" id="tickerBar">
+    <div class="wrap" style="display:flex;align-items:center;gap:20px;height:48px;font-size:13px;overflow-x:auto;white-space:nowrap">
+      <span class="mono" style="font-weight:600;letter-spacing:0.04em" id="barSym">AAPL</span>
+      <span id="barName">Apple Inc.</span>
+      <span class="mono" style="font-weight:600" id="barPrice">$226.31</span>
+      <span class="mono" style="font-size:12px" id="barChg"><span class="delta up">▲ 1.42%</span></span>
+      <span style="font-size:12px;color:var(--ash)" id="barMcap">Mkt Cap $3.4T</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--ash)">Data as of today</span>
+    </div>
+  </div>
+
+  <div class="wrap" style="padding-top:24px;padding-bottom:60px">
+    <!-- breadcrumb -->
+    <div style="margin-bottom:24px"><a href="#" onclick="showView('home');return false" style="color:var(--ash);font-size:13px">Home</a> <span style="color:var(--ash);font-size:13px">&rsaquo;</span> <span class="mono" style="font-size:13px;font-weight:600" id="breadSym">AAPL</span></div>
+
+    <!-- header -->
+    <div>
+      <h1 style="font-size:clamp(32px,4vw,44px);line-height:1;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+        <span id="tkrName">Apple Inc.</span>
+        <span class="mono" style="font-size:16px;color:var(--ash);font-weight:400" id="tkrSym">(AAPL)</span>
+      </h1>
+      <div style="display:flex;gap:16px;align-items:center;margin-top:8px;flex-wrap:wrap">
+        <span class="mono" style="font-size:24px;letter-spacing:-0.03em;font-weight:600" id="tkrPrice">$226.31</span>
+        <span class="mono" style="font-size:13px" id="tkrDelta"><span class="delta up">▲ 1.42%</span></span>
+      </div>
+      <p style="color:var(--graphite);margin-top:12px;font-size:14px;line-height:1.6" id="tkrDesc">Apple Inc. operates in the Technology sector.</p>
+    </div>
+
+    <!-- price chart -->
+    <div class="card" style="margin-top:24px">
+      <div style="padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--hairline)">
+        <span class="mono" style="font-size:11px;letter-spacing:0.10em;text-transform:uppercase;color:var(--ash)">7Y Price</span>
+        <span class="mono" style="font-size:11px;letter-spacing:0.10em;text-transform:uppercase;color:var(--graphite);font-weight:600" id="chartTrend">Uptrend</span>
+      </div>
+      <div style="padding:20px">
+        <div id="priceChart" style="width:100%;height:220px;position:relative"></div>
+      </div>
+    </div>
+
+    <!-- 3 model cards -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:24px" id="modelCards">
+      <a href="#" onclick="showView('ticker');return false" style="border:1px solid var(--hairline);border-radius:8px;padding:20px;background:var(--paper);transition:border-color 140ms;display:flex;flex-direction:column;text-decoration:none;min-height:160px">
+        <div class="mono" style="font-size:10px;letter-spacing:0.10em;text-transform:uppercase;color:var(--ash);margin-bottom:10px">Model</div>
+        <div style="font-size:18px;font-weight:600;margin-bottom:8px">Valuation</div>
+        <div style="font-size:13px;color:var(--graphite);line-height:1.5;flex:1">Intrinsic value across multiple independent methodologies</div>
+        <div style="text-align:right;margin-top:12px;color:var(--ash);font-size:14px">&rarr;</div>
+      </a>
+      <a href="#" onclick="showView('ticker');return false" style="border:1px solid var(--hairline);border-radius:8px;padding:20px;background:var(--paper);transition:border-color 140ms;display:flex;flex-direction:column;text-decoration:none;min-height:160px">
+        <div class="mono" style="font-size:10px;letter-spacing:0.10em;text-transform:uppercase;color:var(--ash);margin-bottom:10px">Model</div>
+        <div style="font-size:18px;font-weight:600;margin-bottom:8px">DCF</div>
+        <div style="font-size:13px;color:var(--graphite);line-height:1.5;flex:1">Discounted cash flow with editable assumptions and sensitivity</div>
+        <div style="text-align:right;margin-top:12px;color:var(--ash);font-size:14px">&rarr;</div>
+      </a>
+      <a href="#" onclick="showView('ticker');return false" style="border:1px solid var(--hairline);border-radius:8px;padding:20px;background:var(--paper);transition:border-color 140ms;display:flex;flex-direction:column;text-decoration:none;min-height:160px">
+        <div class="mono" style="font-size:10px;letter-spacing:0.10em;text-transform:uppercase;color:var(--ash);margin-bottom:10px">Model</div>
+        <div style="font-size:18px;font-weight:600;margin-bottom:8px">AI Analysis</div>
+        <div style="font-size:13px;color:var(--graphite);line-height:1.5;flex:1">Synthesized investment assessment and conviction scoring</div>
+        <div style="text-align:right;margin-top:12px;color:var(--ash);font-size:14px">&rarr;</div>
+      </a>
+    </div>
+    <style>@media(max-width:700px) { #modelCards { grid-template-columns: 1fr !important; } }</style>
+
+    <!-- financial statements -->
+    <div style="margin-top:32px">
+      <h2 style="font-size:22px;margin-bottom:16px">Financial Statements</h2>
+      <div style="display:flex;gap:0;border-bottom:1px solid var(--hairline);margin-bottom:0">
+        <button class="fin-tab active" onclick="switchFinTab('income')" style="padding:10px 20px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;font-weight:600;border:none;border-bottom:2px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer">Income Statement</button>
+        <button class="fin-tab" onclick="switchFinTab('balance')" style="padding:10px 20px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;font-weight:600;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--ash);cursor:pointer">Balance Sheet</button>
+        <button class="fin-tab" onclick="switchFinTab('cashflow')" style="padding:10px 20px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;font-weight:600;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--ash);cursor:pointer">Cash Flow</button>
+      </div>
+      <div class="card" style="border-top-left-radius:0;border-top-right-radius:0">
+        <div class="table-wrap">
+          <table><thead><tr><th></th><th class="num">FY20</th><th class="num">FY21</th><th class="num">FY22</th><th class="num">FY23</th><th class="num">FY24</th></tr></thead><tbody id="finBody"></tbody></table>
         </div>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn-secondary" onclick="alert('Exported to Excel — hairline-ruled, mono numerals preserved.')">Export workbook</button>
-        <button class="btn-primary" onclick="alert('Model trace copied — all 11 models with assumptions.')">Copy trace</button>
-      </div>
-    </div>
-
-    <!-- model strip -->
-    <div style="margin-top:20px;border:1px solid var(--hairline);border-radius:2px;overflow:hidden">
-      <div style="display:flex;overflow-x:auto"><div class="sig-models" id="tickerModels" style="width:100%"></div></div>
-      <div style="padding:8px 16px;border-top:1px solid var(--hairline);background:var(--fog);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
-        <span class="mono" style="font-size:11px;color:var(--ash)" id="tickerMedian">Median $287.40 · Range $198.40 — $401.10 · Dispersion 33.2%</span>
-        <span class="mono" style="font-size:11px;color:var(--graphite)">Weights equal · 11 models</span>
-      </div>
-    </div>
-
-    <div class="data-grid" style="margin-top:20px">
-      <div class="card">
-        <div class="card-head"><span class="ch-title">Price vs. intrinsic — 5 years</span><span class="ch-meta mono">Black line = close · Band = model median ±1σ</span></div>
-        <div style="padding:16px">
-          <svg viewBox="0 0 560 180" preserveAspectRatio="none" style="width:100%;height:160px;display:block">
-            <g stroke="var(--hairline)" stroke-width="1"><line x1="44" y1="20" x2="44" y2="140"/><line x1="44" y1="140" x2="540" y2="140"/><line x1="44" y1="105" x2="540" y2="105" stroke-dasharray="3 3"/><line x1="44" y1="70" x2="540" y2="70" stroke-dasharray="3 3"/><line x1="44" y1="35" x2="540" y2="35" stroke-dasharray="3 3"/></g>
-            <path d="M44 120 L80 118 L120 110 L160 102 L200 95 L240 88 L280 82 L320 78 L360 75 L400 72 L440 68 L480 64 L540 58" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
-            <path d="M44 95 L80 93 L120 88 L160 84 L200 80 L240 77 L280 74 L320 71 L360 69 L400 67 L440 65 L480 63 L540 61 L540 84 L480 86 L440 88 L400 90 L360 93 L320 96 L280 99 L240 103 L200 108 L160 112 L120 116 L80 120 L44 122 Z" fill="var(--ink)" opacity="0.07" stroke="none"/>
-            <g font-family="Open Sans,monospace" font-size="10" fill="var(--ash)"><text x="44" y="14">$500</text><text x="44" y="74">$300</text><text x="44" y="110">$200</text><text x="44" y="154">2021</text><text x="200" y="154">2023</text><text x="400" y="154">2025</text><text x="540" y="154" text-anchor="end">2026</text></g>
-          </svg>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-head"><span class="ch-title">Valuation trace</span><span class="ch-meta mono">Every model · auditable</span></div>
-        <div>
-          <div style="display:grid;grid-template-columns:1fr auto auto;gap:1px;background:var(--hairline)">
-            <div style="background:var(--fog);padding:8px 12px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">Model</div>
-            <div style="background:var(--fog);padding:8px 12px;text-align:right;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">Value</div>
-            <div style="background:var(--fog);padding:8px 12px;text-align:right;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">vs. price</div>
-          </div>
-          <div id="traceList" style="max-height:240px;overflow:auto"></div>
-        </div>
-        <div style="padding:10px 12px;border-top:1px solid var(--hairline)"><span class="mono" style="font-size:11px;color:var(--ash)">All models use FY24 filing. Assumptions editable.</span></div>
-      </div>
-    </div>
-
-    <!-- sensitivity -->
-    <div class="card" style="margin-top:20px">
-      <div class="card-head"><span class="ch-title">Sensitivity — WACC × growth (DCF)</span><span class="ch-meta mono">Cell = intrinsic value $ · shading = density</span></div>
-      <div class="table-wrap">
-        <table><thead><tr><th></th><th class="num">g 2.0%</th><th class="num">g 2.5%</th><th class="num">g 3.0%</th><th class="num">g 3.5%</th><th class="num">g 4.0%</th></tr></thead><tbody id="tickerSens"></tbody></table>
-      </div>
-    </div>
-
-    <!-- financials -->
-    <div class="card" style="margin-top:20px">
-      <div class="card-head"><span class="ch-title">Financials</span><span class="ch-meta mono" id="finYears">FY20–FY24 · USD millions</span></div>
-      <div class="table-wrap">
-        <table><thead><tr><th></th><th class="num">FY20</th><th class="num">FY21</th><th class="num">FY22</th><th class="num">FY23</th><th class="num">FY24</th></tr></thead><tbody id="financialsBody"></tbody></table>
       </div>
     </div>
   </div>
 </section>
 
 <!-- COMMUNITY -->
-<section id="view-community" class="view">
-  <div class="wrap" style="padding-top:32px">
-    <div class="eyebrow"><a href="#" onclick="showView('home');return false" style="text-decoration:underline;text-underline-offset:3px;color:var(--ash)">← Home</a> &nbsp;·&nbsp; Community</div>
-    <div style="display:flex;justify-content:space-between;align-items:end;gap:24px;margin-top:16px;flex-wrap:wrap">
-      <div>
-        <h1 style="font-size:40px;line-height:1">Community · Real analyses,<br>real filings.</h1>
-        <p style="color:var(--graphite);margin-top:10px;max-width:560px">Chat and post personal analyses. Link the filing line, show your assumptions. Member opinions — not Hedger advice.</p>
-      </div>
-      <button class="btn-primary" onclick="document.getElementById('postComposer').style.display='block';document.getElementById('postComposer').scrollIntoView({behavior:'smooth'})">New post</button>
-    </div>
-    <div style="display:flex;gap:12px;margin-top:20px;border-bottom:1px solid var(--hairline);padding-bottom:10px">
-      <button class="mono" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;background:var(--ink);color:var(--paper);border:1px solid var(--ink);padding:6px 10px;border-radius:2px">Latest</button>
-      <button class="mono" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;background:var(--paper);color:var(--ash);border:1px solid var(--hairline);padding:6px 10px;border-radius:2px">Following</button>
-      <button class="mono" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;background:var(--paper);color:var(--ash);border:1px solid var(--hairline);padding:6px 10px;border-radius:2px">My posts</button>
-    </div>
-    <div style="display:grid;grid-template-columns:1.4fr 0.85fr;gap:24px;margin-top:20px" id="communityGrid">
-      <div>
-        <div id="postComposer" style="display:none;border:1px solid var(--ink);border-radius:2px;overflow:hidden;background:var(--paper);margin-bottom:16px">
-          <div style="padding:10px 14px;background:var(--fog);border-bottom:1px solid var(--hairline);display:flex;justify-content:space-between;align-items:center">
-            <span class="mono" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--graphite)">New analysis</span>
-            <button onclick="document.getElementById('postComposer').style.display='none'" style="border:none;background:transparent;font-size:18px;line-height:1;cursor:pointer">×</button>
-          </div>
-          <div style="padding:14px;display:grid;gap:10px">
-            <input id="postTitle" placeholder="Title — e.g. Why MSFT SOTP is understated" style="border:none;border-bottom:1px solid var(--hairline);padding:8px 0;font-size:16px;outline:none">
-            <div style="display:flex;gap:8px"><input id="postTicker" placeholder="Ticker — e.g. MSFT" style="width:120px;border:1px solid var(--hairline);border-radius:2px;padding:8px 10px;font-size:12px"><input id="postFiling" placeholder="Filing line — e.g. 10-K p.62" style="flex:1;border:1px solid var(--hairline);border-radius:2px;padding:8px 10px;font-size:12px"></div>
-            <textarea id="postBody" rows="4" placeholder="Share an analysis — link the filing line, show your assumptions..." style="border:1px solid var(--hairline);border-radius:2px;padding:10px;font-size:13px;outline:none;resize:vertical"></textarea>
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <label class="mono" style="font-size:11px;color:var(--ash)"><input type="checkbox" id="postChart"> Attach chart</label>
-              <button class="btn-primary" style="padding:8px 16px;font-size:12px" onclick="publishPost()">Post analysis</button>
-            </div>
-          </div>
-        </div>
-        <div id="communityFeed">
-          <article class="card" style="padding:14px 16px;margin-bottom:12px">
-            <div style="display:flex;gap:10px;align-items:center">
-              <div style="width:32px;height:32px;background:var(--fog);border:1px solid var(--hairline);display:flex;align-items:center;justify-content:center;font-size:12px">CB</div>
-              <div><div style="font-size:13px;font-weight:600">Chinmay B. <span class="mono" style="font-size:11px;color:var(--ash);font-weight:400">· 2h ago</span></div><div class="mono" style="font-size:11px;color:var(--ash)">MSFT · ▲ 6.1% to intrinsic · 10-K p.62</div></div>
-              <span class="mono" style="margin-left:auto;font-size:11px;border:1px solid var(--hairline);padding:3px 8px;border-radius:2px">AAPL → SOTP +14%</span>
-            </div>
-            <h3 style="margin-top:10px;font-size:16px">Why the SOTP still undervalues Cloud</h3>
-            <p style="font-size:13px;color:var(--graphite);margin-top:6px;line-height:1.6">Azure at 31% y/y with 34% FCF margin terminal — if you split Productivity vs Cloud at peer 13.9×, you get $401.10 vs $387.20 DCF. Filing p.68 supports the margin.</p>
-            <div style="display:flex;gap:14px;margin-top:10px" class="mono"><span style="font-size:11px;cursor:pointer">↑ 24 · Upvote</span><span style="font-size:11px;color:var(--ash)">💬 6 · Comment</span><span style="font-size:11px;color:var(--ash)">↗ Share</span></div>
-          </article>
-          <article class="card" style="padding:14px 16px;margin-bottom:12px">
-            <div style="display:flex;gap:10px;align-items:center">
-              <div style="width:32px;height:32px;background:var(--fog);border:1px solid var(--hairline);display:flex;align-items:center;justify-content:center;font-size:12px">AK</div>
-              <div><div style="font-size:13px;font-weight:600">Anika K. <span class="mono" style="font-size:11px;color:var(--ash)">· 5h ago</span></div><div class="mono" style="font-size:11px;color:var(--ash)">NVDA · ▼ 27% to DCF · 10-K p.71</div></div>
-            </div>
-            <h3 style="margin-top:10px;font-size:16px">NVDA DCF sensitivity is the story</h3>
-            <p style="font-size:13px;color:var(--graphite);margin-top:6px;line-height:1.6">WACC 9.1% vs 8.5% swings intrinsic $386→$472 at g 3%. At $842 you're paying 22% FCF growth for 10y. My sheet inside.</p>
-            <div style="display:flex;gap:14px;margin-top:10px" class="mono"><span style="font-size:11px;cursor:pointer">↑ 18</span><span style="font-size:11px;color:var(--ash)">💬 3</span></div>
-          </article>
-        </div>
-      </div>
-      <div style="position:sticky;top:80px;align-self:start;border:1px solid var(--hairline);border-radius:2px;overflow:hidden;background:var(--paper)">
-        <div style="padding:10px 14px;background:var(--fog);border-bottom:1px solid var(--hairline);display:flex;justify-content:space-between;align-items:center"><span class="mono" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--graphite)">Live chat · #general</span><span class="mono" style="font-size:11px;color:var(--ash)">12 online</span></div>
-        <div id="chatList" style="height:360px;overflow:auto;padding:10px 14px;display:flex;flex-direction:column;gap:8px">
-          <div class="mono" style="font-size:12px"><strong style="color:var(--ink)">CB</strong> <span style="color:var(--ash)">09:14</span> — Anyone long XOM into earnings?</div>
-          <div class="mono" style="font-size:12px;background:var(--fog);padding:6px 8px;border-radius:2px"><strong>Anika</strong> <span style="color:var(--ash)">09:16</span> — Watching oil — $84 Brent changes EIA math.</div>
-          <div class="mono" style="font-size:12px"><strong>Rahul</strong> <span style="color:var(--ash)">09:18</span> — Posted SOTP for GOOGL — Cloud split matters.</div>
-        </div>
-        <div style="display:flex;border-top:1px solid var(--hairline)"><input id="chatInput" placeholder="Message #general..." style="flex:1;border:none;padding:10px 12px;font-size:13px;outline:none"><button class="btn-primary" style="border-radius:0;padding:10px 16px;font-size:12px" onclick="sendChat()">Send</button></div>
-        <div class="mono" style="font-size:10px;color:var(--ash);padding:6px 14px;background:var(--fog)">Analyses are member opinions, not Hedger advice.</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- AI FEED -->
-<section id="view-feed" class="view">
-  <div class="wrap" style="padding-top:32px">
-    <div class="eyebrow"><a href="#" onclick="showView('home');return false" style="text-decoration:underline;text-underline-offset:3px;color:var(--ash)">← Home</a> &nbsp;·&nbsp; AI News Feed</div>
-    <div style="display:flex;justify-content:space-between;align-items:end;gap:24px;margin-top:16px;flex-wrap:wrap">
-      <div>
-        <h1 style="font-size:40px;line-height:1">Markets feed · What<br>moved markets, and why.</h1>
-        <p style="color:var(--graphite);margin-top:10px;max-width:520px">AI-aggregated news affecting stocks and commodities — scored for relevance, tagged by ticker, distilled to why it matters.</p>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <span class="mono" style="font-size:11px;color:var(--ash)">Filter:</span>
-        <button class="mono feed-pill active" data-filter="all" onclick="filterFeed('all')" style="padding:6px 10px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);border-radius:2px;font-size:11px">All</button>
-        <button class="mono feed-pill" data-filter="stocks" onclick="filterFeed('stocks')" style="padding:6px 10px;border:1px solid var(--hairline);background:var(--paper);color:var(--ash);border-radius:2px;font-size:11px">Stocks</button>
-        <button class="mono feed-pill" data-filter="commodities" onclick="filterFeed('commodities')" style="padding:6px 10px;border:1px solid var(--hairline);background:var(--paper);color:var(--ash);border-radius:2px;font-size:11px">Commodities</button>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:1.45fr 0.85fr;gap:24px;margin-top:20px" id="feedGrid">
-      <div id="feedList" style="display:flex;flex-direction:column;gap:12px"></div>
-      <div style="position:sticky;top:80px;align-self:start;display:flex;flex-direction:column;gap:12px">
-        <div style="border:1px solid var(--hairline);border-radius:2px;padding:14px;background:var(--fog)"><div class="mono" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">Relevance</div><p style="font-size:13px;color:var(--graphite);margin-top:6px;line-height:1.5">High ≥0.80 · Medium ≥0.55 · Score = 0.4 source + 0.3 entity + 0.2 recency + 0.1 market-hours.</p></div>
-        <div style="border:1px solid var(--ink);border-radius:2px;padding:14px;background:var(--paper)"><div class="mono" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">Why Hedger highlights this</div><p style="font-size:13px;color:var(--graphite);margin-top:6px;line-height:1.5">P50 90s from publish → visible. Deduped, tagged by ticker/commodity. Tap tag to jump to valuation.</p></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ABOUT -->
-<section id="view-about" class="view">
-  <div class="wrap" style="padding-top:32px">
-    <div class="eyebrow"><a href="#" onclick="showView('home');return false" style="text-decoration:underline;text-underline-offset:3px;color:var(--ash)">← Home</a> &nbsp;·&nbsp; About</div>
-    <div style="display:grid;grid-template-columns:1.1fr 0.9fr;gap:48px;margin-top:16px">
-      <div>
-        <h1 style="font-size:40px;line-height:1">Built by investors,<br>for investors.</h1>
-        <p style="color:var(--graphite);margin-top:14px;line-height:1.6">Hedger started as a spreadsheet on a research desk. It grew because every tool showed a single intrinsic value as if valuation were physics. Multiple perspectives over single-model certainty.</p>
-        <p style="color:var(--graphite);margin-top:12px;line-height:1.6">We publish our models and sources because credibility is not claimed — it is checked. Every table cites its source line, every assumption is editable.</p>
-        <div style="margin-top:20px;border:1px solid var(--ink);border-radius:2px;padding:14px 16px;background:var(--paper)">
-          <div class="mono" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">Founder</div>
-          <p style="font-size:14px;margin-top:6px;line-height:1.6"><strong>Chinmay Belge</strong> — Founder and investor of Hedger. Designed, built, and data-engineered by Chinmay. The research desk you see is the product he wanted for his own portfolio.</p>
-          <p class="mono" style="font-size:11px;color:var(--ash);margin-top:8px">Founder-led, not agency-built. One accountable builder.</p>
-        </div>
-        <div style="margin-top:16px;border-top:1px solid var(--hairline);padding-top:16px">
-          <div class="eyebrow" style="color:var(--graphite)">Contact</div>
-          <p style="font-size:14px;margin-top:6px">hello@hedger.com · New York · London</p>
-          <p class="mono" style="font-size:12px;color:var(--ash);margin-top:4px">Response time &lt; 24 hours. No sales bots.</p>
-        </div>
-      </div>
-      <div>
-        <div style="border:1px solid var(--hairline);border-radius:2px;overflow:hidden">
-          <div style="padding:12px 16px;border-bottom:1px solid var(--hairline);background:var(--fog)" class="eyebrow">How we work</div>
-          <div style="padding:16px">
-            <div class="mono" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">Principles</div>
-            <ul style="margin-top:8px;padding-left:16px;font-size:13px;color:var(--graphite);line-height:1.7"><li>Filing-first · Deterministic parser, no LLM in extraction</li><li>Eleven models, one view · Dispersion is the insight</li><li>Grayscale only · Photocopiable, colour-blind safe</li><li>Assumptions visible · Every number editable</li></ul>
-          </div>
-          <div style="padding:14px 16px;border-top:1px solid var(--hairline)">
-            <div class="mono" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">Colophon</div>
-            <p style="font-size:13px;color:var(--graphite);margin-top:6px;line-height:1.5">Set in Open Sans. Designed and built by Chinmay Belge. Data engineered by Chinmay. Grayscale, hairlines, tabular numerals.</p>
-          </div>
-        </div>
-        <div style="margin-top:16px;border:1px solid var(--ink);border-radius:2px;padding:14px 16px;background:var(--paper)">
-          <div class="mono" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">Careers</div>
-          <p style="font-size:13px;color:var(--graphite);margin-top:6px;line-height:1.5">We are hiring a filing-parser engineer and a research editor. Plain-text CV to careers@hedger.com. No cover letter required.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- FOOTER -->
 <footer class="footer">
   <div class="wrap">
     <div class="footer-grid">
       <div>
-        <div class="logo-mark" style="font-size:18px">HEDGER</div>
+        <div style="margin-bottom:4px"><img src="data:image/png;base64,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" alt="Hedger" style="height:28px;width:auto"></div>
         <p style="margin-top:8px;max-width:320px">Multiple perspectives over single-model certainty. Institutional-grade valuation, rendered in black and white.</p>
         <p style="margin-top:8px;font-size:13px;color:var(--graphite)">Made by <strong>Chinmay Belge</strong> — founder and investor of Hedger. Designed, built, and data-engineered by Chinmay.</p>
         <p class="mono" style="font-size:11px;color:var(--ash);margin-top:8px">© 2026 Hedger Research LLC · New York<br>Not investment advice. Do your own work.</p>
       </div>
-      <div><h5>Product</h5><div class="footer-links"><a href="#" onclick="showView('pricing');return false">Pricing</a><a href="#" onclick="showView('community');return false">Community</a><a href="#" onclick="showView('feed');return false">AI Feed</a><a href="#">Changelog</a></div></div>
-      <div><h5>Resources</h5><div class="footer-links"><a href="#">Filing glossary</a><a href="#" onclick="showView('about');return false">About</a><a href="#">API reference</a><a href="#">By Chinmay Belge</a></div></div>
+      <div><h5>Product</h5><div class="footer-links"><a href="#" onclick="showView('pricing');return false">Pricing</a><a href="#">Changelog</a></div></div>
+      <div><h5>Resources</h5><div class="footer-links"><a href="#">Filing glossary</a><a href="#" onclick="showView('about');return false">About</a><a href="#">By Chinmay Belge</a></div></div>
       <div class="newsletter">
         <h5 style="margin-bottom:8px">Get the weekly breakdown</h5>
-        <p style="font-size:12px;color:var(--graphite);line-height:1.4">One ticker, eleven models, one email. No spam, no marketing. Example: MSFT last week.</p>
+        <p style="font-size:12px;color:var(--graphite);line-height:1.4">One ticker, three models, one email. No spam, no marketing. Example: MSFT last week.</p>
         <form onsubmit="event.preventDefault();this.querySelector('button').textContent='Subscribed ✓';this.querySelector('button').style.background='var(--fog)';"><label class="mono" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash)">Email</label><input type="email" placeholder="you@firm.com" required><button type="submit" class="btn-primary" style="font-size:12px;padding:10px">Subscribe — free</button></form>
         <p class="mono" style="font-size:10px;color:var(--ash);margin-top:8px">By subscribing you agree to receive Hedger emails. Unsubscribe anytime.</p>
       </div>
@@ -794,18 +620,30 @@
 <script>
 /* ticker data */
 const tickers = {
-  MSFT: { name: "Microsoft Corp.", exch: "NASDAQ", price: 412.34, chg: 1.04, up: true, mcap: "$3,064bn", rev: "$245.1bn",
-    models: [{ k: "DCF", v: "$387.20", d: "WACC 8.5% · g 3.0%", delta: "▼ 6.1%" },{ k: "COMPS", v: "$341.80", d: "EV/EBITDA 13.9×", delta: "▼ 17.1%" },{ k: "SOTP", v: "$401.10", d: "3 segments sum", delta: "▼ 2.7%" },{ k: "DDM", v: "$198.40", d: "Dividend growth", delta: "▼ 51.9%" },{ k: "REVERSE DCF", v: "14.2%", d: "implies growth", delta: "▲ to price" }],
-    financials: [["Revenue", 143015, 168088, 198270, 211915, 245122],["Gross profit", 96937, 115856, 135620, 146052, 171008],["Operating income", 52959, 69916, 83383, 88423, 109433],["Net income", 44281, 61271, 72738, 72361, 88136],["Free cash flow", 45074, 56670, 65149, 65149, 65149],["Diluted EPS", 5.82, 8.05, 9.68, 9.68, 11.86]] },
-  AAPL: { name: "Apple Inc.", exch: "NASDAQ", price: 198.72, chg: 0.62, up: true, mcap: "$3,012bn", rev: "$383.3bn",
-    models: [{ k: "DCF", v: "$214.72", d: "WACC 8.2% · g 2.8%", delta: "▲ 8.0%" },{ k: "COMPS", v: "$198.40", d: "P/E 22.8×", delta: "▼ 0.2%" },{ k: "SOTP", v: "$227.10", d: "Products + Services", delta: "▲ 14.3%" },{ k: "DDM", v: "$142.30", d: "Buyback adj.", delta: "▼ 28.4%" },{ k: "REVERSE DCF", v: "11.6%", d: "implies growth", delta: "▲ to price" }],
-    financials: [["Revenue", 274515, 365817, 394328, 383285, 391035],["Gross profit", 104956, 152836, 170782, 169148, 180683],["Operating income", 66288, 108949, 119437, 114301, 123216],["Net income", 57411, 94680, 99803, 96995, 93736],["Free cash flow", 73365, 92953, 111443, 99584, 101550],["Diluted EPS", 3.28, 5.61, 6.11, 6.13, 6.42]] },
-  NVDA: { name: "NVIDIA Corp.", exch: "NASDAQ", price: 842.18, chg: -1.21, up: false, mcap: "$2,071bn", rev: "$79.8bn",
-    models: [{ k: "DCF", v: "$612.40", d: "WACC 9.1% · g 4.0%", delta: "▼ 27.3%" },{ k: "COMPS", v: "$788.20", d: "EV/Sales 18.4×", delta: "▼ 6.4%" },{ k: "SOTP", v: "$834.50", d: "DC + Gaming", delta: "▼ 0.9%" },{ k: "DDM", v: "$142.10", d: "No dividend", delta: "▼ 83.1%" },{ k: "REVERSE DCF", v: "22.4%", d: "implies growth", delta: "▲ to price" }],
-    financials: [["Revenue", 16919, 26914, 79634, 79634, 79700],["Gross profit", 9498, 16643, 44318, 44318, 44768],["Operating income", 4545, 10041, 32977, 32977, 33273],["Net income", 4332, 9752, 29760, 29760, 29900],["Free cash flow", 4211, 9121, 26846, 26846, 27000],["Diluted EPS", 0.27, 0.61, 1.19, 1.19, 1.21]] },
-  GOOGL: { name: "Alphabet Inc.", exch: "NASDAQ", price: 162.48, chg: 0.44, up: true, mcap: "$2,009bn", rev: "$307.4bn",
-    models: [{ k: "DCF", v: "$188.90", d: "WACC 8.4% · g 3.2%", delta: "▲ 16.3%" },{ k: "COMPS", v: "$154.20", d: "EV/EBITDA 14.2×", delta: "▼ 5.1%" },{ k: "SOTP", v: "$201.40", d: "Search + Cloud + Other", delta: "▲ 23.9%" },{ k: "DDM", v: "$98.60", d: "No dividend", delta: "▼ 39.3%" },{ k: "REVERSE DCF", v: "9.8%", d: "implies growth", delta: "▼ to price" }],
-    financials: [["Revenue", 182527, 257637, 282836, 307394, 350018],["Gross profit", 104062, 149717, 158123, 182502, 214855],["Operating income", 41324, 78714, 74931, 84307, 109442],["Net income", 40269, 76033, 59972, 73795, 100118],["Free cash flow", 42843, 67118, 60121, 69306, 83817],["Diluted EPS", 3.28, 6.19, 4.86, 5.80, 8.04]] }
+  MSFT: { name: "Microsoft Corp.", exch: "NASDAQ", price: 412.34, chg: 1.04, up: true, mcap: "$3,064bn", sector: "Technology",
+    models: [{ k: "DCF", v: "$387.20", d: "WACC 8.5% · g 3.0%", delta: "▼ 6.1%" },{ k: "VALUATION", v: "$401.10", d: "Median 3 models", delta: "▼ 2.7%" },{ k: "AI ANALYSIS", v: "Strong Buy", d: "Conviction 87%", delta: "▲ to price" }],
+    priceHistory: [225,230,240,255,268,275,282,290,298,305,315,322,330,338,345,355,362,370,378,385,392,400,408,412],
+    income: [["Revenue", 143015, 168088, 198270, 211915, 245122],["Cost of revenue", 46078, 52232, 62649, 65863, 74114],["Gross profit", 96937, 115856, 135620, 146052, 171008],["Operating income", 52959, 69916, 83383, 88423, 109433],["Net income", 44281, 61271, 72738, 72361, 88136],["Diluted EPS", 5.82, 8.05, 9.68, 9.68, 11.86]],
+    balance: [["Cash & equivalents", 13576, 36292, 13935, 34708, 46900],["Total assets", 301311, 333779, 364887, 411976, 484287],["Total liabilities", 183007, 191791, 205882, 246183, 278047],["Total equity", 118304, 141988, 159005, 165793, 206240]],
+    cashflow: [["Operating CF", 60785, 83209, 96581, 100373, 125691],["Capex", -15585, -18195, -23365, -28157, -30671],["Free cash flow", 45074, 56670, 65149, 65149, 65149],["Dividends paid", -15467, -16871, -18606, -19980, -21753],["Share repurchases", -22907, -26256, -32632, -20405, -17110]] },
+  AAPL: { name: "Apple Inc.", exch: "NASDAQ", price: 198.72, chg: 0.62, up: true, mcap: "$3,012bn", sector: "Technology",
+    models: [{ k: "DCF", v: "$214.72", d: "WACC 8.2% · g 2.8%", delta: "▲ 8.0%" },{ k: "VALUATION", v: "$227.10", d: "Median 3 models", delta: "▲ 14.3%" },{ k: "AI ANALYSIS", v: "Buy", d: "Conviction 72%", delta: "▲ to price" }],
+    priceHistory: [80,85,92,98,107,115,122,130,137,145,150,155,160,168,172,178,182,188,190,193,195,197,198,199],
+    income: [["Revenue", 274515, 365817, 394328, 383285, 391035],["Cost of revenue", 169559, 212981, 223546, 214137, 210352],["Gross profit", 104956, 152836, 170782, 169148, 180683],["Operating income", 66288, 108949, 119437, 114301, 123216],["Net income", 57411, 94680, 99803, 96995, 93736],["Diluted EPS", 3.28, 5.61, 6.11, 6.13, 6.42]],
+    balance: [["Cash & equivalents", 38016, 62639, 48304, 30737, 29965],["Total assets", 323888, 351002, 352755, 352583, 364986],["Total liabilities", 258549, 287912, 302083, 290437, 308039],["Total equity", 65339, 63090, 50672, 62146, 56947]],
+    cashflow: [["Operating CF", 80674, 104038, 122151, 110543, 118254],["Capex", -7309, -11085, -10708, -10959, -9463],["Free cash flow", 73365, 92953, 111443, 99584, 101550],["Dividends paid", -14081, -14467, -15025, -15234, -15330],["Share repurchases", -72358, -85502, -89402, -77550, -94949]] },
+  NVDA: { name: "NVIDIA Corp.", exch: "NASDAQ", price: 842.18, chg: -1.21, up: false, mcap: "$2,071bn", sector: "Semiconductors",
+    models: [{ k: "DCF", v: "$612.40", d: "WACC 9.1% · g 4.0%", delta: "▼ 27.3%" },{ k: "VALUATION", v: "$834.50", d: "Median 3 models", delta: "▼ 0.9%" },{ k: "AI ANALYSIS", v: "Hold", d: "Conviction 54%", delta: "▼ to price" }],
+    priceHistory: [50,55,62,70,80,95,120,160,220,310,400,480,550,620,680,730,760,790,810,825,835,840,842,842],
+    income: [["Revenue", 16675, 26914, 79634, 60922, 79700],["Cost of revenue", 7465, 10271, 35513, 17435, 34932],["Gross profit", 9498, 16643, 44318, 44318, 44768],["Operating income", 4545, 10041, 32977, 33273, 33273],["Net income", 4332, 9752, 29760, 29760, 29900],["Diluted EPS", 0.27, 0.61, 1.19, 1.19, 1.21]],
+    balance: [["Cash & equivalents", 11561, 21208, 15058, 25984, 26000],["Total assets", 28791, 44343, 65728, 88074, 112000],["Total liabilities", 12464, 17437, 29751, 34898, 45000],["Total equity", 16327, 26906, 35977, 53176, 67000]],
+    cashflow: [["Operating CF", 5652, 9109, 24716, 28072, 30000],["Capex", -1411, -1833, -1867, -1200, -1500],["Free cash flow", 4211, 9121, 26846, 26846, 27000],["Dividends paid", -373, -397, -400, -400, -400],["Share repurchases", -1800, -3000, -5000, -8000, -10000]] },
+  GOOGL: { name: "Alphabet Inc.", exch: "NASDAQ", price: 162.48, chg: 0.44, up: true, mcap: "$2,009bn", sector: "Technology",
+    models: [{ k: "DCF", v: "$188.90", d: "WACC 8.4% · g 3.2%", delta: "▲ 16.3%" },{ k: "VALUATION", v: "$201.40", d: "Median 3 models", delta: "▲ 23.9%" },{ k: "AI ANALYSIS", v: "Strong Buy", d: "Conviction 81%", delta: "▲ to price" }],
+    priceHistory: [52,56,62,70,80,88,95,105,112,118,125,130,135,140,145,148,152,155,158,160,161,162,162,163],
+    income: [["Revenue", 182527, 257637, 282836, 307394, 350018],["Cost of revenue", 78466, 107920, 124713, 124892, 135163],["Gross profit", 104062, 149717, 158123, 182502, 214855],["Operating income", 41324, 78714, 74931, 84307, 109442],["Net income", 40269, 76033, 59972, 73795, 100118],["Diluted EPS", 3.28, 6.19, 4.86, 5.80, 8.04]],
+    balance: [["Cash & equivalents", 26370, 38764, 21876, 27018, 40000],["Total assets", 319616, 365266, 379681, 402392, 450000],["Total liabilities", 104683, 123831, 126426, 128821, 140000],["Total equity", 214933, 241435, 253255, 273571, 310000]],
+    cashflow: [["Operating CF", 71698, 91648, 92424, 101746, 120000],["Capex", -28856, -24657, -32281, -32440, -36183],["Free cash flow", 42843, 67118, 60121, 69306, 83817],["Dividends paid", 0, 0, 0, 0, 0],["Share repurchases", -31568, -52483, -57368, -62113, -70000]] }
 };
 
 /* search universe */
@@ -833,106 +671,100 @@ function showView(name) {
   document.getElementById('navLinks').classList.remove('open');
 }
 
-/* render ticker models */
-function renderSigModels() {
-  const t = tickers[currentTicker];
-  const html = t.models.map(m => {
-    const isDown = m.delta.includes("▼");
-    const glyph = isDown ? '▼' : '▲';
-    return '<div class="model-cell ' + (m.k === 'DCF' ? 'active' : '') + '"><div class="m-k">' + m.k + '</div><div class="m-v">' + m.v + '</div><div class="m-d">' + m.d + '</div><div class="mono" style="font-size:11px;margin-top:4px;' + (isDown ? 'color:var(--graphite)' : 'color:var(--ink);font-weight:600') + '">' + glyph + ' ' + m.delta.replace('▲ ', '').replace('▼ ', '') + '</div></div>';
+
+
+/* render price chart */
+function renderChart() {
+  var container = document.getElementById('priceChart');
+  if (!container) return;
+  var t = tickers[currentTicker];
+  if (!t || !t.priceHistory) { container.innerHTML = ''; return; }
+  var data = t.priceHistory;
+  var w = 700, h = 200, pad = { top: 10, right: 20, bottom: 30, left: 50 };
+  var min = Math.min.apply(null, data), max = Math.max.apply(null, data);
+  var range = max - min || 1;
+  var chartW = w - pad.left - pad.right;
+  var chartH = h - pad.top - pad.bottom;
+  function x(i) { return pad.left + (i / (data.length - 1)) * chartW; }
+  function y(v) { return pad.top + chartH - ((v - min) / range) * chartH; }
+  var pathD = data.map(function(v, i) { return (i === 0 ? 'M' : 'L') + x(i).toFixed(1) + ' ' + y(v).toFixed(1); }).join(' ');
+  var areaPath = pathD + ' L' + x(data.length - 1).toFixed(1) + ' ' + (pad.top + chartH) + ' L' + x(0).toFixed(1) + ' ' + (pad.top + chartH) + ' Z';
+  var years = ['2020','2021','2022','2023','2024','2025','2026'];
+  var gridLines = [0.25, 0.5, 0.75].map(function(f) {
+    var yy = pad.top + chartH * (1 - f);
+    var val = min + range * f;
+    return '<line x1="' + pad.left + '" y1="' + yy + '" x2="' + (w - pad.right) + '" y2="' + yy + '" stroke="var(--hairline)" stroke-width="1" stroke-dasharray="3 3"/><text x="' + (pad.left - 8) + '" y="' + (yy + 4) + '" text-anchor="end" font-family="Open Sans,monospace" font-size="10" fill="var(--ash)">$' + Math.round(val) + '</text>';
   }).join('');
-  const tickerMod = document.getElementById('tickerModels');
-  if (tickerMod) tickerMod.innerHTML = html;
+  var yearLabels = years.map(function(yr, i) {
+    var xx = pad.left + (i / (years.length - 1)) * chartW;
+    return '<text x="' + xx + '" y="' + (h - 5) + '" text-anchor="middle" font-family="Open Sans,monospace" font-size="10" fill="var(--ash)">' + yr + '</text>';
+  }).join('');
+  var trend = data[data.length - 1] > data[0] ? 'Uptrend' : 'Downtrend';
+  var trendEl = document.getElementById('chartTrend');
+  if (trendEl) trendEl.textContent = trend;
+  container.innerHTML = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" style="width:100%;height:100%;display:block"><path d="' + areaPath + '" fill="var(--ink)" opacity="0.06"/><path d="' + pathD + '" fill="none" stroke="var(--ink)" stroke-width="1.8"/><circle cx="' + x(data.length - 1).toFixed(1) + '" cy="' + y(data[data.length - 1]).toFixed(1) + '" r="4" fill="var(--ink)" stroke="var(--paper)" stroke-width="2"/>' + gridLines + yearLabels + '</svg>';
 }
 
-/* render financials */
+/* render financials tab */
+var currentFinTab = 'income';
+function switchFinTab(tab) {
+  currentFinTab = tab;
+  document.querySelectorAll('.fin-tab').forEach(function(btn) {
+    var txt = btn.textContent.toLowerCase();
+    var isActive = txt.includes(tab === 'income' ? 'income' : tab === 'balance' ? 'balance' : 'cash');
+    btn.style.borderBottomColor = isActive ? 'var(--ink)' : 'transparent';
+    btn.style.color = isActive ? 'var(--ink)' : 'var(--ash)';
+  });
+  renderFinancials();
+}
 function renderFinancials() {
-  const t = tickers[currentTicker];
-  const body = document.getElementById('financialsBody');
-  if (!body) return;
-  body.innerHTML = t.financials.map(function(row) {
+  var t = tickers[currentTicker];
+  var body = document.getElementById('finBody');
+  if (!body || !t) return;
+  var data = t[currentFinTab] || t.income;
+  body.innerHTML = data.map(function(row) {
     var label = row[0];
     var nums = row.slice(1);
-    return '<tr><td>' + label + '</td>' + nums.map(function(n) { return '<td class="num">' + n.toLocaleString() + '</td>'; }).join('') + '</tr>';
-  }).join('');
-}
-
-/* render sensitivity */
-function renderSens() {
-  var tSens = document.getElementById('tickerSens');
-  if (!tSens) return;
-  var base = currentTicker === 'MSFT' ? 374 : currentTicker === 'AAPL' ? 215 : currentTicker === 'NVDA' ? 612 : 189;
-  var scale = function(v) { return Math.round(v * (base / 374)); };
-  var rows = [
-    ["WACC 7.5%", scale(298), scale(314), scale(332), scale(352), scale(374)],
-    ["WACC 8.0%", scale(314), scale(332), scale(352), scale(374), scale(398)],
-    ["WACC 8.5% <strong style='color:var(--ink)'>→ base</strong>", scale(332), scale(352), base, scale(398), scale(426)],
-    ["WACC 9.0%", scale(352), scale(374), scale(398), scale(426), scale(458)],
-    ["WACC 9.5%", scale(374), scale(398), scale(426), scale(458), scale(494)]
-  ];
-  tSens.innerHTML = rows.map(function(r) {
-    var label = r[0], nums = r.slice(1);
-    return '<tr><td>' + label + '</td>' + nums.map(function(n) {
-      var isBase = n === base;
-      var bg = isBase ? 'background:var(--ink);color:var(--paper);font-weight:600' : (n > base * 1.05 ? 'background:var(--fog)' : '');
-      return '<td class="num" style="' + bg + '">' + n + '</td>';
-    }).join('') + '</tr>';
-  }).join('');
-}
-
-/* render trace */
-function renderTrace() {
-  var list = document.getElementById('traceList');
-  if (!list) return;
-  var trace = [
-    { m: "DCF", v: "$387.20", d: "▼ 6.1%", src: "10-K p.62, p.68" },
-    { m: "DDM", v: "$198.40", d: "▼ 51.9%", src: "Dividend p.71" },
-    { m: "Comps", v: "$341.80", d: "▼ 17.1%", src: "Peer median 13.9×" },
-    { m: "Precedent", v: "$365.10", d: "▼ 11.4%", src: "5 deals · 31% prem." },
-    { m: "SOTP", v: "$401.10", d: "▼ 2.7%", src: "3 segments" },
-    { m: "LBO", v: "$298.60", d: "▼ 27.6%", src: "IRR 22% · 5Y" },
-    { m: "Residual Income", v: "$312.40", d: "▼ 24.2%", src: "Book + RI" },
-    { m: "EPV", v: "$278.90", d: "▼ 32.4%", src: "No-growth earnings" },
-    { m: "Asset-Based", v: "$201.20", d: "▼ 51.2%", src: "Tangible book" },
-    { m: "APV", v: "$392.10", d: "▼ 4.9%", src: "Unlevered + shield" }
-  ];
-  list.innerHTML = trace.map(function(r) {
-    var down = r.d.includes("▼");
-    return '<div style="display:grid;grid-template-columns:1fr auto auto;gap:12px;padding:9px 16px;border-bottom:1px solid var(--hairline);align-items:center"><div><span style="font-size:12px;font-weight:500">' + r.m + '</span> <span style="font-size:11px;color:var(--ash)">· ' + r.src + '</span></div><div class="mono" style="font-size:13px;text-align:right">' + r.v + '</div><div class="mono" style="font-size:11px;text-align:right;' + (down ? 'color:var(--graphite)' : 'color:var(--ink);font-weight:600') + '">' + (down ? '▼' : '▲') + ' ' + r.d.replace('▼ ', '').replace('▲ ', '') + '</div></div>';
+    return '<tr><td>' + label + '</td>' + nums.map(function(n) { return '<td class="num">' + (typeof n === 'number' ? n.toLocaleString() : n) + '</td>'; }).join('') + '</tr>';
   }).join('');
 }
 
 /* render all */
 function renderAll() {
   var t = tickers[currentTicker];
-  var tn = document.getElementById('tkrName');
-  var ts = document.getElementById('tkrSym');
-  var te = document.getElementById('tkrEyebrow');
-  var tp = document.getElementById('tkrPrice');
-  var td = document.getElementById('tkrDelta');
-  var tm = document.getElementById('tkrMeta');
+  var el = function(id) { return document.getElementById(id); };
   if (!t) {
-    if (tn) tn.textContent = currentTicker;
-    if (ts) ts.textContent = '';
-    if (te) te.textContent = currentTicker;
-    if (tp) tp.textContent = '\u2014';
-    if (td) td.innerHTML = '<span style="color:var(--ash)">No valuation data available</span>';
-    if (tm) tm.textContent = 'Valuation data coming soon';
+    if (el('tkrName')) el('tkrName').textContent = currentTicker;
+    if (el('tkrSym')) el('tkrSym').textContent = '';
+    if (el('tkrPrice')) el('tkrPrice').textContent = '\u2014';
+    if (el('tkrDelta')) el('tkrDelta').innerHTML = '<span style="color:var(--ash)">No data available</span>';
+    if (el('tkrDesc')) el('tkrDesc').textContent = 'No valuation data for this ticker.';
+    if (el('barSym')) el('barSym').textContent = currentTicker;
+    if (el('barName')) el('barName').textContent = '';
+    if (el('barPrice')) el('barPrice').textContent = '\u2014';
+    if (el('barChg')) el('barChg').innerHTML = '';
+    if (el('barMcap')) el('barMcap').textContent = '';
+    if (el('breadSym')) el('breadSym').textContent = currentTicker;
     return;
   }
-  renderSigModels();
-  renderFinancials();
-  renderSens();
-  renderTrace();
-  if (tn) tn.textContent = t.name;
-  if (ts) ts.textContent = '(' + currentTicker + ')';
-  if (te) te.textContent = currentTicker + ' · ' + t.exch;
-  if (tp) tp.textContent = '$' + t.price.toFixed(2);
-  if (td) td.innerHTML = '<span class="delta ' + (t.up ? 'up' : 'down') + '">' + (t.up ? '▲' : '▼') + ' ' + Math.abs(t.chg).toFixed(2) + '%</span> <span style="color:var(--ash)">· 2026-05-13 close</span>';
-  if (tm) tm.textContent = 'Market cap ' + t.mcap + ' · FY24 revenue ' + t.rev;
+  if (el('tkrName')) el('tkrName').textContent = t.name;
+  if (el('tkrSym')) el('tkrSym').textContent = '(' + currentTicker + ')';
+  if (el('tkrPrice')) el('tkrPrice').textContent = '$' + t.price.toFixed(2);
+  if (el('tkrDelta')) el('tkrDelta').innerHTML = '<span class="delta ' + (t.up ? 'up' : 'down') + '">' + (t.up ? '\u25b2' : '\u25bc') + ' ' + Math.abs(t.chg).toFixed(2) + '%</span>';
+  if (el('tkrDesc')) el('tkrDesc').textContent = t.name + ' operates in the ' + t.sector + ' sector.';
+  if (el('barSym')) el('barSym').textContent = currentTicker;
+  if (el('barName')) el('barName').textContent = t.name;
+  if (el('barPrice')) el('barPrice').textContent = '$' + t.price.toFixed(2);
+  if (el('barChg')) el('barChg').innerHTML = '<span class="delta ' + (t.up ? 'up' : 'down') + '">' + (t.up ? '\u25b2' : '\u25bc') + ' ' + Math.abs(t.chg).toFixed(2) + '%</span>';
+  if (el('barMcap')) el('barMcap').textContent = 'Mkt Cap ' + t.mcap;
+  if (el('breadSym')) el('breadSym').textContent = currentTicker;
+  currentFinTab = 'income';
+  renderChart();
+  switchFinTab('income');
 }
 
 function loadTicker(v) { currentTicker = v; renderAll(); }
+
 
 /* search */
 function openRecs() { document.getElementById('searchRecs').classList.add('open'); }
@@ -943,7 +775,7 @@ function renderRecs(q) {
   var list = norm ? universe.filter(function(u) { return u.sym.startsWith(norm) || u.name.toUpperCase().includes(norm); }) : universe.slice(0, 8);
   if (list.length === 0) { box.innerHTML = '<div class="rec-empty">No matches for "' + q + '"</div>'; openRecs(); return; }
   var head = norm ? '<div class="rec-head"><span>' + list.length + ' matches · alphabetical</span><span class="mono" style="font-size:10px;color:var(--ash)">↵ to open</span></div>' : '<div class="rec-head"><span>Suggested · alphabetical</span><span class="mono" style="font-size:10px;color:var(--ash)">Type to filter</span></div>';
-  box.innerHTML = head + list.map(function(u) { return '<div class="rec-item" role="option" tabindex="0" data-sym="' + u.sym + '" onclick="pickRec(\'' + u.sym + '\')" onkeydown="if(event.key===\'Enter\') pickRec(\'' + u.sym + '\')"><span class="rec-sym">' + u.sym + '</span><span class="rec-name">' + u.name + '</span><span class="rec-meta">' + u.exch + ' · 11 models</span></div>'; }).join('');
+  box.innerHTML = head + list.map(function(u) { return '<div class="rec-item" role="option" tabindex="0" data-sym="' + u.sym + '" onclick="pickRec(\'' + u.sym + '\')" onkeydown="if(event.key===\'Enter\') pickRec(\'' + u.sym + '\')"><span class="rec-sym">' + u.sym + '</span><span class="rec-name">' + u.name + '</span><span class="rec-meta">' + u.exch + ' · 3 models</span></div>'; }).join('');
   openRecs();
 }
 function pickRec(sym) { document.getElementById('heroSearch').value = sym; closeRecs(); loadTicker(sym); showView('ticker'); }
@@ -1002,113 +834,9 @@ function toggleBilling() {
   btn.style.background = annual ? 'var(--ink)' : 'var(--paper)';
   btn.style.color = annual ? 'var(--paper)' : 'var(--ink)';
   var p = document.getElementById('proPrice');
-  if (p) p.innerHTML = annual ? '$29 <span style="font-size:12px;color:var(--ash)">/ month</span>' : '$36 <span style="font-size:12px;color:var(--ash)">/ month</span>';
+  if (p) p.innerHTML = annual ? '$19 <span style="font-size:12px;color:var(--ash)">/ month</span>' : '$24 <span style="font-size:12px;color:var(--ash)">/ month</span>';
   var t = document.getElementById('teamPrice');
-  if (t) t.innerHTML = annual ? '$79 <span style="font-size:12px;color:var(--ash)">/ month · 3 seats</span>' : '$99 <span style="font-size:12px;color:var(--ash)">/ month · 3 seats</span>';
-}
-
-/* community */
-function publishPost() {
-  var title = document.getElementById('postTitle').value.trim() || 'Untitled analysis';
-  var tick = document.getElementById('postTicker').value.trim().toUpperCase() || 'MSFT';
-  var body = document.getElementById('postBody').value.trim() || 'No body.';
-  var feed = document.getElementById('communityFeed');
-  var el = document.createElement('article');
-  el.className = 'card';
-  el.style.cssText = 'padding:14px 16px;margin-bottom:12px';
-  el.innerHTML = '<div style="display:flex;gap:10px;align-items:center"><div style="width:32px;height:32px;background:var(--ink);color:var(--paper);border:1px solid var(--ink);display:flex;align-items:center;justify-content:center;font-size:12px">CB</div><div><div style="font-size:13px;font-weight:600">You <span class="mono" style="font-size:11px;color:var(--ash);font-weight:400">· now</span></div><div class="mono" style="font-size:11px;color:var(--ash)">' + tick + ' · Just posted</div></div></div><h3 style="margin-top:10px;font-size:16px">' + title + '</h3><p style="font-size:13px;color:var(--graphite);margin-top:6px;line-height:1.6">' + body + '</p>';
-  feed.prepend(el);
-  document.getElementById('postTitle').value = '';
-  document.getElementById('postTicker').value = '';
-  document.getElementById('postBody').value = '';
-  document.getElementById('postComposer').style.display = 'none';
-}
-function sendChat() {
-  var inp = document.getElementById('chatInput');
-  var v = inp.value.trim();
-  if (!v) return;
-  var list = document.getElementById('chatList');
-  var d = document.createElement('div');
-  d.className = 'mono';
-  d.style.cssText = 'font-size:12px;background:var(--fog);padding:6px 8px;border-radius:2px';
-  d.innerHTML = '<strong>You</strong> <span style="color:var(--ash)">now</span> — ' + v;
-  list.appendChild(d);
-  inp.value = '';
-  list.scrollTop = list.scrollHeight;
-}
-var chatInput = document.getElementById('chatInput');
-if (chatInput) chatInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') sendChat(); });
-
-/* AI feed */
-var feedData = [
-  { title: "Fed holds rates — Powell flags data-dependent path", source: "Reuters", ago: "12m ago", score: 0.92, impact: "High", tags: ["SPY", "TLT"], type: "stocks", why: "Hold keeps discount rates anchored — watch DCF WACC assumption." },
-  { title: "Brent tops $84 on OPEC+ supply cut extension", source: "Bloomberg", ago: "34m ago", score: 0.88, impact: "High", tags: ["XOM", "CVX", "GC=F"], type: "commodities", why: "Oil $84 changes energy valuations and inflation-linked margins." },
-  { title: "Apple suppliers guide lower — iPhone cycle question", source: "WSJ", ago: "1h ago", score: 0.81, impact: "High", tags: ["AAPL", "AVGO"], type: "stocks", why: "Supplier cut may trim AAPL FY consensus — impacts comps multiple." },
-  { title: "Copper inventories hit 6-month low — miners bid", source: "FT", ago: "2h ago", score: 0.77, impact: "Medium", tags: ["FCX", "COPX"], type: "commodities", why: "Tight copper lifts miners but pressures input costs for manufacturers." },
-  { title: "NVDA options skew steepens before earnings", source: "Reuters", ago: "3h ago", score: 0.74, impact: "Medium", tags: ["NVDA"], type: "stocks", why: "Vol spike widens dispersion — EPV vs DCF gap matters." }
-];
-function renderFeed(filter) {
-  filter = filter || 'all';
-  var box = document.getElementById('feedList');
-  if (!box) return;
-  var list = filter === 'stocks' ? feedData.filter(function(f) { return f.type === 'stocks'; }) : filter === 'commodities' ? feedData.filter(function(f) { return f.type === 'commodities'; }) : feedData;
-  box.innerHTML = list.map(function(f) { return '<article class="card" style="padding:14px 16px"><div class="mono" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash);display:flex;justify-content:space-between;gap:8px"><span>AI · ' + f.ago + ' · ' + f.source + ' · <strong style="color:' + (f.impact === 'High' ? 'var(--ink)' : 'var(--graphite)') + '">' + f.impact + ' relevance</strong></span><span>▲ ' + f.score.toFixed(2) + '</span></div><h3 style="margin-top:8px;font-size:15px;line-height:1.35">' + f.title + '</h3><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">' + f.tags.map(function(t) { return '<span class="mono" style="font-size:11px;border:1px solid var(--hairline);padding:3px 8px;border-radius:2px;cursor:pointer" onclick="setHeroSearch(\'' + t.replace('=F', '') + '\')">' + t + '</span>'; }).join('') + '</div><div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--hairline);display:flex;gap:8px;align-items:center"><span class="mono" style="font-size:11px;color:var(--ash)">Why it matters:</span><span style="font-size:12px;color:var(--graphite)">' + f.why + '</span></div></article>'; }).join('');
-  document.querySelectorAll('.feed-pill').forEach(function(b) {
-    b.style.background = b.dataset.filter === filter ? 'var(--ink)' : 'var(--paper)';
-    b.style.color = b.dataset.filter === filter ? 'var(--paper)' : 'var(--ash)';
-    b.style.borderColor = b.dataset.filter === filter ? 'var(--ink)' : 'var(--hairline)';
-  });
-}
-function filterFeed(f) { renderFeed(f); }
-
-/* live prices */
-var liveBase = [
-  { sym: "AAPL", name: "Apple Inc.", exch: "NASDAQ", price: 214.72, chg: 1.24 },
-  { sym: "MSFT", name: "Microsoft Corp.", exch: "NASDAQ", price: 412.34, chg: 1.04 },
-  { sym: "NVDA", name: "NVIDIA Corp.", exch: "NASDAQ", price: 842.18, chg: -1.21 },
-  { sym: "GOOGL", name: "Alphabet Inc.", exch: "NASDAQ", price: 162.48, chg: 0.44 },
-  { sym: "TSLA", name: "Tesla Inc.", exch: "NASDAQ", price: 248.91, chg: 2.18 },
-  { sym: "META", name: "Meta Platforms", exch: "NASDAQ", price: 478.22, chg: -0.64 },
-  { sym: "XOM", name: "Exxon Mobil", exch: "NYSE", price: 112.04, chg: 0.92 },
-  { sym: "GC=F", name: "Gold Futures", exch: "COMEX", price: 2341.50, chg: 0.31 }
-];
-var liveData = liveBase.map(function(o) { return Object.assign({}, o); });
-var liveNextSec = 300;
-function fmtPrice(v) { return "$" + v.toFixed(2); }
-function renderLive() {
-  var box = document.getElementById('liveList');
-  if (!box) return;
-  var now = new Date();
-  var time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-  var upd = document.getElementById('liveUpdated');
-  if (upd) upd.textContent = "Live · " + time + " ET";
-  box.innerHTML = liveData.map(function(r) {
-    var up = r.chg >= 0;
-    var delta = Math.abs(r.chg).toFixed(2) + "%";
-    var glyph = up ? "▲" : "▼";
-    return '<div data-live-row="' + r.sym + '" role="button" tabindex="0" aria-label="Load ' + r.sym + ' valuation" onclick="setHeroSearch(\'' + r.sym + '\')" onkeydown="if(event.key===\'Enter\') setHeroSearch(\'' + r.sym + '\')" style="display:grid;grid-template-columns:1.4fr 0.9fr 0.9fr 1fr;gap:1px;background:var(--hairline);cursor:pointer;transition:opacity 120ms"><div style="background:var(--paper);padding:10px 12px;display:flex;flex-direction:column;gap:2px"><span class="mono" style="font-size:13px;font-weight:600;letter-spacing:0.02em">' + r.sym + '</span><span style="font-size:11px;color:var(--ash);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + r.name + ' · ' + r.exch + '</span></div><div class="mono" style="background:var(--paper);padding:10px 12px;text-align:right;font-size:13px;align-content:center;font-weight:500">' + fmtPrice(r.price) + '</div><div class="mono" style="background:' + (up ? 'var(--paper)' : 'var(--fog)') + ';padding:10px 12px;text-align:right;font-size:12px;font-weight:' + (up ? '600' : '400') + ';color:' + (up ? 'var(--ink)' : 'var(--graphite)') + ';letter-spacing:0.02em">' + glyph + ' ' + delta + '</div><div style="background:var(--paper);padding:10px 12px;text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:6px"><span aria-hidden="true" style="width:64px;height:22px;display:inline-block;background:var(--fog);border:1px solid var(--hairline);border-radius:2px;position:relative;overflow:hidden"><span style="position:absolute;left:4px;right:4px;top:50%;height:1.5px;background:var(--ink);opacity:0.9;transform:translateY(-50%)"></span><span style="position:absolute;left:' + (up ? '42%' : '28%') + ';top:50%;width:7px;height:7px;background:var(--paper);border:1.4px solid var(--ink);border-radius:50%;transform:translate(-50%,-50%)"></span></span><span class="mono" style="font-size:10px;color:var(--ash)">5m</span></div></div>';
-  }).join('');
-}
-function tickLive() {
-  liveData = liveData.map(function(r) {
-    var jitter = (Math.random() - 0.5) * 0.0036;
-    var newChg = r.chg + (Math.random() - 0.5) * 0.22;
-    return { sym: r.sym, name: r.name, exch: r.exch, price: Math.max(1, r.price * (1 + jitter)), chg: newChg };
-  });
-  renderLive();
-  liveNextSec = 300;
-}
-function startLive() {
-  renderLive();
-  setInterval(tickLive, 300000);
-  setInterval(function() {
-    liveNextSec = Math.max(0, liveNextSec - 1);
-    var el = document.getElementById('liveNext');
-    if (!el) return;
-    var m = String(Math.floor(liveNextSec / 60));
-    var s = String(liveNextSec % 60).padStart(2, '0');
-    el.textContent = "Next update in " + m + ":" + s;
-  }, 1000);
+  if (t) t.innerHTML = annual ? '$49 <span style="font-size:12px;color:var(--ash)">/ month</span>' : '$59 <span style="font-size:12px;color:var(--ash)">/ month</span>';
 }
 
 /* Escape closes dropdowns */
@@ -1131,8 +859,23 @@ document.addEventListener('click', function(e) {
 
 /* init */
 renderAll();
-renderFeed();
-startLive();
+
+/* dark mode */
+function toggleDark() {
+  document.body.classList.toggle('dark');
+  var isDark = document.body.classList.contains('dark');
+  localStorage.setItem('hedger-dark', isDark ? '1' : '0');
+  var btn = document.getElementById('darkToggle');
+  if (btn) btn.classList.toggle('on', isDark);
+}
+(function() {
+  var saved = localStorage.getItem('hedger-dark');
+  if (saved === '1') {
+    document.body.classList.add('dark');
+    var btn = document.getElementById('darkToggle');
+    if (btn) btn.classList.add('on');
+  }
+})();
 </script>
 </body>
 </html>
