@@ -423,7 +423,7 @@
       <h2 style="font-size:clamp(28px,3.5vw,40px);line-height:1.1">Professional valuation models</h2>
       <p style="color:var(--graphite);margin-top:10px;max-width:520px;margin-left:auto;margin-right:auto">Three focused valuation approaches. Each includes full methodology, formulas, and guidance on when to use it.</p>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
       <a href="#" onclick="showView('ticker');return false" style="border:1px solid var(--hairline);border-radius:8px;padding:20px;background:var(--paper);transition:border-color 140ms;display:block;text-decoration:none">
         <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ash);margin-bottom:12px">01</div>
         <div style="font-size:16px;font-weight:600;margin-bottom:6px">DCF</div>
@@ -588,12 +588,12 @@
         <span class="mono" style="font-size:11px;letter-spacing:0.10em;text-transform:uppercase;color:var(--graphite);font-weight:600" id="chartTrend">Uptrend</span>
       </div>
       <div style="padding:20px">
-        <div id="priceChart" style="width:100%;height:480px;position:relative"></div>
+        <div id="priceChart" style="width:100%;height:400px;position:relative"></div>
       </div>
     </div>
 
     <!-- 3 model cards -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:24px" id="modelCards">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:24px" id="modelCards">
       <a href="#" onclick="showView('ticker');return false" style="border:1px solid var(--hairline);border-radius:8px;padding:20px;background:var(--paper);transition:border-color 140ms;display:flex;flex-direction:column;text-decoration:none;min-height:160px">
         <div class="mono" style="font-size:10px;letter-spacing:0.10em;text-transform:uppercase;color:var(--ash);margin-bottom:10px">Model</div>
         <div style="font-size:18px;font-weight:600;margin-bottom:8px">Valuation</div>
@@ -612,23 +612,14 @@
         <div style="font-size:13px;color:var(--graphite);line-height:1.5;flex:1">Synthesized investment assessment and conviction scoring</div>
         <div style="text-align:right;margin-top:12px;color:var(--ash);font-size:14px">&rarr;</div>
       </a>
+      <a href="#" onclick="openFinancials()" style="border:1px solid var(--hairline);border-radius:8px;padding:20px;background:var(--paper);transition:border-color 140ms;display:flex;flex-direction:column;text-decoration:none;min-height:160px">
+        <div class="mono" style="font-size:10px;letter-spacing:0.10em;text-transform:uppercase;color:var(--ash);margin-bottom:10px">Model</div>
+        <div style="font-size:18px;font-weight:600;margin-bottom:8px">Financials</div>
+        <div style="font-size:13px;color:var(--graphite);line-height:1.5;flex:1">Income statement, balance sheet, and cash flow data</div>
+        <div style="text-align:right;margin-top:12px;color:var(--ash);font-size:14px">&rarr;</div>
+      </a>
     </div>
     <style>@media(max-width:700px) { #modelCards { grid-template-columns: 1fr !important; } }</style>
-
-    <!-- financial statements -->
-    <div style="margin-top:32px">
-      <h2 style="font-size:22px;margin-bottom:16px">Financial Statements</h2>
-      <div style="display:flex;gap:0;border-bottom:1px solid var(--hairline);margin-bottom:0">
-        <button class="fin-tab active" onclick="switchFinTab('income')" style="padding:10px 20px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;font-weight:600;border:none;border-bottom:2px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer">Income Statement</button>
-        <button class="fin-tab" onclick="switchFinTab('balance')" style="padding:10px 20px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;font-weight:600;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--ash);cursor:pointer">Balance Sheet</button>
-        <button class="fin-tab" onclick="switchFinTab('cashflow')" style="padding:10px 20px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;font-weight:600;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--ash);cursor:pointer">Cash Flow</button>
-      </div>
-      <div class="card" style="border-top-left-radius:0;border-top-right-radius:0">
-        <div class="table-wrap">
-          <table><thead><tr><th></th><th class="num">FY20</th><th class="num">FY21</th><th class="num">FY22</th><th class="num">FY23</th><th class="num">FY24</th></tr></thead><tbody id="finBody"></tbody></table>
-        </div>
-      </div>
-    </div>
   </div>
 </section>
 
@@ -668,6 +659,25 @@
       <div style="padding:14px 0;font-size:13px;color:var(--graphite);line-height:1.6">
         <p>Hedger v1.0 — Institutional-grade valuations for investors and portfolio managers.</p>
         <p style="margin-top:8px">Built by <strong>Chinmay Belge</strong>. Not investment advice.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FINANCIALS -->
+<section id="view-financials" class="view">
+  <div class="wrap" style="padding-top:32px;padding-bottom:60px">
+    <div class="eyebrow" style="margin-bottom:24px"><a href="#" onclick="showView('ticker');return false" style="text-decoration:underline;text-underline-offset:3px;color:var(--ash)">← Back</a> &nbsp;·&nbsp; Financial Statements</div>
+    <h1 id="finTickerName" style="font-size:28px;margin-bottom:8px"></h1>
+    <p id="finTickerSym" class="mono" style="font-size:13px;color:var(--ash);margin-bottom:24px"></p>
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--hairline);margin-bottom:0">
+      <button class="fin-tab active" onclick="switchFinTab('income')" style="padding:10px 20px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;font-weight:600;border:none;border-bottom:2px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer">Income Statement</button>
+      <button class="fin-tab" onclick="switchFinTab('balance')" style="padding:10px 20px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;font-weight:600;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--ash);cursor:pointer">Balance Sheet</button>
+      <button class="fin-tab" onclick="switchFinTab('cashflow')" style="padding:10px 20px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;font-weight:600;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--ash);cursor:pointer">Cash Flow</button>
+    </div>
+    <div class="card" style="border-top-left-radius:0;border-top-right-radius:0">
+      <div class="table-wrap">
+        <table><thead><tr><th></th><th class="num">FY20</th><th class="num">FY21</th><th class="num">FY22</th><th class="num">FY23</th><th class="num">FY24</th></tr></thead><tbody id="finBody"></tbody></table>
       </div>
     </div>
   </div>
@@ -785,7 +795,7 @@ function renderChart() {
   var stockColor = '#2d8a4e';  /* green for up, red for down — always green per request */
 
   /* SVG dimensions */
-  var w = 800, h = 400, pad = { top: 16, right: 60, bottom: 44, left: 16 };
+  var w = 667, h = 367, pad = { top: 16, right: 60, bottom: 44, left: 16 };
   var allVals = data.concat(inflation, ret7, ret10, ret15);
   var gMin = Math.min.apply(null, allVals);
   var gMax = Math.max.apply(null, allVals);
@@ -860,7 +870,7 @@ function renderChart() {
   var dot = '<circle cx="' + lastX.toFixed(1) + '" cy="' + lastY.toFixed(1) + '" r="4" fill="' + stockColor + '" stroke="var(--paper)" stroke-width="2"/>';
 
   /* legend at bottom */
-  var legendY = h - 16;
+  var legendY = h + 8;
   var legendItems = [
     { label: currentTicker, color: stockColor, dash: '' },
     { label: 'Inflation (2.5%)', color: '#999', dash: '6 4' },
@@ -931,11 +941,23 @@ function renderFinancials() {
 }
 
 /* render all */
+function openFinancials() {
+  showView('financials');
+  var t = tickers[currentTicker];
+  var nameEl = document.getElementById('finTickerName');
+  var symEl = document.getElementById('finTickerSym');
+  if (nameEl && t) nameEl.textContent = t.name || currentTicker;
+  if (symEl && t) symEl.textContent = currentTicker + ' · ' + (t.exchange || '');
+  renderFinancials();
+}
+
 function renderAll() {
   var t = tickers[currentTicker];
   var el = function(id) { return document.getElementById(id); };
   if (!t) {
     if (el('tkrName')) el('tkrName').textContent = currentTicker;
+  if (el('finTickerName')) el('finTickerName').textContent = t.name || currentTicker;
+  if (el('finTickerSym')) el('finTickerSym').textContent = currentTicker + ' · ' + (t.exchange || '');
     if (el('tkrSym')) el('tkrSym').textContent = '';
     if (el('tkrPrice')) el('tkrPrice').textContent = '\u2014';
     if (el('tkrDelta')) el('tkrDelta').innerHTML = '<span style="color:var(--ash)">No data available</span>';

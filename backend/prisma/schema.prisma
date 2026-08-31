@@ -1,0 +1,438 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id            String   @id @default(cuid())
+  ticker        String   @unique
+  name          String
+  exchange      String
+  country       String   @default("US")
+  currency      String   @default("USD")
+  sector        String?
+  industry      String?
+  description   String?
+  cik           String?  @unique
+  lei           String?  @unique
+  website       String?
+  logoUrl       String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  aliases       CompanyAlias[]
+  financials    FinancialPeriod[]
+  marketData    MarketPrice[]
+  marketSnapshot MarketSnapshot?
+  securities    Security[]
+  valuations    ValuationRun[]
+}
+
+model CompanyAlias {
+  id        String   @id @default(cuid())
+  companyId String
+  alias     String
+  type      String   @default("SEARCH")
+
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, alias])
+}
+
+model Exchange {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  country   String
+  currency  String
+  timezone  String
+  isActive  Boolean  @default(true)
+
+  securities Security[]
+}
+
+model Security {
+  id          String   @id @default(cuid())
+  ticker      String   @unique
+  companyId   String
+  exchangeId  String
+  type        String   @default("EQUITY")
+  currency    String
+  isPrimary   Boolean  @default(true)
+  figi        String?  @unique
+  isin        String?  @unique
+  cusip       String?  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  exchange    Exchange @relation(fields: [exchangeId], references: [id])
+}
+
+model FinancialPeriod {
+  id          String   @id @default(cuid())
+  companyId   String
+  period      String   // e.g., "2024-Q4", "2024-FY"
+  fiscalYear  Int
+  fiscalQuarter Int?
+  periodEnd   DateTime
+  reportDate  DateTime?
+  source      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  income      IncomeStatement?
+  balance     BalanceSheet?
+  cashflow    CashFlowStatement?
+  shares      ShareData?
+  derived     DerivedMetrics?
+
+  @@unique([companyId, period])
+  @@index([companyId, fiscalYear, fiscalQuarter])
+}
+
+model IncomeStatement {
+  id                    String  @id @default(cuid())
+  periodId              String  @unique
+  revenue               BigInt?
+  costOfRevenue         BigInt?
+  grossProfit           BigInt?
+  operatingExpense      BigInt?
+  sellingGeneralAdmin   BigInt?
+  researchDevelopment   BigInt?
+  operatingIncome       BigInt?
+  interestExpense       BigInt?
+  interestIncome        BigInt?
+  otherIncomeExpense    BigInt?
+  pretaxIncome          BigInt?
+  taxExpense            BigInt?
+  netIncome             BigInt?
+  dilutedEPS            Decimal? @db.Decimal(10, 4)
+  basicEPS              Decimal? @db.Decimal(10, 4)
+  sharesDiluted         BigInt?
+  sharesBasic           BigInt?
+
+  period                FinancialPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+}
+
+model BalanceSheet {
+  id                      String  @id @default(cuid())
+  periodId                String  @unique
+  cashAndEquivalents      BigInt?
+  marketableSecurities    BigInt?
+  accountsReceivable      BigInt?
+  inventory               BigInt?
+  currentAssets           BigInt?
+  propertyPlantEquipment  BigInt?
+  goodwill                BigInt?
+  intangibleAssets        BigInt?
+  totalAssets             BigInt?
+  accountsPayable         BigInt?
+  currentLiabilities      BigInt?
+  shortTermDebt           BigInt?
+  longTermDebt            BigInt?
+  totalDebt               BigInt?
+  totalLiabilities        BigInt?
+  shareholdersEquity      BigInt?
+  retainedEarnings        BigInt?
+  treasuryStock           BigInt?
+
+  period                  FinancialPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+}
+
+model CashFlowStatement {
+  id                      String  @id @default(cuid())
+  periodId                String  @unique
+  netIncome               BigInt?
+  depreciationAmortization BigInt?
+  stockBasedCompensation  BigInt?
+  changeInWorkingCapital  BigInt?
+  operatingCashFlow       BigInt?
+  capitalExpenditure      BigInt?
+  acquisitions            BigInt?
+  investingCashFlow       BigInt?
+  debtIssued              BigInt?
+  debtRepaid              BigInt?
+  shareRepurchases        BigInt?
+  dividendsPaid           BigInt?
+  financingCashFlow       BigInt?
+  freeCashFlow            BigInt?
+  freeCashFlowPerShare    Decimal? @db.Decimal(10, 4)
+
+  period                  FinancialPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+}
+
+model ShareData {
+  id              String  @id @default(cuid())
+  periodId        String  @unique
+  sharesOutstanding   BigInt?
+  sharesDiluted       BigInt?
+  sharePrice        Decimal? @db.Decimal(15, 4)
+
+  period            FinancialPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+}
+
+model DerivedMetrics {
+  id                    String  @id @default(cuid())
+  periodId              String  @unique
+  revenueGrowth         Decimal? @db.Decimal(10, 6)
+  grossMargin           Decimal? @db.Decimal(10, 6)
+  ebitMargin            Decimal? @db.Decimal(10, 6)
+  ebitdaMargin          Decimal? @db.Decimal(10, 6)
+  netMargin             Decimal? @db.Decimal(10, 6)
+  roe                   Decimal? @db.Decimal(10, 6)
+  roic                  Decimal? @db.Decimal(10, 6)
+  roa                   Decimal? @db.Decimal(10, 6)
+  fcfMargin             Decimal? @db.Decimal(10, 6)
+  fcfConversion         Decimal? @db.Decimal(10, 6)
+  debtToEbitda          Decimal? @db.Decimal(10, 6)
+  netDebtToEbitda       Decimal? @db.Decimal(10, 6)
+  currentRatio          Decimal? @db.Decimal(10, 6)
+  quickRatio            Decimal? @db.Decimal(10, 6)
+  assetTurnover         Decimal? @db.Decimal(10, 6)
+  workingCapital        BigInt?
+  epsGrowth             Decimal? @db.Decimal(10, 6)
+  bookValueGrowth       Decimal? @db.Decimal(10, 6)
+
+  period                FinancialPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+}
+
+model MarketPrice {
+  id            String   @id @default(cuid())
+  companyId     String
+  date          DateTime @db.Date
+  open          Decimal  @db.Decimal(15, 4)
+  high          Decimal  @db.Decimal(15, 4)
+  low           Decimal  @db.Decimal(15, 4)
+  close         Decimal  @db.Decimal(15, 4)
+  volume        BigInt
+  adjustedClose Decimal  @db.Decimal(15, 4)
+  source        String
+  createdAt     DateTime @default(now())
+
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, date])
+  @@index([companyId, date])
+}
+
+model MarketSnapshot {
+  id                String   @id @default(cuid())
+  companyId         String   @unique
+  price             Decimal  @db.Decimal(15, 4)
+  change            Decimal  @db.Decimal(10, 4)
+  changePercent     Decimal  @db.Decimal(10, 4)
+  marketCap         BigInt?
+  sharesOutstanding BigInt?
+  peRatio           Decimal? @db.Decimal(10, 4)
+  pbRatio           Decimal? @db.Decimal(10, 4)
+  beta              Decimal? @db.Decimal(10, 4)
+  fiftyTwoWeekHigh  Decimal? @db.Decimal(15, 4)
+  fiftyTwoWeekLow   Decimal? @db.Decimal(15, 4)
+  avgVolume         BigInt?
+  dividendYield     Decimal? @db.Decimal(10, 6)
+  updatedAt         DateTime @updatedAt
+
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model ValuationRun {
+  id            String   @id @default(cuid())
+  companyId     String
+  model         String   // DCF, REVERSE_DCF, COMPS, SOTP, DDM, RESIDUAL_INCOME, EVA
+  modelVersion  String   @default("1.0.0")
+  status        String   @default("COMPLETED") // COMPLETED, FAILED, RUNNING
+  inputs        Json
+  result        Json
+  confidence    Decimal? @db.Decimal(5, 2)
+  riskScore     Int?
+  durationMs    Int?
+  errorMessage  String?
+  createdAt     DateTime @default(now())
+
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  dcf           DCFModel?
+  reverseDcf    ReverseDCFModel?
+  comps         CompsModel?
+  sotp          SOTPModel?
+  scenario      ScenarioModel?
+  sensitivity   SensitivityModel?
+  monteCarlo    MonteCarloModel?
+  riskScoreRel  RiskScore?   @relation("ValuationRunRiskScore")
+  confidenceRel ConfidenceScore? @relation("ValuationRunConfidenceScore")
+
+  @@index([companyId, model, createdAt])
+}
+
+model DCFModel {
+  id            String   @id @default(cuid())
+  runId         String   @unique
+  wacc          Decimal  @db.Decimal(10, 6)
+  terminalGrowth Decimal @db.Decimal(10, 6)
+  forecastYears Int
+  revenueGrowth Json     // array of growth rates
+  ebitMargins   Json     // array of margins
+  taxRate       Decimal  @db.Decimal(10, 6)
+  enterpriseValue BigInt
+  equityValue   BigInt
+  fairValuePerShare Decimal @db.Decimal(15, 4)
+  currentPrice  Decimal  @db.Decimal(15, 4)
+  upside        Decimal  @db.Decimal(10, 6)
+  forecasts     Json     // full forecast table
+  createdAt     DateTime @default(now())
+
+  run           ValuationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+}
+
+model ReverseDCFModel {
+  id                  String   @id @default(cuid())
+  runId               String   @unique
+  currentPrice        Decimal  @db.Decimal(15, 4)
+  wacc                Decimal  @db.Decimal(10, 6)
+  terminalGrowth      Decimal  @db.Decimal(10, 6)
+  impliedRevenueGrowth Decimal @db.Decimal(10, 6)
+  impliedTerminalMargin Decimal @db.Decimal(10, 6)
+  impliedFcfGrowth    Decimal  @db.Decimal(10, 6)
+  interpretation      String
+  createdAt           DateTime @default(now())
+
+  run                 ValuationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+}
+
+model CompsModel {
+  id            String   @id @default(cuid())
+  runId         String   @unique
+  peerGroup     Json     // array of peer tickers
+  multiples     Json     // EV/Rev, EV/EBITDA, P/E, etc.
+  medianMultiples Json
+  impliedEV     BigInt
+  impliedEquity BigInt
+  fairValuePerShare Decimal @db.Decimal(15, 4)
+  createdAt     DateTime @default(now())
+
+  run           ValuationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+}
+
+model SOTPModel {
+  id            String   @id @default(cuid())
+  runId         String   @unique
+  segments      Json     // segment name, revenue, ebitda, multiple, EV
+  totalEV       BigInt
+  netDebt       BigInt
+  investments   BigInt
+  equityValue   BigInt
+  fairValuePerShare Decimal @db.Decimal(15, 4)
+  createdAt     DateTime @default(now())
+
+  run           ValuationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+}
+
+model ScenarioModel {
+  id            String   @id @default(cuid())
+  runId         String   @unique
+  bear          Json
+  base          Json
+  bull          Json
+  weightedValue Decimal  @db.Decimal(15, 4)
+  weights       Json     // bear, base, bull weights
+  createdAt     DateTime @default(now())
+
+  run           ValuationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+}
+
+model SensitivityModel {
+  id            String   @id @default(cuid())
+  runId         String   @unique
+  rows          Json     // WACC values
+  columns       Json     // Terminal growth values
+  values        Json     // 2D array of fair values
+  createdAt     DateTime @default(now())
+
+  run           ValuationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+}
+
+model MonteCarloModel {
+  id            String   @id @default(cuid())
+  runId         String   @unique
+  iterations    Int
+  variables     Json     // distributions for each variable
+  mean          Decimal  @db.Decimal(15, 4)
+  median        Decimal  @db.Decimal(15, 4)
+  p10           Decimal  @db.Decimal(15, 4)
+  p25           Decimal  @db.Decimal(15, 4)
+  p75           Decimal  @db.Decimal(15, 4)
+  p90           Decimal  @db.Decimal(15, 4)
+  distribution  Json     // histogram data
+  createdAt     DateTime @default(now())
+
+  run           ValuationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+}
+
+model RiskScore {
+  id              String   @id @default(cuid())
+  runId           String   @unique
+  overallScore    Int
+  businessRisk    Int
+  financialRisk   Int
+  valuationRisk   Int
+  growthRisk      Int
+  marginRisk      Int
+  leverageRisk    Int
+  cashFlowRisk    Int
+  marketRisk      Int
+  factors         Json     // array of factor explanations
+  createdAt       DateTime @default(now())
+
+  run             ValuationRun @relation("ValuationRunRiskScore", fields: [runId], references: [id], onDelete: Cascade)
+}
+
+model ConfidenceScore {
+  id                String   @id @default(cuid())
+  runId             String   @unique
+  score             Int
+  grade             String   // High, Medium, Low
+  dataQuality       Int
+  modelAgreement    Int
+  assumptionStability Int
+  financialQuality  Int
+  createdAt         DateTime @default(now())
+
+  run               ValuationRun @relation("ValuationRunConfidenceScore", fields: [runId], references: [id], onDelete: Cascade)
+}
+
+model DataSource {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  type        String   // MARKET, FINANCIALS, FUNDAMENTALS, NEWS
+  baseUrl     String?
+  apiKey      String?
+  rateLimit   Int?
+  priority    Int      @default(1)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  refreshLogs DataRefreshLog[]
+}
+
+model DataRefreshLog {
+  id          String   @id @default(cuid())
+  sourceId    String
+  entityType  String   // COMPANY, FINANCIALS, MARKET, VALUATION
+  entityId    String
+  status      String   // SUCCESS, FAILED, PARTIAL
+  records     Int
+  errorMessage String?
+  durationMs  Int
+  createdAt   DateTime @default(now())
+
+  source      DataSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([entityType, entityId, createdAt])
+}
