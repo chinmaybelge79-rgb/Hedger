@@ -7,6 +7,33 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  displayName   String?
+  plan          String   @default("free") // free, pro, institutional
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  valuations    ValuationRun[] @relation("UserValuations")
+  watchlist     WatchlistItem[]
+}
+
+model WatchlistItem {
+  id          String   @id @default(cuid())
+  userId      String
+  ticker      String
+  note        String?
+  targetPrice Decimal? @db.Decimal(18, 4)
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ticker])
+  @@index([userId])
+}
+
 model Company {
   id            String   @id @default(cuid())
   ticker        String   @unique
@@ -244,6 +271,7 @@ model MarketSnapshot {
 
 model ValuationRun {
   id            String   @id @default(cuid())
+  userId        String?
   companyId     String
   model         String   // DCF, REVERSE_DCF, COMPS, SOTP, DDM, RESIDUAL_INCOME, EVA
   modelVersion  String   @default("1.0.0")
@@ -256,6 +284,7 @@ model ValuationRun {
   errorMessage  String?
   createdAt     DateTime @default(now())
 
+  user          User?    @relation("UserValuations", fields: [userId], references: [id], onDelete: SetNull)
   company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   dcf           DCFModel?
   reverseDcf    ReverseDCFModel?

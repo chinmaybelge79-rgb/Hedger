@@ -4,6 +4,10 @@ export const companyParamsSchema = z.object({
   ticker: z.string().min(1).max(10).toUpperCase(),
 });
 
+export const priceHistoryQuerySchema = z.object({
+  years: z.coerce.number().int().min(1).max(20).default(7),
+});
+
 export const identitySchema = z.object({
   ticker: z.string(),
   name: z.string(),
@@ -79,4 +83,5 @@ export const companyResponseSchema = z.object({
 });
 
 export type CompanyParams = z.infer<typeof companyParamsSchema>;
+export type PriceHistoryQuery = z.infer<typeof priceHistoryQuerySchema>;
 export type CompanyResponse = z.infer<typeof companyResponseSchema>;

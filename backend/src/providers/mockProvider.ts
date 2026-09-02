@@ -15,25 +15,46 @@ const MOCK_PRICES: Record<string, number> = {
   'AAPL': 198.72, 'MSFT': 412.34, 'GOOGL': 162.48, 'NVDA': 842.18, 'TSLA': 248.50, 'AMZN': 178.30, 'META': 485.20, 'JPM': 195.80,
 };
 
+/** Deterministic PRNG (mulberry32) so mock data is stable across calls and restarts. */
+function seededRandom(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function hashTicker(ticker: string): number {
+  let h = 0;
+  for (let i = 0; i < ticker.length; i++) {
+    h = (Math.imul(31, h) + ticker.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
 function generatePriceHistory(basePrice: number, volatility: number = 0.02, days: number = 252 * 7) {
   const history = [];
+  const rand = seededRandom(hashTicker(basePrice.toFixed(2)));
   let price = basePrice * 0.3;
   const today = new Date();
-  
+
   for (let i = days; i >= 0; i--) {
     const date = new Date(today);
     date.setDate(date.getDate() - i);
-    
+
     const drift = (basePrice - price) / days * 0.1;
-    const shock = (Math.random() - 0.5) * 2 * volatility * price;
+    const shock = (rand() - 0.5) * 2 * volatility * price;
     price = Math.max(0.01, price + drift + shock);
-    
-    const open = price * (1 + (Math.random() - 0.5) * 0.01);
-    const high = Math.max(open, price) * (1 + Math.random() * 0.02);
-    const low = Math.min(open, price) * (1 - Math.random() * 0.02);
+
+    const open = price * (1 + (rand() - 0.5) * 0.01);
+    const high = Math.max(open, price) * (1 + rand() * 0.02);
+    const low = Math.min(open, price) * (1 - rand() * 0.02);
     const close = price;
-    const volume = Math.floor(Math.random() * 100000000) + 10000000;
-    
+    const volume = Math.floor(rand() * 100000000) + 10000000;
+
     history.push({
       date: date.toISOString().split('T')[0],
       open: Math.round(open * 100) / 100,
@@ -59,19 +80,22 @@ export class MockProvider implements FinancialDataProvider {
     const price = MOCK_PRICES[ticker.toUpperCase()];
     if (!company || !price) return null;
 
+    // Deterministic per-ticker values — stable across refresh jobs and restarts
+    const rand = seededRandom(hashTicker(ticker.toUpperCase()));
+
     return {
       price,
-      change: (Math.random() - 0.5) * 5,
-      changePercent: (Math.random() - 0.5) * 3,
+      change: (rand() - 0.5) * 5,
+      changePercent: (rand() - 0.5) * 3,
       marketCap: price * 1000000000,
       sharesOutstanding: 1000000000,
-      peRatio: 20 + Math.random() * 20,
-      pbRatio: 3 + Math.random() * 5,
-      beta: 0.8 + Math.random() * 0.5,
+      peRatio: 20 + rand() * 20,
+      pbRatio: 3 + rand() * 5,
+      beta: 0.8 + rand() * 0.5,
       fiftyTwoWeekHigh: price * 1.2,
       fiftyTwoWeekLow: price * 0.7,
       avgVolume: 50000000,
-      dividendYield: Math.random() * 0.03,
+      dividendYield: rand() * 0.03,
       priceHistory: generatePriceHistory(price),
     };
   }

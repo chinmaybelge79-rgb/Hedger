@@ -17,7 +17,7 @@ export const ddmResponseSchema = z.object({
   fairValuePerShare: z.number(),
   currentPrice: z.number(),
   upside: z.number(),
-  inputs: z.record(z.any()),
+  inputs: z.record(z.string(), z.any()),
 });
 
 export type DdmInput = z.infer<typeof ddmInputSchema>;

@@ -1,3 +1,4 @@
+import { AppError } from "@utils/errors";
 import { prisma } from '@config/database';
 import { EvaInput, EvaResponse } from '@api/schemas/eva';
 
@@ -8,7 +9,7 @@ export async function calculateEva(ticker: string, input: EvaInput): Promise<Eva
   });
 
   if (!targetCompany) {
-    throw new Error(`Company ${ticker} not found`);
+    throw AppError.notFound("Company", ticker);
   }
 
   const { wacc, forecastYears, nopat, investedCapital, terminalGrowth, currentInvestedCapital, sharesOutstanding } = input;

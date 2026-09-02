@@ -1,6 +1,7 @@
 import { MonteCarloInput, MonteCarloResponse } from '@api/schemas/analytics';
-import { calculateDcf } from '@valuation/dcf/dcfEngine';
+import { loadDcfBase, runDcfMath } from '@valuation/dcf/dcfEngine';
 
+/** Box-Muller transform: one normal sample per call. */
 function sampleNormal(mean: number, stdDev: number): number {
   let u = 0, v = 0;
   while (u === 0) u = Math.random();
@@ -11,34 +12,39 @@ function sampleNormal(mean: number, stdDev: number): number {
 
 export async function calculateMonteCarlo(ticker: string, input: MonteCarloInput): Promise<MonteCarloResponse> {
   const { iterations, variables, baseInputs } = input;
-  const currentPrice = 0; // Will be fetched inside calculateDcf
+
+  // Load fundamentals exactly once; iterate over pure math
+  const base = await loadDcfBase(ticker, {
+    sharesOutstanding: baseInputs.sharesOutstanding,
+    netDebt: baseInputs.netDebt,
+    cash: baseInputs.cash,
+  });
 
   const results: number[] = [];
+  const years = baseInputs.forecastYears;
 
   for (let i = 0; i < iterations; i++) {
-    const revenueGrowth = Array(baseInputs.forecastYears).fill(0).map(() => sampleNormal(variables.revenueGrowth.mean, variables.revenueGrowth.stdDev));
-    const ebitMargin = Array(baseInputs.forecastYears).fill(0).map(() => sampleNormal(variables.ebitMargin.mean, variables.ebitMargin.stdDev));
-    const wacc = sampleNormal(variables.wacc.mean, variables.wacc.stdDev);
-    const terminalGrowth = sampleNormal(variables.terminalGrowth.mean, variables.terminalGrowth.stdDev);
+    const revenueGrowth = Array.from({ length: years }, () =>
+      sampleNormal(variables.revenueGrowth.mean, variables.revenueGrowth.stdDev));
+    const ebitMargin = Array.from({ length: years }, () =>
+      sampleNormal(variables.ebitMargin.mean, variables.ebitMargin.stdDev));
+    const wacc = Math.max(0.01, Math.min(0.3, sampleNormal(variables.wacc.mean, variables.wacc.stdDev)));
+    const terminalGrowth = Math.max(0, Math.min(0.1, sampleNormal(variables.terminalGrowth.mean, variables.terminalGrowth.stdDev)));
 
     try {
-      const result = await calculateDcf(ticker, {
-        forecastYears: baseInputs.forecastYears,
+      const result = runDcfMath(base, {
+        forecastYears: years,
         revenueGrowth,
         ebitMargin,
         taxRate: baseInputs.taxRate,
-        wacc: Math.max(0.01, Math.min(0.3, wacc)),
-        terminalGrowth: Math.max(0, Math.min(0.1, terminalGrowth)),
-        sharesOutstanding: baseInputs.sharesOutstanding,
-        netDebt: baseInputs.netDebt,
-        cash: baseInputs.cash,
-      }, currentPrice);
-
+        wacc,
+        terminalGrowth,
+      });
       if (result.fairValuePerShare > 0 && isFinite(result.fairValuePerShare)) {
         results.push(result.fairValuePerShare);
       }
     } catch {
-      // Skip failed iterations
+      // Skip invalid iterations (e.g., wacc <= terminal growth after clamping)
     }
   }
 
@@ -48,28 +54,35 @@ export async function calculateMonteCarlo(ticker: string, input: MonteCarloInput
 
   results.sort((a, b) => a - b);
 
-  const mean = results.reduce((a, b) => a + b, 0) / results.length;
-  const median = results[Math.floor(results.length / 2)];
-  const p10 = results[Math.floor(results.length * 0.1)];
-  const p25 = results[Math.floor(results.length * 0.25)];
-  const p75 = results[Math.floor(results.length * 0.75)];
-  const p90 = results[Math.floor(results.length * 0.9)];
+  const n = results.length;
+  const mean = results.reduce((a, b) => a + b, 0) / n;
+  const median = results[Math.floor(n / 2)];
+  const percentile = (p: number) => results[Math.min(n - 1, Math.floor(n * p))];
+  const p10 = percentile(0.1);
+  const p25 = percentile(0.25);
+  const p75 = percentile(0.75);
+  const p90 = percentile(0.9);
 
+  // Single-pass histogram: O(n) instead of O(n * bins)
   const min = results[0];
-  const max = results[results.length - 1];
+  const max = results[n - 1];
   const binCount = 20;
-  const binSize = (max - min) / binCount;
-  const distribution: { value: number; count: number }[] = [];
+  const binSize = (max - min) / binCount || 1;
+  const counts = new Array<number>(binCount).fill(0);
 
-  for (let i = 0; i < binCount; i++) {
-    const binMin = min + i * binSize;
-    const binMax = min + (i + 1) * binSize;
-    const count = results.filter(v => v >= binMin && v < (i === binCount - 1 ? binMax + 1 : binMax)).length;
-    distribution.push({ value: (binMin + binMax) / 2, count });
+  for (const v of results) {
+    let idx = Math.floor((v - min) / binSize);
+    if (idx >= binCount) idx = binCount - 1; // include max in last bin
+    counts[idx]++;
   }
 
+  const distribution = counts.map((count, i) => ({
+    value: min + (i + 0.5) * binSize,
+    count,
+  }));
+
   return {
-    iterations: results.length,
+    iterations: n,
     mean,
     median,
     p10,

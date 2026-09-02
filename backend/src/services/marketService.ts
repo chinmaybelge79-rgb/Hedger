@@ -17,8 +17,9 @@ export async function getMarketData(ticker: string): Promise<MarketResponse | nu
     include: {
       marketSnapshot: true,
       marketData: {
-        orderBy: { date: 'desc' },
+        orderBy: { date: 'asc' },
         take: 252 * 7,
+        select: { date: true, open: true, high: true, low: true, close: true, volume: true, adjustedClose: true },
       },
     },
   });
@@ -26,7 +27,8 @@ export async function getMarketData(ticker: string): Promise<MarketResponse | nu
   if (!company) return null;
 
   const snapshot = company.marketSnapshot;
-  const priceHistory = company.marketData.reverse().map(p => ({
+  // Query is already ascending — no reverse() needed
+  const priceHistory = company.marketData.map(p => ({
     date: p.date.toISOString().split('T')[0],
     open: Number(p.open),
     high: Number(p.high),
@@ -51,7 +53,7 @@ export async function getMarketData(ticker: string): Promise<MarketResponse | nu
       fiftyTwoWeekLow: snapshot?.fiftyTwoWeekLow ? Number(snapshot.fiftyTwoWeekLow) : null,
       avgVolume: snapshot?.avgVolume ? Number(snapshot.avgVolume) : null,
       dividendYield: snapshot?.dividendYield ? Number(snapshot.dividendYield) : null,
-      volume: snapshot?.avgVolume ? Number(snapshot.avgVolume) : null,
+      volume: null,
       updatedAt: snapshot ? snapshot.updatedAt.toISOString() : new Date().toISOString(),
     },
     priceHistory,

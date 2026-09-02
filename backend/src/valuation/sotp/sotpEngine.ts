@@ -1,3 +1,4 @@
+import { AppError } from "@utils/errors";
 import { prisma } from '@config/database';
 import { SotpInput, SotpResponse } from '@api/schemas/sotp';
 
@@ -8,7 +9,7 @@ export async function calculateSotp(ticker: string, input: SotpInput): Promise<S
   });
 
   if (!targetCompany) {
-    throw new Error(`Company ${ticker} not found`);
+    throw AppError.notFound("Company", ticker);
   }
 
   const segments = input.segments.map(s => ({

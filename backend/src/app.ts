@@ -17,13 +17,17 @@ import { companyRoutes } from './api/routes/companies';
 import { marketRoutes } from './api/routes/market';
 import { financialsRoutes } from './api/routes/financials';
 import { valuationRoutes } from './api/routes/valuation';
+import { modelRoutes } from './api/routes/models';
 import { analyticsRoutes } from './api/routes/analytics';
 import { summaryRoutes } from './api/routes/summary';
+import { authRoutes } from './api/routes/auth';
+import { runsRoutes } from './api/routes/runs';
 import { providerRegistry } from './providers/base';
 import { MockProvider } from './providers/mockProvider';
+import { FinnhubProvider } from './providers/finnhubProvider';
 import { initializeJobWorkers } from './jobs/refreshJobs';
 
-export async function buildApp(): Promise<FastifyInstance> {
+export async function buildApp() {
   const env = getEnv();
 
   const app = Fastify({
@@ -99,13 +103,16 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   await app.register(healthRoutes, { prefix: '/api/v1' });
+  await app.register(authRoutes, { prefix: '/api/v1' });
   await app.register(searchRoutes, { prefix: '/api/v1' });
   await app.register(companyRoutes, { prefix: '/api/v1' });
   await app.register(marketRoutes, { prefix: '/api/v1' });
   await app.register(financialsRoutes, { prefix: '/api/v1' });
   await app.register(valuationRoutes, { prefix: '/api/v1' });
+  await app.register(modelRoutes, { prefix: '/api/v1' });
   await app.register(analyticsRoutes, { prefix: '/api/v1' });
   await app.register(summaryRoutes, { prefix: '/api/v1' });
+  await app.register(runsRoutes, { prefix: '/api/v1' });
 
   app.get('/api/v1', async () => ({
     name: 'Hedger API',
@@ -125,6 +132,10 @@ export async function startServer(): Promise<void> {
   await connectRedis();
 
   providerRegistry.register(new MockProvider());
+  if (env.PROVIDER_API_KEY && env.PROVIDER_BASE_URL?.includes('finnhub')) {
+    // Real market data when configured; registry order = priority, mock is fallback
+    providerRegistry.registerAt(0, new FinnhubProvider(env.PROVIDER_API_KEY));
+  }
   initializeJobWorkers();
 
   const gracefulShutdown = async (signal: string): Promise<void> => {

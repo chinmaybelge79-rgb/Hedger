@@ -1,5 +1,6 @@
 import { prisma } from '@config/database';
 import { RiskResponse } from '@api/schemas/risk';
+import { AppError } from '@utils/errors';
 
 export async function calculateRisk(ticker: string): Promise<RiskResponse> {
   const company = await prisma.company.findUnique({
@@ -19,7 +20,7 @@ export async function calculateRisk(ticker: string): Promise<RiskResponse> {
   });
 
   if (!company) {
-    throw new Error(`Company ${ticker} not found`);
+    throw AppError.notFound('Company', ticker);
   }
 
   const latest = company.financials[0];

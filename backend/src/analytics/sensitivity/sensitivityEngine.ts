@@ -1,5 +1,5 @@
 import { SensitivityInput, SensitivityResponse } from '@api/schemas/analytics';
-import { calculateDcf } from '@valuation/dcf/dcfEngine';
+import { loadDcfBase, runDcfMath } from '@valuation/dcf/dcfEngine';
 
 export async function calculateSensitivity(ticker: string, input: SensitivityInput): Promise<SensitivityResponse> {
   const { baseWacc, baseTerminalGrowth, waccRange, terminalRange, steps } = input;
@@ -9,27 +9,31 @@ export async function calculateSensitivity(ticker: string, input: SensitivityInp
   const columns: number[] = [];
 
   for (let i = -halfSteps; i <= halfSteps; i++) {
-    rows.push(baseWacc + i * waccRange / halfSteps);
-    columns.push(baseTerminalGrowth + i * terminalRange / halfSteps);
+    rows.push(baseWacc + (i * waccRange) / halfSteps);
+    columns.push(baseTerminalGrowth + (i * terminalRange) / halfSteps);
   }
 
-  const values: number[][] = [];
+  // Load fundamentals once; run the grid over pure math
+  const base = await loadDcfBase(ticker);
+  const revenueGrowth = [0.08, 0.07, 0.06, 0.05, 0.04];
+  const ebitMargin = [0.31, 0.32, 0.32, 0.33, 0.33];
 
+  const values: number[][] = [];
   for (const wacc of rows) {
     const row: number[] = [];
     for (const terminalGrowth of columns) {
       try {
-        const result = await calculateDcf(ticker, {
+        const result = runDcfMath(base, {
           forecastYears: 5,
-          revenueGrowth: [0.08, 0.07, 0.06, 0.05, 0.04],
-          ebitMargin: [0.31, 0.32, 0.32, 0.33, 0.33],
+          revenueGrowth,
+          ebitMargin,
           taxRate: 0.21,
           wacc,
           terminalGrowth,
         });
         row.push(result.fairValuePerShare);
       } catch {
-        row.push(0);
+        row.push(0); // invalid combo (wacc <= g)
       }
     }
     values.push(row);

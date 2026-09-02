@@ -10,12 +10,21 @@ export async function calculateScenarios(ticker: string, input: ScenarioInput, c
     calculateDcf(ticker, { ...bull, forecastYears: bull.revenueGrowth.length }),
   ]);
 
-  const weightedValue = bearResult.fairValuePerShare * weights.bear + baseResult.fairValuePerShare * weights.base + bullResult.fairValuePerShare * weights.bull;
+  // Normalize weights so arbitrary user weights produce a true weighted average
+  const totalWeight = weights.bear + weights.base + weights.bull;
+  const w = totalWeight > 0 ? { bear: weights.bear / totalWeight, base: weights.base / totalWeight, bull: weights.bull / totalWeight } : { bear: 1 / 3, base: 1 / 3, bull: 1 / 3 };
+
+  const weightedValue =
+    bearResult.fairValuePerShare * w.bear +
+    baseResult.fairValuePerShare * w.base +
+    bullResult.fairValuePerShare * w.bull;
+
+  const upside = (fv: number) => (currentPrice > 0 ? (fv - currentPrice) / currentPrice : 0);
 
   return {
-    bear: { fairValue: bearResult.fairValuePerShare, upside: currentPrice > 0 ? (bearResult.fairValuePerShare - currentPrice) / currentPrice : 0 },
-    base: { fairValue: baseResult.fairValuePerShare, upside: currentPrice > 0 ? (baseResult.fairValuePerShare - currentPrice) / currentPrice : 0 },
-    bull: { fairValue: bullResult.fairValuePerShare, upside: currentPrice > 0 ? (bullResult.fairValuePerShare - currentPrice) / currentPrice : 0 },
+    bear: { fairValue: bearResult.fairValuePerShare, upside: upside(bearResult.fairValuePerShare) },
+    base: { fairValue: baseResult.fairValuePerShare, upside: upside(baseResult.fairValuePerShare) },
+    bull: { fairValue: bullResult.fairValuePerShare, upside: upside(bullResult.fairValuePerShare) },
     weightedValue,
   };
 }

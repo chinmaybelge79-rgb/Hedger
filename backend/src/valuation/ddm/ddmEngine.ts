@@ -1,3 +1,4 @@
+import { AppError } from "@utils/errors";
 import { prisma } from '@config/database';
 import { DdmInput, DdmResponse } from '@api/schemas/ddm';
 
@@ -8,7 +9,7 @@ export async function calculateDdm(ticker: string, input: DdmInput): Promise<Ddm
   });
 
   if (!targetCompany) {
-    throw new Error(`Company ${ticker} not found`);
+    throw AppError.notFound("Company", ticker);
   }
 
   const { model, currentDividend, growthRate, terminalGrowth, costOfEquity, highGrowthYears, highGrowthRate, stableGrowthRate } = input;

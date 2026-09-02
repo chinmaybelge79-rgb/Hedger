@@ -1,3 +1,4 @@
+import { AppError } from "@utils/errors";
 import { prisma } from '@config/database';
 import { ResidualIncomeInput, ResidualIncomeResponse } from '@api/schemas/residualIncome';
 
@@ -15,7 +16,7 @@ export async function calculateResidualIncome(ticker: string, input: ResidualInc
   });
 
   if (!targetCompany) {
-    throw new Error(`Company ${ticker} not found`);
+    throw AppError.notFound("Company", ticker);
   }
 
   const { bookValuePerShare, costOfEquity, forecastYears, roe, payoutRatio, terminalGrowth } = input;

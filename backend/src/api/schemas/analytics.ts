@@ -40,7 +40,7 @@ export const scenarioInputSchema = z.object({
     bear: z.number().min(0).max(1).default(0.25),
     base: z.number().min(0).max(1).default(0.5),
     bull: z.number().min(0).max(1).default(0.25),
-  }),
+  }).default({ bear: 0.25, base: 0.5, bull: 0.25 }),
 });
 
 export const scenarioResponseSchema = z.object({

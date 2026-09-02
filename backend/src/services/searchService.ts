@@ -2,6 +2,7 @@ import { prisma } from '@config/database';
 import { redis } from '@config/redis';
 import { SearchQuery, SearchResult } from '@api/schemas/search';
 import { logger } from '@config/logger';
+import { providerRegistry } from '@providers/base';
 
 const SEARCH_CACHE_TTL = 300;
 const UNIVERSE_CACHE_KEY = 'search:universe';
@@ -78,9 +79,26 @@ export async function searchCompanies(query: SearchQuery): Promise<SearchResult[
          u.sym !== normalizedQuery
   );
 
-  const combined = [...exactMatches, ...prefixMatches, ...nameMatches].slice(0, limit);
+  const combined = [...exactMatches, ...prefixMatches, ...nameMatches];
 
-  return combined.map(u => ({
+  // If the local universe yields few matches, try live providers for broader coverage
+  if (combined.length < limit) {
+    try {
+      const live = await providerRegistry.searchCompanies(q);
+      const seen = new Set(combined.map(u => u.sym));
+      for (const r of live) {
+        if (seen.has(r.symbol) || combined.length >= limit) continue;
+        seen.add(r.symbol);
+        combined.push({ sym: r.symbol, name: r.name, exch: r.exchange });
+      }
+    } catch (e) {
+      logger.debug({ err: String(e) }, 'Live provider search unavailable, using local universe only');
+    }
+  }
+
+  const limited = combined.slice(0, limit);
+
+  return limited.map(u => ({
     symbol: u.sym,
     name: u.name,
     exchange: u.exch,

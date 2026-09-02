@@ -120,6 +120,11 @@ export class ProviderRegistry {
     this.providers.push(provider);
   }
 
+  /** Register a provider at a priority index (0 = first tried) */
+  registerAt(index: number, provider: FinancialDataProvider): void {
+    this.providers.splice(Math.min(index, this.providers.length), 0, provider);
+  }
+
   getAll(): FinancialDataProvider[] {
     return this.providers;
   }
@@ -150,6 +155,18 @@ export class ProviderRegistry {
       }
     }
     return null;
+  }
+
+  async searchCompanies(query: string): Promise<Array<{ symbol: string; name: string; exchange: string; type: string; currency: string }>> {
+    for (const provider of this.providers) {
+      try {
+        const result = await provider.searchCompanies(query);
+        if (result && result.length > 0) return result;
+      } catch (e) {
+        console.error(`Provider ${provider.name} failed for searchCompanies:`, e);
+      }
+    }
+    return [];
   }
 }
 

@@ -1,5 +1,6 @@
 import { prisma } from '@config/database';
 import { ConfidenceResponse } from '@api/schemas/confidence';
+import { AppError } from '@utils/errors';
 
 export async function calculateConfidence(ticker: string): Promise<ConfidenceResponse> {
   const company = await prisma.company.findUnique({
@@ -18,7 +19,7 @@ export async function calculateConfidence(ticker: string): Promise<ConfidenceRes
   });
 
   if (!company) {
-    throw new Error(`Company ${ticker} not found`);
+    throw AppError.notFound('Company', ticker);
   }
 
   const financials = company.financials;

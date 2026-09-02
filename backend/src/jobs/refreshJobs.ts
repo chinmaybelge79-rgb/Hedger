@@ -25,8 +25,23 @@ async function refreshMarketData(ticker: string): Promise<void> {
     let company = await prisma.company.findUnique({ where: { ticker: ticker.toUpperCase() } });
     if (!company) {
       const companyData = await provider.getCompany(ticker);
-      if (!companyData) return;
-      company = await prisma.company.create({ data: companyData });
+      if (!companyData?.ticker || !companyData?.name) return;
+      company = await prisma.company.upsert({
+        where: { ticker: companyData.ticker.toUpperCase() },
+        update: {},
+        create: {
+          ticker: companyData.ticker.toUpperCase(),
+          name: companyData.name,
+          exchange: companyData.exchange || 'NASDAQ',
+          country: companyData.country || 'US',
+          currency: companyData.currency || 'USD',
+          sector: companyData.sector,
+          industry: companyData.industry,
+          description: companyData.description,
+          website: companyData.website,
+          logoUrl: companyData.logoUrl,
+        },
+      });
     }
 
     await prisma.marketSnapshot.upsert({
@@ -62,12 +77,22 @@ async function refreshMarketData(ticker: string): Promise<void> {
       },
     });
 
-    for (const point of marketData.priceHistory) {
-      await prisma.marketPrice.upsert({
-        where: { companyId_date: { companyId: company.id, date: new Date(point.date) } },
-        update: { open: point.open, high: point.high, low: point.low, close: point.close, volume: point.volume, adjustedClose: point.adjustedClose, source: provider.name },
-        create: { companyId: company.id, date: new Date(point.date), open: point.open, high: point.high, low: point.low, close: point.close, volume: point.volume, adjustedClose: point.adjustedClose, source: provider.name },
-      });
+    // Batch price history instead of one upsert per row (was 1,825 sequential queries)
+    if (marketData.priceHistory.length > 0) {
+      const rows = marketData.priceHistory.map(point => ({
+        companyId: company.id,
+        date: new Date(point.date),
+        open: point.open,
+        high: point.high,
+        low: point.low,
+        close: point.close,
+        volume: point.volume,
+        adjustedClose: point.adjustedClose,
+        source: provider.name,
+      }));
+
+      // Insert new dates in one query; silently skip dates that already exist
+      await prisma.marketPrice.createMany({ data: rows, skipDuplicates: true });
     }
 
     logger.info({ ticker, durationMs: Date.now() - startTime }, 'Market data refreshed');
@@ -86,8 +111,23 @@ async function refreshFinancialData(ticker: string): Promise<void> {
     let company = await prisma.company.findUnique({ where: { ticker: ticker.toUpperCase() } });
     if (!company) {
       const companyData = await provider.getCompany(ticker);
-      if (!companyData) return;
-      company = await prisma.company.create({ data: companyData });
+      if (!companyData?.ticker || !companyData?.name) return;
+      company = await prisma.company.upsert({
+        where: { ticker: companyData.ticker.toUpperCase() },
+        update: {},
+        create: {
+          ticker: companyData.ticker.toUpperCase(),
+          name: companyData.name,
+          exchange: companyData.exchange || 'NASDAQ',
+          country: companyData.country || 'US',
+          currency: companyData.currency || 'USD',
+          sector: companyData.sector,
+          industry: companyData.industry,
+          description: companyData.description,
+          website: companyData.website,
+          logoUrl: companyData.logoUrl,
+        },
+      });
     }
 
     const periods = ['2024-FY', '2023-FY', '2022-FY', '2021-FY', '2020-FY'];

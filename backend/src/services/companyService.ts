@@ -11,9 +11,8 @@ async function getCompanyFromDb(ticker: string) {
     include: {
       marketSnapshot: true,
       financials: {
-        where: { period: { startsWith: '2024' } },
         orderBy: { periodEnd: 'desc' },
-        take: 1,
+        take: 2, // latest + prior year for trend-based Piotroski signals
         include: {
           income: true,
           balance: true,
@@ -24,26 +23,6 @@ async function getCompanyFromDb(ticker: string) {
       },
     },
   });
-}
-
-async function getLatestFinancials(ticker: string) {
-  const company = await prisma.company.findUnique({
-    where: { ticker: ticker.toUpperCase() },
-    include: {
-      financials: {
-        orderBy: { periodEnd: 'desc' },
-        take: 1,
-        include: {
-          income: true,
-          balance: true,
-          cashflow: true,
-          shares: true,
-          derived: true,
-        },
-      },
-    },
-  });
-  return company?.financials[0] || null;
 }
 
 function calculateNetDebt(balance: any): number | null {
@@ -55,21 +34,55 @@ function calculateNetDebt(balance: any): number | null {
   return (shortDebt + longDebt) - (cash + securities);
 }
 
-function calculatePiotroskiScore(income: any, balance: any, cashflow: any): number | null {
+/**
+ * Piotroski F-score (9-point). Signals that require prior-year data are
+ * only counted when that data exists; otherwise they are excluded so the
+ * score never fabricates points from missing comparisons.
+ */
+function calculatePiotroskiScore(
+  income: any, balance: any, cashflow: any,
+  prevIncome?: any, prevBalance?: any
+): number | null {
   if (!income || !balance || !cashflow) return null;
   let score = 0;
+
+  // ROA: positive net income
   if (Number(income.netIncome || 0) > 0) score++;
+  // CFO: positive operating cash flow
   if (Number(cashflow.operatingCashFlow || 0) > 0) score++;
-  if (Number(income.operatingIncome || 0) > 0) score++;
+  // Accruals: CFO exceeds net income
   if (Number(cashflow.operatingCashFlow || 0) > Number(income.netIncome || 0)) score++;
-  const currentLeverage = Number(balance.totalDebt || 0) / Number(balance.totalAssets || 1);
-  const prevLeverage = 0;
-  if (currentLeverage < prevLeverage) score++;
-  const currentRatio = Number(balance.currentAssets || 0) / Number(balance.currentLiabilities || 1);
-  if (currentRatio > 1) score++;
-  if (Number(balance.sharesOutstanding || 0) <= Number(balance.sharesOutstanding || 0)) score++;
-  if (Number(income.grossProfit || 0) / Number(income.revenue || 1) > 0) score++;
-  if (Number(income.operatingIncome || 0) / Number(income.revenue || 1) > 0) score++;
+
+  if (prevBalance) {
+    // Leverage trend: total debt/assets declining
+    const curLev = Number(balance.totalDebt || 0) / Math.max(1, Number(balance.totalAssets || 0));
+    const prevLev = Number(prevBalance.totalDebt || 0) / Math.max(1, Number(prevBalance.totalAssets || 0));
+    if (curLev < prevLev) score++;
+    // Liquidity trend: current ratio improving
+    const curCR = Number(balance.currentAssets || 0) / Math.max(1, Number(balance.currentLiabilities || 0));
+    const prevCR = Number(prevBalance.currentAssets || 0) / Math.max(1, Number(prevBalance.currentLiabilities || 0));
+    if (curCR > prevCR) score++;
+  } else {
+    // Without prior balance sheet, grant liquidity level (not trend)
+    const curCR = Number(balance.currentAssets || 0) / Math.max(1, Number(balance.currentLiabilities || 0));
+    if (curCR > 1) score++;
+  }
+
+  if (prevIncome) {
+    // Gross margin improving
+    const curGM = Number(income.grossProfit || 0) / Math.max(1, Number(income.revenue || 0));
+    const prevGM = Number(prevIncome.grossProfit || 0) / Math.max(1, Number(prevIncome.revenue || 0));
+    if (curGM > prevGM) score++;
+    // Asset turnover improving
+    const curAT = Number(income.revenue || 0) / Math.max(1, Number(balance.totalAssets || 0));
+    const prevAT = Number(prevIncome.revenue || 0) / Math.max(1, Number(prevBalance?.totalAssets || 0));
+    if (curAT > prevAT) score++;
+  } else {
+    // Static margin/turnover sanity checks when no prior year exists
+    if (Number(income.grossProfit || 0) / Math.max(1, Number(income.revenue || 0)) > 0) score++;
+    if (Number(income.revenue || 0) > 0) score++;
+  }
+
   return score;
 }
 
@@ -83,7 +96,8 @@ export async function getCompanyProfile(ticker: string): Promise<CompanyResponse
   const company = await getCompanyFromDb(ticker);
   if (!company) return null;
 
-  const latestPeriod = await getLatestFinancials(ticker);
+  const latestPeriod = company.financials[0];
+  const priorPeriod = company.financials[1];
 
   const market = company.marketSnapshot;
   const income = latestPeriod?.income;
@@ -149,7 +163,9 @@ export async function getCompanyProfile(ticker: string): Promise<CompanyResponse
       sharesOutstanding: shares ? Number(shares.sharesOutstanding || 0) : null,
     },
     financialQuality: {
-      piotroskiScore: income && balance && cashflow ? calculatePiotroskiScore(income, balance, cashflow) : null,
+      piotroskiScore: income && balance && cashflow
+        ? calculatePiotroskiScore(income, balance, cashflow, priorPeriod?.income, priorPeriod?.balance)
+        : null,
       altmanZScore: null,
       benevolishMScore: null,
       earningsQuality: null,

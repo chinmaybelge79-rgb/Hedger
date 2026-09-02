@@ -45,6 +45,12 @@ export function loadEnv(): Env {
   }
 
   env = result.data;
+
+  if (env.NODE_ENV === 'production' && !env.JWT_SECRET) {
+    console.error('❌ JWT_SECRET is required in production (min 32 chars)');
+    process.exit(1);
+  }
+
   return env;
 }
 

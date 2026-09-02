@@ -1,3 +1,4 @@
+import { AppError } from "@utils/errors";
 import { prisma } from '@config/database';
 import { CompsInput, CompsResponse } from '@api/schemas/comps';
 import { logger } from '@config/logger';
@@ -78,7 +79,7 @@ export async function calculateComps(ticker: string, input: CompsInput): Promise
   });
 
   if (!targetCompany) {
-    throw new Error(`Company ${ticker} not found`);
+    throw AppError.notFound("Company", ticker);
   }
 
   const sector = targetCompany.sector || 'Technology';

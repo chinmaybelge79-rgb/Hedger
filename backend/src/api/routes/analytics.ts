@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
-import { valuationParamsSchema, sensitivityInputSchema, scenarioInputSchema, monteCarloInputSchema } from '@api/schemas/analytics';
+import { valuationParamsSchema } from '@api/schemas/valuation';
+import { sensitivityInputSchema, scenarioInputSchema, monteCarloInputSchema } from '@api/schemas/analytics';
 import { calculateSensitivity } from '@analytics/sensitivity/sensitivityEngine';
 import { calculateScenarios } from '@analytics/scenarios/scenariosEngine';
 import { calculateMonteCarlo } from '@analytics/monte-carlo/monteCarloEngine';

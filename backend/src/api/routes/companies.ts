@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
-import { companyParamsSchema } from '@api/schemas/company';
+import { companyParamsSchema, priceHistoryQuerySchema, PriceHistoryQuery } from '@api/schemas/company';
 import { getCompanyProfile, getCompanyPriceHistory } from '@services/companyService';
 import { createSuccessResponse } from '@api/schemas/response';
 import { AppError } from '@utils/errors';
@@ -27,15 +27,15 @@ export async function companyRoutes(
   app.get('/companies/:ticker/price-history', {
     schema: {
       params: companyParamsSchema,
-      querystring: { type: 'object', properties: { years: { type: 'integer', minimum: 1, maximum: 20, default: 7 } } },
+      querystring: priceHistoryQuerySchema,
       tags: ['Companies'],
       summary: 'Get price history',
       description: 'Get historical price data for charting',
     },
   }, async (request, reply) => {
     const { ticker } = request.params as { ticker: string };
-    const { years = 7 } = request.query as { years?: number };
+    const { years = 7 } = request.query as PriceHistoryQuery;
     const data = await getCompanyPriceHistory(ticker, years);
-    return reply.send(createSuccessResponse({ data }, request.id));
+    return reply.send(createSuccessResponse(data, request.id));
   });
 }

@@ -1,28 +1,33 @@
 import { ReverseDcfInput, ReverseDcfResponse } from '@api/schemas/valuation';
-import { calculateDcf } from '../dcf/dcfEngine';
-import { logger } from '@config/logger';
+import { loadDcfBase, runDcfMath, type DcfCompanyBase } from '../dcf/dcfEngine';
 
-async function binarySearchAsync(
-  fn: (x: number) => Promise<number>,
+/**
+ * Synchronous bisection over the pure DCF math core.
+ * The function is monotonic in both growth and margin, so bisection is exact.
+ */
+function binarySearch(
+  fn: (x: number) => number,
   target: number,
   low: number,
   high: number,
-  tolerance: number = 1e-6,
-  maxIterations: number = 50
-): Promise<number> {
+  tolerance: number = 1e-4,
+  maxIterations: number = 60
+): number {
+  let lo = low;
+  let hi = high;
   for (let i = 0; i < maxIterations; i++) {
-    const mid = (low + high) / 2;
-    const value = await fn(mid);
-    if (Math.abs(value - target) < tolerance) {
+    const mid = (lo + hi) / 2;
+    const value = fn(mid);
+    if (Math.abs(value - target) < tolerance * Math.max(1, Math.abs(target))) {
       return mid;
     }
     if (value < target) {
-      low = mid;
+      lo = mid;
     } else {
-      high = mid;
+      hi = mid;
     }
   }
-  return (low + high) / 2;
+  return (lo + hi) / 2;
 }
 
 export async function calculateReverseDcf(
@@ -31,19 +36,28 @@ export async function calculateReverseDcf(
 ): Promise<ReverseDcfResponse> {
   const { currentPrice, wacc, terminalGrowth, sharesOutstanding, netDebt, cash } = input;
 
-  const baseCase = await calculateDcf(ticker, {
-    forecastYears: 5,
-    revenueGrowth: [0.05, 0.05, 0.05, 0.05, 0.05],
-    ebitMargin: [0.2, 0.2, 0.2, 0.2, 0.2],
-    taxRate: 0.21,
-    wacc,
-    terminalGrowth,
+  const base = await loadDcfBase(ticker, {
     sharesOutstanding,
     netDebt,
     cash,
-  }, currentPrice);
+    currentPrice,
+  });
 
-  const baseFairValue = baseCase.fairValuePerShare;
+  if (currentPrice <= 0) {
+    throw new Error('Current price must be positive for reverse DCF');
+  }
+
+  const dcfFor = (growth: number[], margin: number[]) =>
+    runDcfMath(base, {
+      forecastYears: 5,
+      revenueGrowth: growth,
+      ebitMargin: margin,
+      taxRate: 0.21,
+      wacc,
+      terminalGrowth,
+    }).fairValuePerShare;
+
+  const baseFairValue = dcfFor([0.05, 0.05, 0.05, 0.05, 0.05], [0.2, 0.2, 0.2, 0.2, 0.2]);
 
   if (Math.abs(baseFairValue - currentPrice) / currentPrice < 0.01) {
     return {
@@ -54,61 +68,25 @@ export async function calculateReverseDcf(
     };
   }
 
-  const impliedRevenueGrowth = await binarySearchAsync(
-    async (growth) => {
-      const result = await calculateDcf(ticker, {
-        forecastYears: 5,
-        revenueGrowth: Array(5).fill(growth),
-        ebitMargin: [0.2, 0.2, 0.2, 0.2, 0.2],
-        taxRate: 0.21,
-        wacc,
-        terminalGrowth,
-        sharesOutstanding,
-        netDebt,
-        cash,
-      }, currentPrice);
-      return result.fairValuePerShare;
-    },
+  // 1. Growth required to justify price
+  const impliedRevenueGrowth = binarySearch(
+    (growth) => dcfFor(Array(5).fill(growth), [0.2, 0.2, 0.2, 0.2, 0.2]),
     currentPrice,
     -0.5,
     1.0
   );
 
-  const impliedTerminalMargin = await binarySearchAsync(
-    async (margin) => {
-      const result = await calculateDcf(ticker, {
-        forecastYears: 5,
-        revenueGrowth: [0.05, 0.05, 0.05, 0.05, 0.05],
-        ebitMargin: Array(5).fill(margin),
-        taxRate: 0.21,
-        wacc,
-        terminalGrowth,
-        sharesOutstanding,
-        netDebt,
-        cash,
-      }, currentPrice);
-      return result.fairValuePerShare;
-    },
+  // 2. Terminal EBIT margin required to justify price
+  const impliedTerminalMargin = binarySearch(
+    (margin) => dcfFor([0.05, 0.05, 0.05, 0.05, 0.05], Array(5).fill(margin)),
     currentPrice,
     0.01,
     0.6
   );
 
-  const impliedFcfGrowth = await binarySearchAsync(
-    async (growth) => {
-      const result = await calculateDcf(ticker, {
-        forecastYears: 5,
-        revenueGrowth: Array(5).fill(growth),
-        ebitMargin: Array(5).fill(0.2 * (1 + growth)),
-        taxRate: 0.21,
-        wacc,
-        terminalGrowth,
-        sharesOutstanding,
-        netDebt,
-        cash,
-      }, currentPrice);
-      return result.fairValuePerShare;
-    },
+  // 3. Combined FCF trajectory growth
+  const impliedFcfGrowth = binarySearch(
+    (growth) => dcfFor(Array(5).fill(growth), Array(5).fill(0.2 * (1 + growth))),
     currentPrice,
     -0.2,
     0.5

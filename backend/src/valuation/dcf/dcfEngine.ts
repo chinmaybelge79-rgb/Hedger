@@ -1,92 +1,65 @@
+import { AppError } from '@utils/errors';
 import { DcfInput, DcfResponse } from '@api/schemas/valuation';
 import { calculateWacc } from '../wacc/waccEngine';
 import { prisma } from '@config/database';
-import { logger } from '@config/logger';
 
-function calculateTerminalValue(
-  finalYearFcff: number,
-  wacc: number,
-  terminalGrowth: number
-): number {
-  if (wacc <= terminalGrowth) {
-    throw new Error('WACC must be greater than terminal growth rate');
+export interface DcfCompanyBase {
+  baseRevenue: number;
+  baseDepreciation: number;
+  baseCapex: number;
+  baseNwc: number;
+  netDebt: number;
+  sharesOutstanding: number;
+  currentPrice: number;
+}
+
+/**
+ * Pure DCF math — no I/O, so callers can run it thousands of times
+ * (reverse DCF, Monte Carlo, sensitivity) without touching the database.
+ */
+export function runDcfMath(
+  base: DcfCompanyBase,
+  params: {
+    forecastYears: number;
+    revenueGrowth: number[];
+    ebitMargin: number[];
+    taxRate: number;
+    wacc: number;
+    terminalGrowth: number;
   }
-  return (finalYearFcff * (1 + terminalGrowth)) / (wacc - terminalGrowth);
-}
-
-function calculatePV(value: number, wacc: number, year: number): number {
-  return value / Math.pow(1 + wacc, year);
-}
-
-export async function calculateDcf(
-  ticker: string,
-  input: DcfInput,
-  currentPrice?: number
-): Promise<DcfResponse> {
-  const { forecastYears, revenueGrowth, ebitMargin, taxRate, wacc: inputWacc, terminalGrowth, sharesOutstanding, netDebt, cash } = input;
+): DcfResponse {
+  const { forecastYears, revenueGrowth, ebitMargin, taxRate, wacc, terminalGrowth } = params;
 
   if (revenueGrowth.length !== forecastYears || ebitMargin.length !== forecastYears) {
     throw new Error('Revenue growth and EBIT margin arrays must match forecast years');
   }
-
-  if (inputWacc <= terminalGrowth) {
+  if (wacc <= terminalGrowth) {
     throw new Error('WACC must be greater than terminal growth rate');
   }
-
-  const waccResult = await calculateWacc(ticker);
-  const wacc = inputWacc || waccResult.wacc;
-
-  const company = await prisma.company.findUnique({
-    where: { ticker: ticker.toUpperCase() },
-    include: {
-      marketSnapshot: true,
-      financials: {
-        orderBy: { periodEnd: 'desc' },
-        take: 1,
-        include: { income: true, balance: true, cashflow: true, shares: true },
-      },
-    },
-  });
-
-  if (!company) {
-    throw new Error(`Company ${ticker} not found`);
+  if (base.sharesOutstanding <= 0) {
+    throw new Error('Shares outstanding must be positive');
   }
 
-  const latestPeriod = company.financials[0];
-  const income = latestPeriod?.income;
-  const balance = latestPeriod?.balance;
-  const cashflow = latestPeriod?.cashflow;
-  const shares = latestPeriod?.shares;
+  // Scale factors derived from revenue; guard against zero base revenue
+  const revRatio = (revenue: number) => base.baseRevenue > 0 ? revenue / base.baseRevenue : 1;
 
-  const baseRevenue = income?.revenue ? Number(income.revenue) : 0;
-  const baseEbitda = income?.operatingIncome ? Number(income.operatingIncome) + (cashflow?.depreciationAmortization ? Number(cashflow.depreciationAmortization) : 0) : 0;
-  const baseDepreciation = cashflow?.depreciationAmortization ? Number(cashflow.depreciationAmortization) : 0;
-  const baseCapex = cashflow?.capitalExpenditure ? Math.abs(Number(cashflow.capitalExpenditure)) : 0;
-  const baseNwc = balance ? (Number(balance.currentAssets || 0) - Number(balance.currentLiabilities || 0)) : 0;
-
-  const sharesOut = sharesOutstanding || shares?.sharesOutstanding ? Number(shares?.sharesOutstanding) : (company.marketSnapshot?.sharesOutstanding ? Number(company.marketSnapshot.sharesOutstanding) : 1);
-  const currentPrice_ = currentPrice || (company.marketSnapshot?.price ? Number(company.marketSnapshot.price) : 0);
-
-  const netDebt_ = netDebt !== undefined ? netDebt : (balance?.totalDebt ? Number(balance.totalDebt) : 0) - (balance?.cashAndEquivalents ? Number(balance.cashAndEquivalents) : 0) - (balance?.marketableSecurities ? Number(balance.marketableSecurities) : 0);
-  const cash_ = cash !== undefined ? cash : (balance?.cashAndEquivalents ? Number(balance.cashAndEquivalents) : 0) + (balance?.marketableSecurities ? Number(balance.marketableSecurities) : 0);
-
-  const forecast: any[] = [];
-  let prevRevenue = baseRevenue;
-  let prevNwc = baseNwc;
+  const forecast: DcfResponse['forecast'] = [];
+  let prevRevenue = base.baseRevenue;
+  let prevNwc = base.baseNwc;
 
   for (let i = 0; i < forecastYears; i++) {
     const year = i + 1;
     const revenue = prevRevenue * (1 + revenueGrowth[i]);
-    const ebitda = revenue * ebitMargin[i] * 1.2;
-    const ebit = revenue * ebitMargin[i];
+    const margin = ebitMargin[i];
+    const ebit = revenue * margin;
+    const ebitda = ebit + base.baseDepreciation * revRatio(revenue);
     const tax = ebit * taxRate;
     const nopat = ebit - tax;
-    const depreciationAmortization = baseDepreciation * (revenue / baseRevenue);
-    const capex = baseCapex * (revenue / baseRevenue);
-    const nwc = baseNwc * (revenue / baseRevenue);
+    const depreciationAmortization = base.baseDepreciation * revRatio(revenue);
+    const capex = base.baseCapex * revRatio(revenue);
+    const nwc = base.baseNwc * revRatio(revenue);
     const changeInNwc = nwc - prevNwc;
     const fcff = nopat + depreciationAmortization - capex - changeInNwc;
-    const pvFcff = calculatePV(fcff, wacc, year);
 
     forecast.push({
       year,
@@ -99,7 +72,7 @@ export async function calculateDcf(
       capex,
       changeInNwc,
       fcff,
-      pvFcff,
+      pvFcff: fcff / Math.pow(1 + wacc, year),
     });
 
     prevRevenue = revenue;
@@ -107,21 +80,21 @@ export async function calculateDcf(
   }
 
   const finalYearFcff = forecast[forecast.length - 1].fcff;
-  const terminalValue = calculateTerminalValue(finalYearFcff, wacc, terminalGrowth);
-  const pvTerminalValue = calculatePV(terminalValue, wacc, forecastYears);
-
+  const terminalValue = (finalYearFcff * (1 + terminalGrowth)) / (wacc - terminalGrowth);
+  const pvTerminalValue = terminalValue / Math.pow(1 + wacc, forecastYears);
   const pvFcff = forecast.reduce((sum, f) => sum + f.pvFcff, 0);
   const enterpriseValue = pvFcff + pvTerminalValue;
-  const equityValue = enterpriseValue - netDebt_ + cash_;
-  const fairValuePerShare = equityValue / sharesOut;
-  const upside = currentPrice_ > 0 ? (fairValuePerShare - currentPrice_) / currentPrice_ : 0;
+  // netDebt already subtracts cash; equity value is EV - netDebt
+  const equityValue = enterpriseValue - base.netDebt;
+  const fairValuePerShare = equityValue / base.sharesOutstanding;
+  const upside = base.currentPrice > 0 ? (fairValuePerShare - base.currentPrice) / base.currentPrice : 0;
 
-  const response: DcfResponse = {
+  return {
     model: 'DCF',
     enterpriseValue,
     equityValue,
     fairValuePerShare,
-    currentPrice: currentPrice_,
+    currentPrice: base.currentPrice,
     upside,
     wacc,
     terminalGrowth,
@@ -129,9 +102,84 @@ export async function calculateDcf(
     terminalValue,
     pvTerminalValue,
     pvFcff,
-    netDebt: netDebt_,
-    sharesOutstanding: sharesOut,
+    netDebt: base.netDebt,
+    sharesOutstanding: base.sharesOutstanding,
   };
+}
 
-  return response;
+/** Loads company fundamentals once; reused by all DCF-derived analytics. */
+export async function loadDcfBase(
+  ticker: string,
+  overrides: { sharesOutstanding?: number; netDebt?: number; cash?: number; currentPrice?: number } = {}
+): Promise<DcfCompanyBase> {
+  const company = await prisma.company.findUnique({
+    where: { ticker: ticker.toUpperCase() },
+    include: {
+      marketSnapshot: true,
+      financials: {
+        orderBy: { periodEnd: 'desc' },
+        take: 1,
+        include: { income: true, balance: true, cashflow: true, shares: true },
+      },
+    },
+  });
+
+  if (!company) throw AppError.notFound('Company', ticker);
+
+  const latest = company.financials[0];
+  const income = latest?.income;
+  const balance = latest?.balance;
+  const cashflow = latest?.cashflow;
+  const shares = latest?.shares;
+
+  const snapshotShares = company.marketSnapshot?.sharesOutstanding
+    ? Number(company.marketSnapshot.sharesOutstanding)
+    : null;
+
+  // Explicit precedence: user input > per-period shares > snapshot > 1
+  const sharesOut = overrides.sharesOutstanding
+    ?? (shares?.sharesOutstanding ? Number(shares.sharesOutstanding) : null)
+    ?? snapshotShares
+    ?? 1;
+
+  const currentPrice = overrides.currentPrice
+    ?? (company.marketSnapshot?.price ? Number(company.marketSnapshot.price) : 0);
+
+  const totalDebt = balance?.totalDebt ? Number(balance.totalDebt) : 0;
+  const cash = balance?.cashAndEquivalents ? Number(balance.cashAndEquivalents) : 0;
+  const securities = balance?.marketableSecurities ? Number(balance.marketableSecurities) : 0;
+
+  const netDebt = overrides.netDebt !== undefined
+    ? overrides.netDebt
+    : totalDebt - cash - securities;
+
+  return {
+    baseRevenue: income?.revenue ? Number(income.revenue) : 0,
+    baseDepreciation: cashflow?.depreciationAmortization ? Number(cashflow.depreciationAmortization) : 0,
+    baseCapex: cashflow?.capitalExpenditure ? Math.abs(Number(cashflow.capitalExpenditure)) : 0,
+    baseNwc: balance ? Number(balance.currentAssets || 0) - Number(balance.currentLiabilities || 0) : 0,
+    netDebt,
+    sharesOutstanding: sharesOut,
+    currentPrice,
+  };
+}
+
+export async function calculateDcf(
+  ticker: string,
+  input: DcfInput,
+  currentPrice?: number
+): Promise<DcfResponse> {
+  const { forecastYears, revenueGrowth, ebitMargin, taxRate, wacc: inputWacc, terminalGrowth } = input;
+
+  // Only fetch company WACC when the caller didn't supply one
+  const wacc = inputWacc || (await calculateWacc(ticker)).wacc;
+
+  const base = await loadDcfBase(ticker, {
+    sharesOutstanding: input.sharesOutstanding,
+    netDebt: input.netDebt,
+    cash: input.cash,
+    currentPrice,
+  });
+
+  return runDcfMath(base, { forecastYears, revenueGrowth, ebitMargin, taxRate, wacc, terminalGrowth });
 }

@@ -7,22 +7,41 @@ const WACC_CACHE_TTL = 3600;
 const DEFAULT_RISK_FREE_RATE = 0.042;
 const DEFAULT_EQUITY_RISK_PREMIUM = 0.045;
 
+/** Cache helpers that degrade gracefully — a Redis outage must not take down valuations. */
+async function cacheGet<T>(key: string): Promise<T | null> {
+  try {
+    const cached = await redis.get(key);
+    return cached ? (JSON.parse(cached) as T) : null;
+  } catch (e) {
+    logger.debug({ key, err: String(e) }, 'Redis get failed; proceeding without cache');
+    return null;
+  }
+}
+
+async function cacheSet(key: string, value: unknown, ttlSeconds: number = WACC_CACHE_TTL): Promise<void> {
+  try {
+    await redis.setex(key, ttlSeconds, typeof value === 'string' ? value : JSON.stringify(value));
+  } catch (e) {
+    logger.debug({ key, err: String(e) }, 'Redis set failed; skipping cache write');
+  }
+}
+
 async function getRiskFreeRate(): Promise<number> {
-  const cached = await redis.get('wacc:risk-free-rate');
-  if (cached) return Number(cached);
+  const cached = await cacheGet<number>('wacc:risk-free-rate');
+  if (cached !== null) return cached;
   return DEFAULT_RISK_FREE_RATE;
 }
 
 async function getEquityRiskPremium(): Promise<number> {
-  const cached = await redis.get('wacc:equity-risk-premium');
-  if (cached) return Number(cached);
+  const cached = await cacheGet<number>('wacc:equity-risk-premium');
+  if (cached !== null) return cached;
   return DEFAULT_EQUITY_RISK_PREMIUM;
 }
 
 async function getBeta(ticker: string): Promise<number> {
   const cacheKey = `wacc:beta:${ticker.toUpperCase()}`;
-  const cached = await redis.get(cacheKey);
-  if (cached) return Number(cached);
+  const cached = await cacheGet<number>(cacheKey);
+  if (cached !== null) return cached;
 
   const company = await prisma.company.findUnique({
     where: { ticker: ticker.toUpperCase() },
@@ -30,14 +49,14 @@ async function getBeta(ticker: string): Promise<number> {
   });
 
   const beta = company?.marketSnapshot?.beta ? Number(company.marketSnapshot.beta) : 1.0;
-  await redis.setex(cacheKey, WACC_CACHE_TTL, String(beta));
+  await cacheSet(cacheKey, String(beta));
   return beta;
 }
 
 async function getCostOfDebt(ticker: string): Promise<{ preTax: number; afterTax: number; taxRate: number }> {
   const cacheKey = `wacc:cost-of-debt:${ticker.toUpperCase()}`;
-  const cached = await redis.get(cacheKey);
-  if (cached) return JSON.parse(cached);
+  const cached = await cacheGet<{ preTax: number; afterTax: number; taxRate: number }>(cacheKey);
+  if (cached) return cached;
 
   const company = await prisma.company.findUnique({
     where: { ticker: ticker.toUpperCase() },
@@ -64,14 +83,14 @@ async function getCostOfDebt(ticker: string): Promise<{ preTax: number; afterTax
   const afterTaxCostOfDebt = preTaxCostOfDebt * (1 - Math.min(Math.max(taxRate, 0), 1));
 
   const result = { preTax: preTaxCostOfDebt, afterTax: afterTaxCostOfDebt, taxRate: Math.min(Math.max(taxRate, 0), 1) };
-  await redis.setex(cacheKey, WACC_CACHE_TTL, JSON.stringify(result));
+  await cacheSet(cacheKey, result);
   return result;
 }
 
 async function getCapitalStructure(ticker: string): Promise<{ equityWeight: number; debtWeight: number; equityValue: number; debtValue: number }> {
   const cacheKey = `wacc:capital-structure:${ticker.toUpperCase()}`;
-  const cached = await redis.get(cacheKey);
-  if (cached) return JSON.parse(cached);
+  const cached = await cacheGet<{ equityWeight: number; debtWeight: number; equityValue: number; debtValue: number }>(cacheKey);
+  if (cached) return cached;
 
   const company = await prisma.company.findUnique({
     where: { ticker: ticker.toUpperCase() },
@@ -93,14 +112,14 @@ async function getCapitalStructure(ticker: string): Promise<{ equityWeight: numb
   const debtWeight = totalValue > 0 ? totalDebt / totalValue : 0;
 
   const result = { equityWeight, debtWeight, equityValue: marketCap, debtValue: totalDebt };
-  await redis.setex(cacheKey, WACC_CACHE_TTL, JSON.stringify(result));
+  await cacheSet(cacheKey, result);
   return result;
 }
 
 export async function calculateWacc(ticker: string): Promise<WaccResponse> {
   const cacheKey = `wacc:${ticker.toUpperCase()}`;
-  const cached = await redis.get(cacheKey);
-  if (cached) return JSON.parse(cached);
+  const cached = await cacheGet<WaccResponse>(cacheKey);
+  if (cached) return cached;
 
   const [riskFreeRate, equityRiskPremium, beta, costOfDebt, capitalStructure] = await Promise.all([
     getRiskFreeRate(),
@@ -126,6 +145,6 @@ export async function calculateWacc(ticker: string): Promise<WaccResponse> {
     wacc,
   };
 
-  await redis.setex(cacheKey, WACC_CACHE_TTL, JSON.stringify(result));
+  await cacheSet(cacheKey, result);
   return result;
 }
