@@ -1,10 +1,8 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { cn } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { Toggle } from '../components/ui/Toggle';
 import { useTheme } from '../hooks/useTheme';
-import { ChevronLeft, Mail, Lock, User, Settings as SettingsIcon } from 'lucide-react';
+import { Sun } from 'lucide-react';
 
 export function SettingsPage() {
   const { isDark, isReading, toggleDark, toggleReading } = useTheme();

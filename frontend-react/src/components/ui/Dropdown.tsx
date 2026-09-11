@@ -1,19 +1,21 @@
-import { useState, useRef, useEffect } from 'react';
-import { type HTMLAttributes, createPortal } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { type HTMLAttributes } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '../../lib/utils';
 import { ChevronDown } from 'lucide-react';
 
 export interface DropdownItem {
-  label: string;
-  value: string;
+  label?: string;
+  value?: string;
   icon?: React.ReactNode;
   disabled?: boolean;
   danger?: boolean;
   divider?: boolean;
   header?: boolean;
+  onClick?: () => void;
 }
 
-export interface DropdownProps extends HTMLAttributes<HTMLDivElement> {
+export interface DropdownProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onSelect'> {
   trigger: React.ReactElement;
   items: DropdownItem[];
   onSelect?: (value: string, item: DropdownItem) => void;
@@ -64,7 +66,8 @@ export function Dropdown({
 
   const handleItemClick = (item: DropdownItem) => {
     if (item.disabled || item.divider || item.header) return;
-    onSelect?.(item.value, item);
+    item.onClick?.();
+    if (item.value !== undefined) onSelect?.(item.value, item);
     if (closeOnSelect) close();
   };
 
@@ -139,11 +142,11 @@ export function Dropdown({
           onClick: (e: React.MouseEvent) => {
             e.stopPropagation();
             toggle();
-            trigger.props?.onClick?.(e);
+            (trigger.props as { onClick?: (e: React.MouseEvent) => void })?.onClick?.(e);
           },
           'aria-haspopup': 'true',
           'aria-expanded': open,
-        })}
+        } as Record<string, unknown>)}
         {createPortal(dropdownContent, document.body)}
       </div>
     </>

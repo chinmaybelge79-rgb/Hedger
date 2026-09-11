@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '../../lib/utils';
-import { Search, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, ChevronRight, X } from 'lucide-react';
 import { useSearch } from '../../hooks/useSearch';
+import { useCompanySearch } from '../../hooks/useCompanies';
 import { useNavigate } from 'react-router-dom';
+import { Kbd } from '../ui/Kbd';
 
 const UNIVERSE = [
   { sym: 'AAPL', name: 'Apple Inc.', exch: 'NASDAQ' },
@@ -73,11 +75,14 @@ export function CommandPalette() {
       document.body.style.overflow = 'hidden';
       setQuery('');
       setSelectedIndex(-1);
-      setTimeout(() => inputRef.current?.focus(), 0);
-    } else {
-      document.body.style.overflow = '';
+      const t = setTimeout(() => inputRef.current?.focus(), 0);
+      return () => {
+        clearTimeout(t);
+        document.body.style.overflow = '';
+      };
     }
-    return () => document.body.style.overflow = '';
+    document.body.style.overflow = '';
+    return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
   useEffect(() => {

@@ -363,9 +363,10 @@
   .newsletter button { @apply mt-3 w-full; }
   .newsletter label { @apply text-[11px] tracking-wider uppercase text-ash block mb-2; }
 
-  /* Views */
-  .view { @apply hidden; }
+  /* Views — React router renders one view per route, so views are visible by default */
+  .view { @apply block; }
   .view.active { @apply block; }
+  #view-home { @apply flex flex-col items-center min-h-[calc(100vh-64px-160px)] pb-10; }
   #view-home.active { @apply flex flex-col items-center min-h-[calc(100vh-64px-160px)] pb-10; }
 
   /* Responsive */

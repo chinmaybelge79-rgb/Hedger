@@ -1,6 +1,4 @@
 import { Link } from 'react-router-dom';
-import { cn } from '../../lib/utils';
-import { Mail, ChevronRight, X, Linkedin, Github } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 

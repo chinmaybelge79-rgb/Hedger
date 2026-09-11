@@ -34,24 +34,62 @@ export function FinancialsPage() {
 
   const columns = ['', 'FY20', 'FY21', 'FY22', 'FY23', 'FY24'];
 
-  const renderRow = (row: any) => {
-    if (!row) return null;
-    const label = row.period || row.periodEnd || '';
-    const values = columns.slice(1).map((_, i) => {
-      const val = row[columns[i + 1]];
+  // Metric label → API field, per statement tab (matches FinancialsResponse shape)
+  const METRICS: Record<string, Array<[string, string]>> = {
+    income: [
+      ['Revenue', 'revenue'],
+      ['Gross Profit', 'grossProfit'],
+      ['Operating Income', 'operatingIncome'],
+      ['Pretax Income', 'pretaxIncome'],
+      ['Tax Expense', 'taxExpense'],
+      ['Net Income', 'netIncome'],
+      ['Diluted EPS', 'dilutedEPS'],
+    ],
+    balance: [
+      ['Cash & Equivalents', 'cashAndEquivalents'],
+      ['Marketable Securities', 'marketableSecurities'],
+      ['Total Assets', 'totalAssets'],
+      ['Total Debt', 'totalDebt'],
+      ['Total Liabilities', 'totalLiabilities'],
+      ['Shareholders Equity', 'shareholdersEquity'],
+    ],
+    cashflow: [
+      ['Net Income', 'netIncome'],
+      ['D&A', 'depreciationAmortization'],
+      ['Operating Cash Flow', 'operatingCashFlow'],
+      ['Capital Expenditure', 'capitalExpenditure'],
+      ['Free Cash Flow', 'freeCashFlow'],
+    ],
+  };
+
+  // API returns periods newest-first; table columns run FY20 → FY24 (oldest → newest)
+  const data = getData().slice().reverse();
+
+  // Map each period row to its column index by fiscal year
+  const colByIndex = data.map(row => {
+    const fy = 'FY' + (row.periodEnd?.slice(2, 4) ?? '');
+    return columns.indexOf(fy);
+  });
+
+  const renderMetricRow = ([label, field]: [string, string]) => {
+    const cells = columns.slice(1).map((_, colIdx) => {
+      const rowIdx = colByIndex.indexOf(colIdx + 1);
+      const row = rowIdx >= 0 ? (data[rowIdx] as unknown as Record<string, unknown>) : null;
+      if (!row) return '—';
+      const val = row[field];
       if (val === null || val === undefined) return '—';
       if (typeof val === 'number') return formatCompactNumber(val);
-      return val;
+      return String(val);
     });
     return (
       <Tr key={label} striped>
         <Td>{label}</Td>
-        {values.map((v, i) => <Td key={i} numeric>{v}</Td>)}
+        {cells.map((v, i) => <Td key={i} numeric>{v}</Td>)}
       </Tr>
     );
   };
 
-  const data = getData();
+  const metricRows = METRICS[activeTab] ?? METRICS.income;
 
   return (
     <div id="view-financials" className="view">
@@ -102,7 +140,7 @@ export function FinancialsPage() {
                 ) : data.length === 0 ? (
                   <Tr><Td colSpan={columns.length} className="text-center py-8 text-ash">No data available</Td></Tr>
                 ) : (
-                  data.map(renderRow)
+                  metricRows.map(renderMetricRow)
                 )}
               </Tbody>
             </Table>

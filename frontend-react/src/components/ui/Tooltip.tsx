@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { type HTMLAttributes, createPortal } from 'react';
+import { type HTMLAttributes } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '../../lib/utils';
 
-export interface TooltipProps extends HTMLAttributes<HTMLDivElement> {
+export interface TooltipProps extends Omit<HTMLAttributes<HTMLDivElement>, 'content'> {
   content: React.ReactNode;
   children: React.ReactElement;
   position?: 'top' | 'bottom' | 'left' | 'right';
@@ -22,7 +23,7 @@ export function Tooltip({
   const [tooltipRect, setTooltipRect] = useState<DOMRect | null>(null);
   const triggerRef = useRef<HTMLElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const positionStyles = {
     top: 'bottom-full left-1/2 -translate-x-1/2 mb-2',

@@ -290,6 +290,51 @@ export interface CompsPeerMetric {
   evFcf: number | null;
 }
 
+export interface CompsInput {
+  metrics?: string[];
+  peers?: string[];
+}
+
+export interface SensitivityInput {
+  baseWacc: number;
+  baseTerminalGrowth: number;
+  waccRange: number;
+  terminalRange: number;
+  steps: number;
+}
+
+export interface ScenarioAssumptions {
+  revenueGrowth: number[];
+  ebitMargin: number[];
+  taxRate: number;
+  wacc: number;
+  terminalGrowth: number;
+}
+
+export interface ScenarioInput {
+  bear: ScenarioAssumptions;
+  base: ScenarioAssumptions;
+  bull: ScenarioAssumptions;
+  weights?: { bear: number; base: number; bull: number };
+}
+
+export interface MonteCarloInput {
+  iterations: number;
+  variables: {
+    revenueGrowth: { mean: number; stdDev: number };
+    ebitMargin: { mean: number; stdDev: number };
+    wacc: { mean: number; stdDev: number };
+    terminalGrowth: { mean: number; stdDev: number };
+  };
+  baseInputs: {
+    forecastYears: number;
+    taxRate: number;
+    sharesOutstanding: number;
+    netDebt: number;
+    cash: number;
+  };
+}
+
 export interface CompsResponse {
   targetTicker: string;
   peerGroup: CompsPeerMetric[];

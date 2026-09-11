@@ -1,14 +1,15 @@
-import { forwardRef, type ButtonHTMLAttributes } from 'react';
+import { forwardRef, cloneElement, isValidElement, type ButtonHTMLAttributes, type ReactElement } from 'react';
 import { cn } from '../../lib/utils';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost';
   size?: 'default' | 'sm' | 'lg';
   loading?: boolean;
+  asChild?: boolean;
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'primary', size = 'default', loading, disabled, children, ...props }, ref) => {
+  ({ className, variant = 'primary', size = 'default', loading, disabled, children, asChild, ...props }, ref) => {
     const baseStyles = 'inline-flex items-center justify-center gap-2 font-semibold uppercase tracking-wider min-h-[44px] cursor-pointer transition-all duration-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
 
     const variantStyles = {
@@ -23,10 +24,17 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       lg: 'px-6 py-4 text-btn',
     };
 
+    const classes = cn(baseStyles, variantStyles[variant], sizeStyles[size], className);
+
+    if (asChild && isValidElement(children)) {
+      const child = children as ReactElement<{ className?: string }>;
+      return cloneElement(child, { className: cn(classes, child.props.className) });
+    }
+
     return (
       <button
         ref={ref}
-        className={cn(baseStyles, variantStyles[variant], sizeStyles[size], className)}
+        className={classes}
         disabled={disabled || loading}
         {...props}
       >

@@ -4,7 +4,7 @@ import { API_ENDPOINTS } from '../api/endpoints';
 import type { CompanyProfile, MarketData, FinancialsResponse, PricePoint } from '../api/types';
 
 export function useCompanySearch() {
-  const searchCompanies = async (query: string): Promise<Array<{ symbol: string; name: string; exch: string }>> => {
+  const searchCompanies = async (query: string): Promise<Array<{ sym: string; name: string; exch: string }>> => {
     if (!query.trim()) return [];
     const response = await api.get<{ results: Array<{ symbol: string; name: string; exchange: string; type: string; currency: string }> }>(
       `${API_ENDPOINTS.search}?q=${encodeURIComponent(query)}`
@@ -27,7 +27,7 @@ export function useCompanyProfile(ticker: string | null) {
     queryKey: ['company', 'profile', ticker],
     queryFn: async () => {
       if (!ticker) throw new Error('No ticker provided');
-      const response = await api.get<{ data: CompanyProfile }>(API_ENDPOINTS.companies(ticker));
+      const response = await api.get<CompanyProfile>(API_ENDPOINTS.companies(ticker));
       return response.data!;
     },
     enabled: !!ticker,
@@ -41,7 +41,7 @@ export function useCompanyPriceHistory(ticker: string | null, years = 7) {
     queryKey: ['company', 'price-history', ticker, years],
     queryFn: async () => {
       if (!ticker) throw new Error('No ticker provided');
-      const response = await api.get<{ data: PricePoint[] }>(
+      const response = await api.get<PricePoint[]>(
         `${API_ENDPOINTS.companyPriceHistory(ticker)}?years=${years}`
       );
       return response.data!;
@@ -57,7 +57,7 @@ export function useMarketData(ticker: string | null) {
     queryKey: ['market', 'data', ticker],
     queryFn: async () => {
       if (!ticker) throw new Error('No ticker provided');
-      const response = await api.get<{ data: MarketData }>(API_ENDPOINTS.market(ticker));
+      const response = await api.get<MarketData>(API_ENDPOINTS.market(ticker));
       return response.data!;
     },
     enabled: !!ticker,
@@ -71,7 +71,7 @@ export function useLatestPrice(ticker: string | null) {
     queryKey: ['market', 'quote', ticker],
     queryFn: async () => {
       if (!ticker) throw new Error('No ticker provided');
-      const response = await api.get<{ data: { price: number; change: number; changePercent: number } }>(
+      const response = await api.get<{ price: number; change: number; changePercent: number }>(
         API_ENDPOINTS.marketQuote(ticker)
       );
       return response.data!;
@@ -88,7 +88,7 @@ export function useFinancials(ticker: string | null, period: 'annual' | 'quarter
     queryKey: ['financials', ticker, period, limit],
     queryFn: async () => {
       if (!ticker) throw new Error('No ticker provided');
-      const response = await api.get<{ data: FinancialsResponse }>(
+      const response = await api.get<FinancialsResponse>(
         `${API_ENDPOINTS.financials(ticker)}?period=${period}&limit=${limit}`
       );
       return response.data!;

@@ -1,4 +1,4 @@
-import { type HTMLAttributes, forwardRef } from 'react';
+import { type HTMLAttributes, type ThHTMLAttributes, type TdHTMLAttributes, forwardRef } from 'react';
 import { cn } from '../../lib/utils';
 
 export interface TableProps extends HTMLAttributes<HTMLTableElement> {
@@ -53,7 +53,7 @@ export const Tr = forwardRef<HTMLTableRowElement, HTMLAttributes<HTMLTableRowEle
 
 Tr.displayName = 'Tr';
 
-export const Th = forwardRef<HTMLTableCellElement, HTMLAttributes<HTMLTableCellElement> & { numeric?: boolean }>(
+export const Th = forwardRef<HTMLTableCellElement, ThHTMLAttributes<HTMLTableCellElement> & { numeric?: boolean }>(
   ({ className, numeric, children, ...props }, ref) => (
     <th
       ref={ref}
@@ -71,7 +71,7 @@ export const Th = forwardRef<HTMLTableCellElement, HTMLAttributes<HTMLTableCellE
 
 Th.displayName = 'Th';
 
-export const Td = forwardRef<HTMLTableCellElement, HTMLAttributes<HTMLTableCellElement> & { numeric?: boolean }>(
+export const Td = forwardRef<HTMLTableCellElement, TdHTMLAttributes<HTMLTableCellElement> & { numeric?: boolean }>(
   ({ className, numeric, children, ...props }, ref) => (
     <td
       ref={ref}

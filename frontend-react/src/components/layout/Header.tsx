@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Dropdown, DropdownItem } from '../ui/Dropdown';
+import { Dropdown, type DropdownItem } from '../ui/Dropdown';
 import { Toggle } from '../ui/Toggle';
 import { Avatar } from '../ui/Avatar';
 import { Kbd } from '../ui/Kbd';
@@ -23,7 +23,7 @@ export function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggleDark, isReading, toggleReading } = useTheme();
-  const { openCommandPalette } = useSearch();
+  const { open: openCommandPalette } = useSearch();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);

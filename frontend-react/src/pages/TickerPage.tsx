@@ -43,21 +43,17 @@ export function TickerPage() {
       const startPrice = data[0].close;
       const n = data.length;
 
-      const inflation = data.map((d, i) => {
+      // Merge benchmark series into the chart dataset (recharts v3 dataKey style)
+      const merged = data.map((d, i) => {
         const yr = (i / (n - 1)) * 7;
-        return { date: d.date, value: startPrice * Math.pow(1.025, yr), name: 'Inflation (2.5%)' };
-      });
-      const ret7 = data.map((d, i) => {
-        const yr = (i / (n - 1)) * 7;
-        return { date: d.date, value: startPrice * Math.pow(1.07, yr), name: '7% Return' };
-      });
-      const ret10 = data.map((d, i) => {
-        const yr = (i / (n - 1)) * 7;
-        return { date: d.date, value: startPrice * Math.pow(1.10, yr), name: '10% Return' };
-      });
-      const ret15 = data.map((d, i) => {
-        const yr = (i / (n - 1)) * 7;
-        return { date: d.date, value: startPrice * Math.pow(1.15, yr), name: '15% Return' };
+        return {
+          date: d.date,
+          close: d.close,
+          inflation: startPrice * Math.pow(1.025, yr),
+          ret7: startPrice * Math.pow(1.07, yr),
+          ret10: startPrice * Math.pow(1.10, yr),
+          ret15: startPrice * Math.pow(1.15, yr),
+        };
       });
 
       const lastPrice = data[n - 1].close;
@@ -66,15 +62,20 @@ export function TickerPage() {
       const up = lastPrice >= peak - (peak - trough) * 0.05;
 
       setIsUp(up);
-      setChartData(data);
-      setBenchmarks([{ data: inflation, color: CHART_COLORS.inflation, dash: '6 4', name: 'Inflation (2.5%)' },
-        { data: ret7, color: CHART_COLORS['7pct'], dash: '4 4', name: '7% Return' },
-        { data: ret10, color: CHART_COLORS['10pct'], dash: '4 4', name: '10% Return' },
-        { data: ret15, color: CHART_COLORS['15pct'], dash: '4 4', name: '15% Return' }]);
+      setChartData(merged);
+      setBenchmarks([
+        { key: 'inflation', color: CHART_COLORS.inflation, dash: '6 4', name: 'Inflation (2.5%)' },
+        { key: 'ret7', color: CHART_COLORS['7pct'], dash: '4 4', name: '7% Return' },
+        { key: 'ret10', color: CHART_COLORS['10pct'], dash: '4 4', name: '10% Return' },
+        { key: 'ret15', color: CHART_COLORS['15pct'], dash: '4 4', name: '15% Return' },
+      ]);
     }
   }, [priceHistory]);
 
-  if (!ticker) return navigate('/');
+  if (!ticker) {
+    navigate('/');
+    return null;
+  }
 
   const price = marketData?.snapshot?.price || 0;
   const change = marketData?.snapshot?.change || 0;
@@ -137,12 +138,12 @@ export function TickerPage() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 6" stroke="var(--hairline)" vertical={false} opacity={0.5} />
-                  <XAxis dataKey="date" tickFormatter={(v) => format(new Date(v), 'yyyy')} tick={{ fill: 'var(--ash)', fontSize: 10, fontFamily: 'monospace' }} />
-                  <YAxis orientation="right" tickFormatter={v => '$' + formatCompactNumber(v)} tick={{ fill: 'var(--ash)', fontSize: 10, fontFamily: 'monospace' }} />
+                  <XAxis dataKey="date" tickFormatter={(v) => format(new Date(String(v)), 'yyyy')} tick={{ fill: 'var(--ash)', fontSize: 10, fontFamily: 'monospace' }} />
+                  <YAxis orientation="right" tickFormatter={v => '$' + formatCompactNumber(Number(v))} tick={{ fill: 'var(--ash)', fontSize: 10, fontFamily: 'monospace' }} />
                   <Tooltip
                     contentStyle={{ backgroundColor: 'var(--paper)', border: '1px solid var(--hairline)', borderRadius: '2px' }}
-                    labelFormatter={v => format(new Date(v), 'MMM d, yyyy')}
-                    formatter={(value: number) => [formatCurrency(value), 'Price']}
+                    labelFormatter={(label) => format(new Date(String(label)), 'MMM d, yyyy')}
+                    formatter={(value) => [formatCurrency(Number(value)), 'Price']}
                   />
                   <Legend
                     layout="horizontal"
@@ -153,11 +154,10 @@ export function TickerPage() {
                   />
                   {benchmarks.map((b, i) => (
                     <Line
-                      key={b.name}
+                      key={b.key}
                       type="monotone"
-                      data={b.data}
-                      xKey="date"
-                      yKey="value"
+                      dataKey={b.key}
+                      name={b.name}
                       stroke={b.color}
                       strokeWidth={i === 0 ? 1.2 : 1}
                       strokeDasharray={b.dash}
@@ -167,9 +167,8 @@ export function TickerPage() {
                   ))}
                   <Area
                     type="monotone"
-                    data={chartData}
-                    xKey="date"
-                    yKey="close"
+                    dataKey="close"
+                    name="Price"
                     stroke={CHART_COLORS.stock}
                     strokeWidth={2}
                     fillOpacity={1}
@@ -178,9 +177,8 @@ export function TickerPage() {
                   />
                   <Line
                     type="monotone"
-                    data={chartData}
-                    xKey="date"
-                    yKey="close"
+                    dataKey="close"
+                    name="Price"
                     stroke={CHART_COLORS.stock}
                     strokeWidth={2}
                     dot={false}
