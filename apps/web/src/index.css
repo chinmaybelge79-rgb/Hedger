@@ -1,0 +1,814 @@
+/* ==========================================================================
+   HEDGER DESIGN SYSTEM — APPLE.COM MINIMALISM & KOYFIN.COM FINANCIAL PRECISION
+   Strict palette: White major (#FFFFFF), Black minor (#1D1D1F),
+   Green (+ intrinsic / gain: #107C41), Red (- intrinsic / loss: #B3261E / #D32F2F).
+   Hairline #E5E5EA borders, #6E6E73 for all small labels (never #86868B under 14px).
+   Clean, calm, accessible across all devices and age groups.
+   ========================================================================== */
+
+:root, [data-theme="light"] {
+  /* Centralized Light Design Tokens (Phase 3 Specification) */
+  --background: #FFFFFF;
+  --foreground: #171717;
+  --card: #FFFFFF;
+  --card-foreground: #171717;
+  --popover: #FFFFFF;
+  --popover-foreground: #171717;
+  --primary: #171717;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F5F5F5;
+  --secondary-foreground: #171717;
+  --muted: #F5F5F5;
+  --muted-foreground: #666666;
+  --border: #E5E5E5;
+  --border-strong: #D1D1D6;
+  --input: #E5E5E5;
+  --positive: #15803D;
+  --negative: #B91C1C;
+  --focus-ring: #737373;
+
+  /* Coordinated Aliases for System-wide Consistency */
+  --bg: var(--background);
+  --bg-subtle: #F9F9FB;
+  --bg-hover: var(--secondary);
+  --card-bg: var(--card);
+  --card-bg-subtle: var(--secondary);
+  --nav-bg: rgba(255, 255, 255, 0.96);
+  --input-bg: var(--card);
+  --modal-bg: var(--popover);
+  --text: var(--foreground);
+  --text-muted: var(--muted-foreground);
+  --text-faint: var(--muted-foreground);
+  --accent: var(--primary);
+  --up: var(--positive);
+  --down: var(--negative);
+  --warn: #B7791F;
+  --info: #2F5D9E;
+  --table-row-separator: #F2F2F5;
+  --logo-bg: #FFFFFF;
+  --logo-fg: #000000;
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  /* Centralized Dark Design Tokens (Phase 3 Specification) */
+  --background: #0A0A0A;
+  --foreground: #F5F5F5;
+  --card: #141414;
+  --card-foreground: #F5F5F5;
+  --popover: #1A1A1A;
+  --popover-foreground: #F5F5F5;
+  --primary: #F5F5F5;
+  --primary-foreground: #111111;
+  --secondary: #1A1A1A;
+  --secondary-foreground: #F5F5F5;
+  --muted: #1A1A1A;
+  --muted-foreground: #A1A1AA;
+  --border: #2A2A2A;
+  --border-strong: #383838;
+  --input: #2A2A2A;
+  --positive: #16A34A;
+  --negative: #DC2626;
+  --focus-ring: #A1A1AA;
+
+  /* Coordinated Aliases for System-wide Consistency */
+  --bg: var(--background);
+  --bg-subtle: #121212;
+  --bg-hover: #1E1E1E;
+  --card-bg: var(--card);
+  --card-bg-subtle: var(--secondary);
+  --nav-bg: rgba(10, 10, 10, 0.94);
+  --input-bg: var(--secondary);
+  --modal-bg: var(--popover);
+  --text: var(--foreground);
+  --text-muted: var(--muted-foreground);
+  --text-faint: #71717A;
+  --accent: var(--primary);
+  --up: var(--positive);
+  --down: var(--negative);
+  --warn: #F59E0B;
+  --info: #38BDF8;
+  --table-row-separator: #1E1E1E;
+  --logo-bg: #000000;
+  --logo-fg: #FFFFFF;
+  color-scheme: dark;
+}
+
+:root {
+
+  /* Strict Spacing Scale Tokens (4, 8, 12, 16, 24, 32, 48, 64, 96 px) */
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-48: 48px;
+  --space-64: 64px;
+  --space-96: 96px;
+
+  /* Aliases */
+  --space-1: var(--space-4);
+  --space-2: var(--space-8);
+  --space-3: var(--space-12);
+  --space-4a: var(--space-16);
+  --space-5: var(--space-24);
+  --space-6: var(--space-32);
+  --space-7: var(--space-48);
+  --space-8a: var(--space-64);
+  --space-9: var(--space-96);
+
+  /* Layout & Component Specs */
+  --container-max-width: 1240px;
+  --container-padding-desktop: 40px;
+  --container-padding-tablet: 24px;
+  --container-padding-mobile: 16px;
+
+  --section-gap-desktop: 48px;
+  --section-gap-mobile: 32px;
+
+  --card-padding: 24px;
+  --card-gap: 16px;
+
+  --control-height: 44px;
+  --control-gap-min: 12px;
+
+  --segmented-padding: 3px;
+  --segmented-gap: 4px;
+  --segmented-item-padding-y: 6px;
+  --segmented-item-padding-x: 14px;
+
+  --chip-height: 36px;
+  --chip-gap: 10px;
+  --chip-row-gap: 10px;
+
+  --table-cell-padding-y: 13px;
+  --table-cell-padding-x: 16px;
+  --table-header-padding-y: 12px;
+  --table-header-padding-x: 16px;
+  --table-row-separator: #F2F2F5;
+
+  --nav-height: 64px;
+  --nav-link-gap: 36px;
+
+  --modal-padding: 32px;
+  --modal-gap-min: 16px;
+  --modal-gap-max: 24px;
+
+  /* Geometry */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+}
+
+/* Base Resets */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 14px;
+  line-height: 22px;
+  letter-spacing: -0.01em;
+  overflow-x: hidden;
+  width: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input, select, textarea {
+  font-family: inherit;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
+  outline: none;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 14px;
+  font-size: 14px;
+  line-height: 22px;
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--focus-ring);
+}
+
+.h-11, .h-\[44px\], .min-h-\[44px\] {
+  height: 44px;
+  min-height: 44px;
+}
+
+.px-3\.5 {
+  padding-left: 14px;
+  padding-right: 14px;
+}
+
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 44px;
+  height: 44px;
+  box-sizing: border-box;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236E6E73' viewBox='0 0 16 16'%3E%3Cpath d='M8 11.5l-5-5h10l-5 5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+}
+
+img, svg {
+  display: block;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "cv11";
+}
+
+/* ==========================================================================
+   NAVIGATION & HEADER (SPEC: Height 60, Link Gap 36)
+   ========================================================================== */
+.nav-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
+  height: 64px;
+  border-bottom: 1px solid var(--border);
+  background-color: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  overflow-x: clip;
+}
+
+.nav-container {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 40px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  box-sizing: border-box;
+}
+
+@media (max-width: 1023px) {
+  .nav-container {
+    padding: 0 24px;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 479px) {
+  .nav-container {
+    padding: 0 16px;
+    gap: 8px;
+  }
+}
+
+.nav-links-list {
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  list-style: none;
+}
+
+@media (max-width: 1023px) {
+  .nav-links-list {
+    gap: 20px;
+  }
+}
+
+@media (max-width: 767px) {
+  .nav-links-list {
+    gap: 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .nav-links-list::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (max-width: 639px) {
+  .nav-search-label {
+    display: none;
+  }
+}
+
+.nav-item-link {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 var(--space-8);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  transition: color 0.12s ease;
+  white-space: nowrap;
+}
+
+.nav-item-link:hover {
+  color: var(--text);
+}
+
+.nav-item-link.active {
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   PAGE LAYOUT & CONTAINERS (SPEC: Max-width 1240, side padding 40 / 24 / 16)
+   ========================================================================== */
+.page-container {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: var(--space-32) 40px var(--space-64);
+  width: 100%;
+}
+
+@media (max-width: 767px) {
+  .page-container {
+    padding: var(--space-24) 24px var(--space-48);
+  }
+}
+
+@media (max-width: 479px) {
+  .page-container {
+    padding: var(--space-16) 16px var(--space-32);
+  }
+}
+
+.section-gap {
+  margin-bottom: 48px;
+}
+
+@media (max-width: 767px) {
+  .section-gap {
+    margin-bottom: 32px;
+  }
+}
+
+.page-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding-bottom: var(--space-24);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-32);
+}
+
+@media (min-width: 640px) {
+  .page-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.page-title {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.page-subtitle {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   CARDS & SURFACES (SPEC: Padding 24, gap between cards 16)
+   ========================================================================== */
+.card {
+  background-color: var(--card-bg, #FFFFFF);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  transition: border-color 0.15s ease;
+}
+
+.card-subtle {
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 24px;
+}
+
+.cards-grid {
+  display: grid;
+  gap: 16px;
+}
+
+/* ==========================================================================
+   CONTROLS (SPEC: Height 44 min touch target; gap between controls >= 12)
+   ========================================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  height: 44px;
+  min-height: 44px;
+  padding: 0 var(--space-16);
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
+.btn-secondary {
+  background-color: var(--card);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+.btn-secondary:hover {
+  background-color: var(--secondary);
+  border-color: var(--border);
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--foreground);
+}
+
+.btn-ghost:hover {
+  background-color: var(--secondary);
+}
+
+.controls-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.input-control {
+  width: 100%;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 14px;
+  line-height: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background-color: var(--card);
+  color: var(--foreground);
+  box-sizing: border-box;
+}
+
+.input-control:focus {
+  border-color: var(--focus-ring);
+}
+
+/* ==========================================================================
+   SEGMENTED CONTROL (SPEC: 3px track padding, 4px between items, item padding 6x14)
+   ========================================================================== */
+.segmented-control {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  gap: 4px;
+  background-color: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+}
+
+.segmented-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.segmented-item:hover {
+  color: var(--text);
+}
+
+.segmented-item.active {
+  background-color: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/* ==========================================================================
+   FILTER CHIPS (SPEC: Height 36, gap 10, wrap with 10 row-gap)
+   ========================================================================== */
+.filter-chips-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  row-gap: 10px;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 14px;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background-color: var(--card);
+  color: var(--foreground);
+  cursor: pointer;
+  transition: all 0.12s ease;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.filter-chip:hover {
+  background-color: var(--secondary);
+  border-color: var(--focus-ring);
+}
+
+.filter-chip.active {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+/* ==========================================================================
+   TABLES (SPEC: Cell padding 13x16, header 12x16, row separators 1px #F2F2F5)
+   ========================================================================== */
+.table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background-color: var(--card);
+  width: 100%;
+  max-width: 100%;
+}
+
+.koyfin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 22px;
+  text-align: left;
+}
+
+.koyfin-table th {
+  background-color: var(--secondary);
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.koyfin-table td {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--foreground);
+}
+
+.koyfin-table tr:last-child td {
+  border-bottom: none;
+}
+
+.koyfin-table tr:hover td {
+  background-color: var(--secondary);
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.text-center {
+  text-align: center;
+}
+
+/* ==========================================================================
+   MODAL (SPEC: Padding 32, internal gaps 16-24)
+   ========================================================================== */
+.modal-box {
+  width: 100%;
+  max-width: 540px;
+  background-color: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ==========================================================================
+   BADGES & DELTAS (STRICT GREEN #107C41 & RED #B3261E / #D32F2F)
+   ========================================================================== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background-color: var(--card);
+  color: var(--foreground);
+  white-space: nowrap;
+}
+
+.badge-up {
+  color: var(--up);
+  border-color: #B7E4C7;
+  background-color: #F4FBF7;
+}
+
+.badge-down {
+  color: var(--down);
+  border-color: #F8C8C8;
+  background-color: #FDF3F3;
+}
+
+.delta-up {
+  color: var(--up);
+  font-weight: 600;
+}
+
+.delta-down {
+  color: var(--down);
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   TAILWIND UTILITY SHIMS & FLEX / GRID SHORTCUTS
+   ========================================================================== */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-nowrap { flex-wrap: nowrap; }
+.flex-1 { flex: 1 1 0%; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.items-baseline { align-items: baseline; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.min-h-screen { min-height: 100vh; }
+.grid { display: grid; }
+.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.max-w-2xl { max-width: 42rem; }
+.gap-1 { gap: var(--space-4); }
+.gap-2 { gap: var(--space-8); }
+.gap-3 { gap: var(--space-12); }
+.gap-4 { gap: var(--space-16); }
+.gap-6 { gap: var(--space-24); }
+.gap-8 { gap: var(--space-32); }
+.w-full { width: 100%; }
+.font-semibold { font-weight: 600; }
+.font-medium { font-weight: 500; }
+.font-bold { font-weight: 700; }
+.font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+.text-xs { font-size: 12px; color: var(--text-muted); }
+.text-sm { font-size: 14px; line-height: 22px; }
+.text-base { font-size: 16px; }
+.text-lg { font-size: 18px; }
+.text-xl { font-size: 20px; }
+.text-2xl { font-size: 24px; }
+.text-3xl { font-size: 30px; }
+.text-4xl { font-size: 36px; }
+.rounded-md { border-radius: var(--radius-md); }
+.rounded-lg { border-radius: var(--radius-lg); }
+.border { border: 1px solid var(--border); }
+.border-b { border-bottom: 1px solid var(--border); }
+.border-t { border-top: 1px solid var(--border); }
+.bg-white { background-color: var(--card); }
+
+/* Modern Web Performance: Defer off-screen sections below the fold */
+.heavy-section-deferred {
+  content-visibility: auto;
+  contain-intrinsic-size: auto none auto 400px;
+}
+
+/* ==========================================================================
+   DARK THEME COMPONENT SPECIFIC OVERRIDES
+   ========================================================================== */
+[data-theme="dark"] .bg-white {
+  background-color: var(--card) !important;
+  color: var(--card-foreground) !important;
+}
+
+[data-theme="dark"] .card {
+  background-color: var(--card) !important;
+  border-color: var(--border) !important;
+  color: var(--card-foreground) !important;
+}
+
+[data-theme="dark"] .card-subtle {
+  background-color: var(--secondary) !important;
+  border-color: var(--border) !important;
+  color: var(--secondary-foreground) !important;
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background-color: var(--input-bg) !important;
+  border-color: var(--border) !important;
+  color: var(--foreground) !important;
+}
+
+[data-theme="dark"] input[type="range"] {
+  accent-color: var(--primary) !important;
+}
+
+[data-theme="dark"] .nav-header {
+  background-color: var(--nav-bg) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme="dark"] .btn-secondary {
+  background-color: var(--secondary) !important;
+  border-color: var(--border) !important;
+  color: var(--secondary-foreground) !important;
+}
+
+[data-theme="dark"] .btn-secondary:hover {
+  background-color: #242424 !important;
+}
+
+[data-theme="dark"] .btn-primary {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+[data-theme="dark"] .segmented-item.active {
+  background-color: var(--border) !important;
+  color: var(--foreground) !important;
+}
+
+[data-theme="dark"] table th {
+  color: var(--muted-foreground) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme="dark"] table td {
+  border-color: var(--border) !important;
+}
+

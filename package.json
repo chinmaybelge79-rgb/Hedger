@@ -1,0 +1,23 @@
+{
+  "name": "hedger-monorepo",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter \"@hedger/*\" --parallel run dev",
+    "dev:all": "concurrently -k -p \"[{name}]\" -n \"GATEWAY,API,WEB\" -c \"yellow,blue,green\" \"npm run dev:gateway\" \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:gateway": "python3 -m uvicorn services.yf_gateway.main:app --port 8001 --reload",
+    "dev:api": "pnpm --filter @hedger/api dev",
+    "dev:web": "pnpm --filter @hedger/web dev",
+    "build": "pnpm --filter \"@hedger/*\" run build",
+    "test": "pnpm --filter \"@hedger/*\" run test",
+    "test:unit": "pnpm --filter \"@hedger/*\" run test",
+    "test:e2e": "playwright test",
+    "test:leakage": "pnpm --filter @hedger/web test",
+    "check:tokens": "node scripts/check-spacing-tokens.mjs",
+    "typecheck": "pnpm --filter \"@hedger/*\" run typecheck"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
+  }
+}

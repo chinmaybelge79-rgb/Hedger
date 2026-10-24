@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500">
+  <rect width="500" height="500" fill="#000000"/>
+  <g fill="#ffffff">
+    <!-- top-left L -->
+    <path d="M161 101H185V184H267V208H161Z"/>
+    <!-- top-right bar -->
+    <rect x="315" y="101" width="24" height="107"/>
+    <!-- bottom-left bar -->
+    <rect x="161" y="238" width="24" height="107"/>
+    <!-- bottom-right hook -->
+    <path d="M232 238H339V345H315V262H232Z"/>
+  </g>
+</svg>
