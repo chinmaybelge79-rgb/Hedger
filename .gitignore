@@ -22,3 +22,8 @@ venv/
 # System
 .DS_Store
 *.log
+
+# Screenshots & Visual Test Artifacts
+docs/screens/
+test-results/
+

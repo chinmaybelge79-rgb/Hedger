@@ -1,8 +1,53 @@
 # Hedger — Minimalist Equity Research & Valuation Platform
 
-Hedger is a high-accuracy, minimalist equity research and intrinsic valuation platform for Indian and global equities.
+Hedger is a high-accuracy, minimalist equity research and intrinsic valuation platform tailored for Indian (NSE/BSE) and global equities (US, Europe, Asia-Pacific).
 
-Built strictly according to the 20-phase architecture specification with flat surfaces, 1px borders, Inter typography, tabular numbers, and zero data leaks.
+Designed with flat surfaces, 1px borders, high-density tabular typography, and zero data leaks.
+
+---
+
+## ⚡ Core Functionalities & Features
+
+### 1. Global & Domestic Instrument Discovery (`Cmd+K`)
+- **Instant Search:** Multi-region search supporting NSE, BSE, NASDAQ, NYSE, and European bourses.
+- **Rich Instrument Identifiers:** Direct lookup by symbol, company name, exchange prefix, and ticker (`RELIANCE.NS`, `AAPL`, `MSFT`, etc.).
+- **Smart Keyboard Navigation:** Fully accessible with quick shortcut overlays.
+
+### 2. Deep Financial Statements & Audited History
+- **5+ Years of Audited Statements:** Normalized Income Statement, Balance Sheet, and Cash Flow Statement.
+- **Reporting Period Toggles:** Instant switching between **Annual** and **Quarterly** filings.
+- **Indian & International Units:** Automatic and contextual unit formatting (₹ Lakh / ₹ Crore for Indian equities, Million / Billion for global).
+- **Data Provenance & Freshness:** Explicit timestamp badges, data source references, and zero silent failures (`null`/`NaN` guarded).
+
+### 3. Valuation & Scenario Engine
+- **Discounted Cash Flow (FCFF DCF):** Dynamic multi-stage DCF model with automated Base, Bull, and Bear cases.
+- **Interactive Sensitivity Sliders:** Instant (<5ms) client-side recomputation for:
+  - WACC (Weighted Average Cost of Capital)
+  - Terminal Growth Rate ($g$)
+  - Revenue CAGR trajectories & Operating Margins
+- **2D Sensitivity Matrix:** Real-time matrix mapping varying WACC vs. Terminal Growth assumptions against implied share prices.
+- **Reverse DCF:** Reverse-engineers what growth rate and cash flows the current market price is pricing in.
+- **Sector-Specific Models:** Auto-detection for Financial Institutions (Banks/NBFCs) routing to Excess Returns / P/B-ROE models rather than free cash flow models.
+
+### 4. Peer Benchmarking & Comparable Multiples
+- **Sector Comps:** Pre-configured and customizable comparable peer lists across industry sectors.
+- **Valuation Multiples:** Real-time computation of P/E, P/B, EV/EBITDA, EV/Sales, FCF Yield, ROE, and ROCE.
+- **Implied Valuation:** Computes sector median and average multiples to derive implied market prices against current trading values.
+
+### 5. Multi-Metric Stock Screener
+- **Custom Filters:** Filter by Exchange, Region, P/E ratio, ROE, Debt-to-Equity, Market Cap, and Operating Margins.
+- **Pre-set Screens:** One-click screening for Value, High Growth, Quality Compounders, and Dividend Yield.
+- **Sortable High-Density Grids:** Direct click-through links to full company dossiers.
+
+### 6. Macro & Markets Dashboard
+- **Index Watch:** Real-time coverage across benchmark indices (Nifty 50, Sensex, S&P 500, Nasdaq 100).
+- **Market Breadth & Movers:** Top gainers, losers, 52-week highs/lows, and sector heatmaps.
+- **Commodities & Rates:** Tracking key macro drivers (Crude Oil, Gold, Silver, 10Y Sovereign Yields).
+
+### 7. User Accounts & Saved Models
+- **Snapshot Persistence:** Save custom valuation runs with full parameter audit trails (timestamp, inputs, and spot price).
+- **Watchlists:** Track personal baskets of equities across global exchanges.
+- **Zero Data Drift:** Saved analyses reload with identical historical assumptions.
 
 ---
 
@@ -15,83 +60,79 @@ hedger/
 │   └── api/               # Node.js + Express + TypeScript Market Data Service
 ├── packages/
 │   ├── ui/                # Strict design system tokens (tokens.css) & atomic components
-│   ├── format/            # Pure formatting library (Indian Lakh/Crore, Intl, Money math)
+│   ├── format/            # Pure formatting library (Indian Lakh/Crore, Intl, Currency math)
 │   ├── types/             # Shared Zod schemas & TypeScript DTOs
 │   └── valuation/         # Pure FCFF DCF, Reverse DCF, Scenarios & Sensitivity Engine
 ├── services/
 │   └── yf_gateway/        # Python (FastAPI/uvicorn) microservice wrapping yfinance
-├── docs/                  # Architecture Decision Records, Data Trust, and Phase Specs
-└── resources/             # Phase prompts and official project SVG logos
+└── docs/                  # Architecture Decision Records, Data Trust, and Phase Specs
 ```
 
 ---
 
-## 🔑 Data Provider Integration
+## 🔑 Data Provider Architecture
 
-All third-party data providers are strictly unified behind the server-side `MarketDataService`. The browser **never** calls providers directly and keys are completely secured on the server:
-
-1. **Finnhub (`apps/api/src/providers/FinnhubAdapter.ts`):**
-   - Active Key: `dbcuf89r01qioilbkb50dbcuf89r01qioilbkb5g`
-   - Role: US equities real-time quotes, company profile, and financial news.
-2. **Alpha Vantage (`apps/api/src/providers/AlphaVantageAdapter.ts`):**
-   - Active Key: `CDEA1P2G2SXPT8DU`
-   - Role: Preserved strictly for background spot-checks and reconciliation (blocked from user-facing request paths to conserve free quota).
-3. **yfinance Python Gateway (`services/yf_gateway/main.py`):**
-   - Python FastAPI service running on port `8001` with shared secret authorization.
-   - Powers Indian (NSE/BSE) equities, global historical daily bars (1M, 6M, 1Y, 5Y), and multi-year financial statements.
+Hedger unifies all external data behind a secure server-side `MarketDataService` layer:
+1. **yfinance Python Gateway (`services/yf_gateway`):** Powers Indian (NSE/BSE) equities, global historical daily bars, and multi-year financial statements.
+2. **Finnhub Adapter (`apps/api`):** Real-time US quotes, company profiles, and market news.
+3. **Alpha Vantage Adapter (`apps/api`):** Reserved for spot-checks and secondary verification.
 
 ---
 
-## 🚀 Quick Start (Running Hedger)
+## 🚀 Quick Start
 
-Hedger runs in three cooperating services:
+### Prerequisites
+- Node.js >= 18
+- pnpm >= 8
+- Python 3.10+
 
-### 1. Start the Python yfinance Gateway (Port 8001):
+### 1. Install Dependencies
 ```bash
-python3 -m uvicorn services.yf_gateway.main:app --port 8001
+pnpm install
 ```
 
-### 2. Start the Backend API (Port 3001):
-```bash
-pnpm --filter @hedger/api dev
-```
+### 2. Start Services
 
-### 3. Start the Web Frontend (Port 5173):
-```bash
-pnpm --filter @hedger/web dev
-```
-
-Or run all concurrently:
+**Option A — Run all concurrently:**
 ```bash
 pnpm dev:all
 ```
 
-Open **`http://localhost:5173`** in your browser to experience Hedger!
+**Option B — Run services individually:**
+
+1. Python Gateway (Port 8001):
+```bash
+python3 -m uvicorn services.yf_gateway.main:app --port 8001
+```
+
+2. Backend API (Port 3001):
+```bash
+pnpm --filter @hedger/api dev
+```
+
+3. Web App (Port 5173):
+```bash
+pnpm --filter @hedger/web dev
+```
+
+Open **`http://localhost:5173`** in your browser.
 
 ---
 
 ## 🧪 Testing & Validation
 
-Run all unit tests, DCF monotonicity tests, and data-trust invariant checks:
 ```bash
+# Run unit & valuation monotonicity tests
 pnpm test
-```
 
-Typecheck the entire monorepo:
-```bash
+# Typecheck monorepo
 pnpm typecheck
-```
 
-Build production distribution:
-```bash
+# Production build
 pnpm build
 ```
 
 ---
 
-## 🧭 Four Core Investor Jobs
-
-- **Discover:** Instant `Cmd+K` global search across NSE, BSE, NASDAQ, and NYSE equities.
-- **Understand:** 5+ years of audited Income Statements, Balance Sheets, and Cash Flows with zero `null`/`NaN` rendering.
-- **Value:** Interactive Base, Bull, and Bear DCF intrinsic valuations with dynamic WACC and terminal growth sliders (<5ms recomputation), 2D sensitivity matrix, and reverse DCF.
-- **Compare:** Comprehensive peer benchmark multiples with sector median implied valuations.
+## 📜 License
+Private & Proprietary. All rights reserved.
