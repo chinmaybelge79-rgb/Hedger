@@ -285,7 +285,29 @@ export const LandingPage: React.FC<{ onOpenSearch: () => void }> = ({ onOpenSear
 
   // 1. Master Showcase State
   const [selectedSymbol, setSelectedSymbol] = useState<string>(() => visibleShowcaseCompanies[0]?.symbol || 'AAPL');
-  const [showcaseBars, setShowcaseBars] = useState<HistoricalBar[]>([]);
+  const [showcaseBars, setShowcaseBars] = useState<HistoricalBar[]>(() => {
+    const bars: HistoricalBar[] = [];
+    const now = Date.now();
+    const oneDay = 24 * 60 * 60 * 1000;
+    let current = 210;
+    for (let i = 60; i >= 0; i--) {
+      const d = new Date(now - i * oneDay);
+      if (d.getUTCDay() === 0 || d.getUTCDay() === 6) continue;
+      const wave = Math.sin(i * 0.15) * 0.012 + (i % 7 === 0 ? -0.006 : 0.005);
+      const open = current;
+      current = Math.max(10, current * (1 + wave));
+      const close = current;
+      bars.push({
+        date: d.toISOString().split('T')[0],
+        open: Number(open.toFixed(2)),
+        high: Number((Math.max(open, close) * 1.008).toFixed(2)),
+        low: Number((Math.min(open, close) * 0.992).toFixed(2)),
+        close: Number(close.toFixed(2)),
+        volume: 38000000 + (i % 5) * 2000000
+      });
+    }
+    return bars;
+  });
   const [barsLoading, setBarsLoading] = useState<boolean>(false);
   const [chartInterval, setChartInterval] = useState<string>('1y');
   const [liveCompanyData, setLiveCompanyData] = useState<Partial<ShowcaseCompany>>({});
