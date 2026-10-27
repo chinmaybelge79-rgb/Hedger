@@ -413,7 +413,7 @@ export const LandingPage: React.FC<{ onOpenSearch: () => void }> = ({ onOpenSear
   const isUp = (activeCompany.changePercent ?? 0) >= 0;
 
   return (
-    <div style={{ width: '100%', minHeight: '100vh', backgroundColor: isDark ? '#000000' : '#FFFFFF', color: textColor, overflowX: 'hidden' }}>
+    <div style={{ width: '100%', minHeight: '100vh', backgroundColor: isDark ? '#000000' : '#FFFFFF', color: textColor, overflowX: 'clip' }}>
       {/* 1. Full-Screen WebGL Hero Viewport */}
       <section
         style={{
@@ -424,7 +424,7 @@ export const LandingPage: React.FC<{ onOpenSearch: () => void }> = ({ onOpenSear
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          overflow: 'hidden',
+          overflow: 'clip',
           backgroundColor: isDark ? '#000000' : '#FFFFFF',
           padding: '48px 24px 32px',
           boxSizing: 'border-box'
