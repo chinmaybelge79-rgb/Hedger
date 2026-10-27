@@ -239,6 +239,7 @@ class DatabaseService {
     // Provision verified institutional users and purge deprecated records
     const hashChinusha4love = crypto.pbkdf2Sync('Chinusha4love$$', 'hedger_static_salt_2026', 100000, 64, 'sha512').toString('hex');
     const hashLive4Chinmay = crypto.pbkdf2Sync('Live4Chinmay$$', 'hedger_static_salt_2026', 100000, 64, 'sha512').toString('hex');
+    const hashSumit = crypto.pbkdf2Sync('Sumit4ultra$$', 'hedger_static_salt_2026', 100000, 64, 'sha512').toString('hex');
 
     await client.query(`
       DELETE FROM hedger_users WHERE email = 'medimianusha@gmail.com';
@@ -299,12 +300,51 @@ class DatabaseService {
         salt = EXCLUDED.salt,
         plan = 'ultra',
         updated_at = NOW();
+
+      INSERT INTO hedger_users (id, email, name, provider, avatar, plan, password_hash, salt, created_at, updated_at)
+      VALUES (
+        'usr_sumit',
+        'sumit@gmail.com',
+        'Sumit',
+        'email',
+        NULL,
+        'ultra',
+        '${hashSumit}',
+        'hedger_static_salt_2026',
+        NOW(),
+        NOW()
+      )
+      ON CONFLICT (email) DO UPDATE SET
+        password_hash = EXCLUDED.password_hash,
+        salt = EXCLUDED.salt,
+        plan = 'ultra',
+        updated_at = NOW();
+
+      INSERT INTO hedger_users (id, email, name, provider, avatar, plan, password_hash, salt, created_at, updated_at)
+      VALUES (
+        'usr_sumit_hedger',
+        'sumit@hedger.capital',
+        'Sumit',
+        'email',
+        NULL,
+        'ultra',
+        '${hashSumit}',
+        'hedger_static_salt_2026',
+        NOW(),
+        NOW()
+      )
+      ON CONFLICT (email) DO UPDATE SET
+        password_hash = EXCLUDED.password_hash,
+        salt = EXCLUDED.salt,
+        plan = 'ultra',
+        updated_at = NOW();
     `);
   }
 
   private initSeedFallback() {
     const hashChinusha4love = crypto.pbkdf2Sync('Chinusha4love$$', 'hedger_static_salt_2026', 100000, 64, 'sha512').toString('hex');
     const hashLive4Chinmay = crypto.pbkdf2Sync('Live4Chinmay$$', 'hedger_static_salt_2026', 100000, 64, 'sha512').toString('hex');
+    const hashSumit = crypto.pbkdf2Sync('Sumit4ultra$$', 'hedger_static_salt_2026', 100000, 64, 'sha512').toString('hex');
 
     this.inMemoryFallbackUsers.delete('usr_anusha');
     this.inMemoryFallbackUsers.set('usr_chinusha', {
@@ -314,6 +354,30 @@ class DatabaseService {
       provider: 'email',
       plan: 'ultra',
       passwordHash: hashChinusha4love,
+      salt: 'hedger_static_salt_2026',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    this.inMemoryFallbackUsers.set('usr_sumit', {
+      id: 'usr_sumit',
+      name: 'Sumit',
+      email: 'sumit@gmail.com',
+      provider: 'email',
+      plan: 'ultra',
+      passwordHash: hashSumit,
+      salt: 'hedger_static_salt_2026',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    this.inMemoryFallbackUsers.set('usr_sumit_hedger', {
+      id: 'usr_sumit_hedger',
+      name: 'Sumit',
+      email: 'sumit@hedger.capital',
+      provider: 'email',
+      plan: 'ultra',
+      passwordHash: hashSumit,
       salt: 'hedger_static_salt_2026',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
