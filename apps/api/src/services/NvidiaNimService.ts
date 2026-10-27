@@ -26,17 +26,27 @@ export interface StockContext {
 export class NvidiaNimService {
   private static instance: NvidiaNimService;
   private apiKey: string;
+  private openRouterApiKey: string;
+  private geminiApiKey: string;
   private nimBaseUrl = 'https://integrate.api.nvidia.com/v1/chat/completions';
+  private openRouterBaseUrl = 'https://openrouter.ai/api/v1/chat/completions';
 
-  // Fast answering chatbot model
-  public fastChatModel = 'meta/llama-3.2-11b-vision-instruct';
-  // Deep financial analysis & investment thesis model
-  public deepAnalysisModel = 'meta/llama-3.2-11b-vision-instruct';
+  // Fast answering chatbot & peer model (Lightning fast ~300ms)
+  public fastChatModel = 'google/gemini-3.5-flash-lite';
+  public fastChatFallback = 'meta-llama/llama-3.1-8b-instruct';
+
+  // Deep financial analysis & investment thesis model (Fastest & best reasoning)
+  public deepAnalysisModel = 'google/gemini-3.8-flash';
+  public deepAnalysisFallback = 'meta-llama/llama-3.3-70b-instruct';
+
   // Light AI financial health model
-  public lightHealthModel = 'meta/llama-3.2-11b-vision-instruct';
+  public lightHealthModel = 'google/gemini-3.5-flash-lite';
+  public lightHealthFallback = 'meta-llama/llama-3.1-8b-instruct';
 
   private constructor() {
     this.apiKey = config.NVIDIA_NIM_API_KEY || process.env.NVIDIA_NIM_API_KEY || process.env.NVIDIA_API_KEY || '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';
+    this.openRouterApiKey = config.OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY || '';
+    this.geminiApiKey = config.GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
   }
 
   public static getInstance(): NvidiaNimService {
@@ -50,12 +60,152 @@ export class NvidiaNimService {
     this.apiKey = key.trim();
   }
 
+  public setOpenRouterApiKey(key: string) {
+    this.openRouterApiKey = key.trim();
+  }
+
+  public setGeminiApiKey(key: string) {
+    this.geminiApiKey = key.trim();
+  }
+
   public hasApiKey(): boolean {
-    return !!this.apiKey && this.apiKey.length > 5;
+    return (
+      (!!this.openRouterApiKey && this.openRouterApiKey.length > 5) ||
+      (!!this.geminiApiKey && this.geminiApiKey.length > 5) ||
+      (!!this.apiKey && this.apiKey.length > 5)
+    );
   }
 
   /**
-   * Fast Answering Chatbot via NVIDIA NIM
+   * Multi-Tier AI Provider Cascade:
+   * 1. OpenRouter (Primary - Fastest & Most Reliable, Gemini Flash Lite & Llama 3.3 70B)
+   * 2. Direct Google Gemini API (Secondary)
+   * 3. NVIDIA NIM API (Tertiary)
+   * 4. Deterministic Engine (Zero Failure Safety Net)
+   */
+  private async callAiProvider(params: {
+    messages: { role: 'system' | 'user' | 'assistant'; content: string }[];
+    task: 'chat' | 'thesis' | 'health' | 'peers';
+    temperature?: number;
+    maxTokens?: number;
+    timeoutMs?: number;
+  }): Promise<string | null> {
+    const temperature = params.temperature ?? 0.2;
+    const maxTokens = params.maxTokens ?? (params.task === 'thesis' ? 4096 : params.task === 'peers' ? 300 : 650);
+    const timeoutMs = params.timeoutMs ?? (params.task === 'thesis' ? 22000 : 8000);
+
+    // 1. TIER 1: OpenRouter (Best & Fastest AI Models)
+    if (this.openRouterApiKey && this.openRouterApiKey.length > 5) {
+      const primaryModel = params.task === 'thesis' ? this.deepAnalysisModel : this.fastChatModel;
+      const secondaryModel = params.task === 'thesis' ? this.deepAnalysisFallback : this.fastChatFallback;
+
+      for (const model of [primaryModel, secondaryModel]) {
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+          const res = await fetch(this.openRouterBaseUrl, {
+            method: 'POST',
+            signal: controller.signal,
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${this.openRouterApiKey}`,
+              'HTTP-Referer': 'https://hedger.capital',
+              'X-Title': 'Hedger Terminal'
+            },
+            body: JSON.stringify({
+              model,
+              messages: params.messages,
+              temperature,
+              max_tokens: maxTokens
+            })
+          });
+          clearTimeout(timer);
+
+          if (res.ok) {
+            const data = (await res.json()) as any;
+            const reply = data.choices?.[0]?.message?.content;
+            if (reply && reply.trim().length > 0) {
+              return reply.trim();
+            }
+          }
+        } catch {
+          // Continue to next model or tier
+        }
+      }
+    }
+
+    // 2. TIER 2: Direct Google Gemini API
+    if (this.geminiApiKey && this.geminiApiKey.length > 5) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 6000);
+        const userPrompt = params.messages.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${encodeURIComponent(this.geminiApiKey)}`,
+          {
+            method: 'POST',
+            signal: controller.signal,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: userPrompt }] }],
+              generationConfig: { temperature, maxOutputTokens: maxTokens }
+            })
+          }
+        );
+        clearTimeout(timer);
+
+        if (res.ok) {
+          const data = (await res.json()) as any;
+          const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (reply && reply.trim().length > 0) {
+            return reply.trim();
+          }
+        }
+      } catch {
+        // Continue to tier 3
+      }
+    }
+
+    // 3. TIER 3: NVIDIA NIM API
+    if (this.apiKey && this.apiKey.length > 5) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 6000);
+
+        const res = await fetch(this.nimBaseUrl, {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiKey}`
+          },
+          body: JSON.stringify({
+            model: 'meta/llama-3.2-11b-vision-instruct',
+            messages: params.messages,
+            temperature,
+            max_tokens: maxTokens
+          })
+        });
+        clearTimeout(timer);
+
+        if (res.ok) {
+          const data = (await res.json()) as any;
+          const reply = data.choices?.[0]?.message?.content;
+          if (reply && reply.trim().length > 0) {
+            return reply.trim();
+          }
+        }
+      } catch {
+        // Fall back to deterministic engine
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Fast Answering Chatbot via Multi-Tier AI Provider Cascade
    */
   public async chat(messages: ChatMessage[], options?: { stream?: boolean; context?: StockContext }): Promise<string> {
     const lastUserMsg = messages[messages.length - 1]?.content || '';
@@ -105,38 +255,18 @@ Strict Behavioral & Regulatory Rules:
 
     const finalMessages = [systemPrompt, ...messages];
 
-    if (this.hasApiKey()) {
-      try {
-        const controller = new AbortController();
-        // Allow up to 18 seconds for thorough institutional NIM response
-        const timer = setTimeout(() => controller.abort(), 18000);
-        const response = await fetch(this.nimBaseUrl, {
-          method: 'POST',
-          signal: controller.signal,
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.apiKey}`
-          },
-          body: JSON.stringify({
-            model: this.fastChatModel,
-            messages: finalMessages,
-            temperature: 0.3,
-            max_tokens: 650
-          })
-        });
-        clearTimeout(timer);
+    const reply = await this.callAiProvider({
+      messages: finalMessages,
+      task: 'chat',
+      temperature: 0.3,
+      maxTokens: 650
+    });
 
-        if (response.ok) {
-          const data = await response.json();
-          const reply = data.choices?.[0]?.message?.content;
-          if (reply && reply.trim().length > 10) return this.formatCompliantChatReply(reply.trim());
-        }
-      } catch (err: any) {
-        console.warn('NVIDIA NIM Chat API call timed out or failed, using institutional intelligence fallback:', err.message);
-      }
+    if (reply && reply.length > 10) {
+      return this.formatCompliantChatReply(reply);
     }
 
-    // Dynamic, context-rich fallback response when NIM is unreachable
+    // Dynamic, context-rich fallback response when all AI providers are unreachable
     return this.formatCompliantChatReply(this.generateFallbackChatResponse(messages[messages.length - 1]?.content || '', options?.context));
   }
 
@@ -147,46 +277,27 @@ Strict Behavioral & Regulatory Rules:
     context: StockContext,
     userOverrides?: Record<string, any>
   ): Promise<string> {
-    if (this.hasApiKey()) {
-      try {
-        const prompt = this.buildThesisPrompt(context, userOverrides);
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 12000);
-        const response = await fetch(this.nimBaseUrl, {
-          method: 'POST',
-          signal: controller.signal,
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.apiKey}`
-          },
-          body: JSON.stringify({
-            model: this.deepAnalysisModel,
-            messages: [
-              {
-                role: 'system',
-                content: `You are an equity research analyst writing a source-backed investment thesis following the HEDGER — INVESTMENT THESIS TEMPLATE. Validated data and deterministic calculations produce every number. You never invent figures. Tag every figure [R], [C], [E], [F], [A]. Do not output emojis anywhere. Export PART B only.`
-              },
-              {
-                role: 'user',
-                content: prompt
-              }
-            ],
-            temperature: 0.15,
-            max_tokens: 4096
-          })
-        });
-        clearTimeout(timer);
+    const prompt = this.buildThesisPrompt(context, userOverrides);
 
-        if (response.ok) {
-          const data = await response.json();
-          const thesis = data.choices?.[0]?.message?.content;
-          if (thesis && thesis.length > 200) {
-            return thesis;
-          }
+    const thesis = await this.callAiProvider({
+      messages: [
+        {
+          role: 'system',
+          content: `You are an equity research analyst writing a source-backed investment thesis following the HEDGER — INVESTMENT THESIS TEMPLATE. Validated data and deterministic calculations produce every number. You never invent figures. Tag every figure [R], [C], [E], [F], [A]. Do not output emojis anywhere. Export PART B only.`
+        },
+        {
+          role: 'user',
+          content: prompt
         }
-      } catch (err) {
-        console.warn('NVIDIA NIM Thesis API call failed or timed out, using institutional template engine:', err);
-      }
+      ],
+      task: 'thesis',
+      temperature: 0.15,
+      maxTokens: 4096,
+      timeoutMs: 22000
+    });
+
+    if (thesis && thesis.length > 200) {
+      return thesis;
     }
 
     // Generate full institutional thesis matching the exact template with audited numbers
@@ -197,39 +308,24 @@ Strict Behavioral & Regulatory Rules:
    * Light AI Financial Health & Quality Analysis
    */
   public async analyzeFinancialHealth(financials: Record<string, any>): Promise<string> {
-    if (this.hasApiKey()) {
-      try {
-        const response = await fetch(this.nimBaseUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.apiKey}`
-          },
-          body: JSON.stringify({
-            model: this.lightHealthModel,
-            messages: [
-              {
-                role: 'system',
-                content: `You are an institutional financial analyst. Provide a brief 3-4 sentence synthesized evaluation of the company's financial health, return on invested capital, and balance sheet quality directly from the metrics. Avoid all emojis. Strictly objective and factual.`
-              },
-              {
-                role: 'user',
-                content: `Evaluate the following reported metrics: ${JSON.stringify(financials)}`
-              }
-            ],
-            temperature: 0.1,
-            max_tokens: 300
-          })
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const text = data.choices?.[0]?.message?.content;
-          if (text) return text.trim();
+    const text = await this.callAiProvider({
+      messages: [
+        {
+          role: 'system',
+          content: `You are an institutional financial analyst. Provide a brief 3-4 sentence synthesized evaluation of the company's financial health, return on invested capital, and balance sheet quality directly from the metrics. Avoid all emojis. Strictly objective and factual.`
+        },
+        {
+          role: 'user',
+          content: `Evaluate the following reported metrics: ${JSON.stringify(financials)}`
         }
-      } catch {
-        // Fall back to deterministic synthesis
-      }
+      ],
+      task: 'health',
+      temperature: 0.1,
+      maxTokens: 300
+    });
+
+    if (text && text.length > 10) {
+      return text;
     }
 
     return this.generateFallbackHealthNarrative(financials);
@@ -957,11 +1053,9 @@ This document is AI-assisted research for informational and educational purposes
 
     const isIndian = /india|\.ns|\.bo|inr/i.test(`${target.country || ''} ${rawSym} ${target.currency || ''}`);
 
-    // If NIM API key is available, attempt real-time AI peer inference
+    // Attempt real-time AI peer inference via Multi-Tier Provider Cascade
     if (this.hasApiKey()) {
       try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 6000);
         const prompt = `You are a quantitative financial analyst. For the company "${target.name}" (${rawSym}), Sector: "${target.sector || 'Unknown'}", Industry: "${target.industry || 'Unknown'}", Country: "${target.country || (isIndian ? 'India' : 'US')}".
 Business context: "${(target.description || '').slice(0, 300)}".
 Find exactly 3 to 4 REAL, DIRECT industry peers or competitors operating in the exact same business/sector in the same market.
@@ -969,25 +1063,15 @@ For Indian companies, prefer well-known, actively traded National Stock Exchange
 Output ONLY a JSON array in format: [{"symbol": "TICKER.EXCHANGE", "reason": "Specific Sector Matching Reason"}].
 Do not include any other text or markdown fences.`;
 
-        const response = await fetch(this.nimBaseUrl, {
-          method: 'POST',
-          signal: controller.signal,
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.apiKey}`
-          },
-          body: JSON.stringify({
-            model: this.fastChatModel,
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.1,
-            max_tokens: 300
-          })
+        const content = await this.callAiProvider({
+          messages: [{ role: 'user', content: prompt }],
+          task: 'peers',
+          temperature: 0.1,
+          maxTokens: 300,
+          timeoutMs: 6000
         });
-        clearTimeout(timer);
 
-        if (response.ok) {
-          const data = await response.json();
-          const content = data.choices?.[0]?.message?.content || '';
+        if (content) {
           const cleanJson = content.replace(/```json|```/g, '').trim();
           const parsed = JSON.parse(cleanJson);
           if (Array.isArray(parsed) && parsed.length > 0) {

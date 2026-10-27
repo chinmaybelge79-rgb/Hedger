@@ -337,14 +337,23 @@ aiRouter.post('/valuation-visit', async (req: Request, res: Response) => {
 
 /**
  * 7. POST /api/ai/config-key
- * Optional configuration for setting NVIDIA NIM API Key at runtime
+ * Optional configuration for setting AI Provider API Keys at runtime
  */
 aiRouter.post('/config-key', (req: Request, res: Response) => {
-  const { apiKey } = req.body;
-  if (!apiKey || typeof apiKey !== 'string') {
+  const { apiKey, openRouterApiKey, geminiApiKey } = req.body;
+  if (!apiKey && !openRouterApiKey && !geminiApiKey) {
     return res.status(400).json({ error: 'A valid API key is required' });
   }
 
-  nvidiaNimService.setApiKey(apiKey);
-  return res.json({ success: true, message: 'NVIDIA NIM API key configured successfully' });
+  if (apiKey && typeof apiKey === 'string') {
+    nvidiaNimService.setApiKey(apiKey);
+  }
+  if (openRouterApiKey && typeof openRouterApiKey === 'string') {
+    nvidiaNimService.setOpenRouterApiKey(openRouterApiKey);
+  }
+  if (geminiApiKey && typeof geminiApiKey === 'string') {
+    nvidiaNimService.setGeminiApiKey(geminiApiKey);
+  }
+
+  return res.json({ success: true, message: 'AI provider keys configured successfully' });
 });
