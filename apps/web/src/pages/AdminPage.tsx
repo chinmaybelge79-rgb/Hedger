@@ -369,7 +369,7 @@ export const AdminPage: React.FC = () => {
                   type="text"
                   value={usernameInput}
                   onChange={(e) => setUsernameInput(e.target.value)}
-                  placeholder="GODDESS"
+                  placeholder=""
                   required
                   style={{
                     width: '100%',
@@ -403,7 +403,7 @@ export const AdminPage: React.FC = () => {
                   type="password"
                   value={passwordInput}
                   onChange={(e) => setPasswordInput(e.target.value)}
-                  placeholder="••••••••••••"
+                  placeholder=""
                   required
                   style={{
                     width: '100%',
@@ -436,31 +436,9 @@ export const AdminPage: React.FC = () => {
                 }}
                 className="hover:opacity-90"
               >
-                {isLoggingIn ? 'Verifying Identity...' : 'Authenticate as GODDESS →'}
+                {isLoggingIn ? 'Verifying Identity...' : 'Authenticate →'}
               </button>
             </form>
-
-            {/* Quick Prefill Pill for Administrator Convenience */}
-            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #27272a', textAlign: 'center' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setUsernameInput('GODDESS');
-                  setPasswordInput('Live4Anusha$$');
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#71717a',
-                  fontSize: '11px',
-                  cursor: 'pointer',
-                  textDecoration: 'underline'
-                }}
-                className="hover:text-zinc-300"
-              >
-                Auto-fill GODDESS Credentials
-              </button>
-            </div>
           </div>
 
           <div style={{ textAlign: 'center', marginTop: '24px' }}>

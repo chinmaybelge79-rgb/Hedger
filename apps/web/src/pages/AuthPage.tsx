@@ -553,10 +553,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'signin' }) =>
           )}
         </div>
 
-        {/* Link to GODDESS Administrative Portal */}
+        {/* Link to Administrative Portal */}
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px', fontSize: '12px' }}>
           <Link to="/admin" style={{ color: isDark ? '#71717a' : '#9CA3AF', textDecoration: 'underline' }}>
-            Administrative Portal (GODDESS)
+            Administrative Portal
           </Link>
         </div>
 

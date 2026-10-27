@@ -121,14 +121,14 @@ test.describe('Application Lock, 3 Users & GODDESS Admin Portal', () => {
     });
 
     // 1. Attempt invalid credentials
-    await page.getByPlaceholder('GODDESS').fill('GODDESS');
-    await page.getByPlaceholder('••••••••••••').fill('WrongPassword!');
-    await page.getByRole('button', { name: 'Authenticate as GODDESS →' }).click();
+    await page.locator('input[type="text"]').fill('GODDESS');
+    await page.locator('input[type="password"]').fill('WrongPassword!');
+    await page.getByRole('button', { name: 'Authenticate →' }).click();
     await expect(page.getByText('Invalid administrative credentials')).toBeVisible();
 
     // 2. Submit valid credentials: GODDESS / Live4Anusha$$
-    await page.getByPlaceholder('••••••••••••').fill('Live4Anusha$$');
-    await page.getByRole('button', { name: 'Authenticate as GODDESS →' }).click();
+    await page.locator('input[type="password"]').fill('Live4Anusha$$');
+    await page.getByRole('button', { name: 'Authenticate →' }).click();
 
     // 3. Verify Admin Control Plane renders
     await expect(page.getByText('HEDGER CONTROL PLANE')).toBeVisible();
