@@ -79,18 +79,18 @@ export const CHART_THEMES: Record<'light' | 'dark', ChartThemeColors> = {
     crosshairDot: '#171717'
   },
   dark: {
-    canvasBg: '#141414',
-    gridlines: '#292929',
+    canvasBg: '#000000',
+    gridlines: '#18181b',
     axisLabels: '#A1A1AA',
-    priceLine: '#E5E7EB',
-    areaGradientTop: 'rgba(229, 231, 235, 0.12)',
-    areaGradientBottom: 'rgba(229, 231, 235, 0.00)',
-    positive: '#16A34A',
-    negative: '#DC2626',
-    volumeUp: 'rgba(22, 163, 74, 0.25)',
-    volumeDown: 'rgba(220, 38, 38, 0.25)',
-    tooltipBg: '#1A1A1A',
-    tooltipBorder: '#333333',
+    priceLine: '#FFFFFF',
+    areaGradientTop: 'rgba(255, 255, 255, 0.12)',
+    areaGradientBottom: 'rgba(255, 255, 255, 0.00)',
+    positive: '#22c55e',
+    negative: '#ef4444',
+    volumeUp: 'rgba(34, 197, 94, 0.35)',
+    volumeDown: 'rgba(239, 68, 68, 0.35)',
+    tooltipBg: '#09090b',
+    tooltipBorder: '#27272a',
     tooltipText: '#F5F5F5',
     crosshair: '#52525B',
     crosshairDot: '#F5F5F5'
@@ -107,7 +107,7 @@ function formatAxisDate(dateStr: string, barSpan: number): string {
     if (isNaN(d.getTime())) return '—';
 
     if (barSpan > 250) {
-      // Multi-year (3Y, 5Y, ALL): 'Oct 2024'
+      // Multi-year (3Y, 5Y): 'Oct 2024'
       return d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
     } else if (barSpan > 45) {
       // Medium range (6M, 1Y): '15 Oct 25'
@@ -175,6 +175,14 @@ export function renderChart(
     );
   }
   ctx.restore();
+
+  // Strict clipping region on the plot area:
+  // Guarantees candlesticks, wicks, area gradients, lines, volume bars and event badges
+  // can NEVER bleed into the right Y-axis price numbers or bottom X-axis date labels!
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(paddingLeft, paddingTop, plotWidth, plotHeight);
+  ctx.clip();
 
   // 2. Valuation Range Shaded Band & Base Line Overlay (if enabled)
   if (valuation && valuation.visible && valuation.baseCase > 0) {
@@ -402,6 +410,9 @@ export function renderChart(
     }
     ctx.restore();
   }
+
+  // Restore context from plot area clipping before drawing axis labels
+  ctx.restore();
 
   // 6. Draw X-Axis Date Labels
   if (bars.length > 0) {

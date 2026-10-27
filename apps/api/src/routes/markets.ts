@@ -270,7 +270,7 @@ const STOCK_NAMES: Record<string, string> = {
 };
 
 // In-memory cache for market overview to keep UI instant
-const overviewCache = new Map<string, { timestamp: number; data: any }>();
+const overviewCache = new Map<string, { timestamp: number; data: unknown }>();
 const CACHE_TTL_MS = 300000; // 5 minutes cache
 
 marketsRouter.get('/overview', async (req, res) => {
@@ -292,9 +292,10 @@ marketsRouter.get('/overview', async (req, res) => {
           marketDataService.getHistory(idx.symbol, '1mo').catch(() => [])
         ]);
 
-        const trend = Array.isArray(bars) && bars.length > 0
-          ? bars.slice(-10).map((b) => Number(b.close.toFixed(2)))
-          : (q?.price ? [q.price * 0.99, q.price * 0.995, q.price * 1.002, q.price] : [100, 102, 101, 103]);
+        const validBars = Array.isArray(bars) ? bars.filter((b) => b && typeof b.close === 'number' && !isNaN(b.close)) : [];
+        const trend = validBars.length > 0
+          ? validBars.slice(-10).map((b) => Number(b.close.toFixed(2)))
+          : (typeof q?.price === 'number' && !isNaN(q.price) ? [q.price * 0.99, q.price * 0.995, q.price * 1.002, q.price] : [100, 102, 101, 103]);
 
         return {
           symbol: idx.symbol,
@@ -365,14 +366,14 @@ marketsRouter.get('/overview', async (req, res) => {
     const dispAdvances = Math.max(1, advances * scaleFactor + 14);
     const dispDeclines = Math.max(1, declines * scaleFactor + 9);
     const dispUnchanged = Math.max(1, unchanged * scaleFactor + 4);
-    const adRatio = Number((dispAdvances / dispDeclines).toFixed(2));
+    const adRatio = dispDeclines > 0 ? Number((dispAdvances / dispDeclines).toFixed(2)) : 1.0;
 
     // 4. Resolve Sectors
     const sectors = await Promise.all(
       config.sectors.map(async (sec) => {
         if (sec.symbol) {
           const q = await marketDataService.getQuote(sec.symbol).catch(() => null);
-          if (q && typeof q.changePercent === 'number') {
+          if (q && typeof q.changePercent === 'number' && !isNaN(q.changePercent)) {
             return {
               name: sec.name,
               change: Number((q.changePercent * 100).toFixed(1))
@@ -409,7 +410,8 @@ marketsRouter.get('/overview', async (req, res) => {
 
     overviewCache.set(cacheKey, { timestamp: Date.now(), data: result });
     return res.json(result);
-  } catch (err: any) {
-    return res.status(500).json({ error: err.message || 'Failed to load markets overview' });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to load markets overview';
+    return res.status(500).json({ error: message });
   }
 });

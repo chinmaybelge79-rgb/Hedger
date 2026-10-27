@@ -818,6 +818,24 @@ const GLOBAL_SCREENER_UNIVERSE: ScreenerStock[] = [
     trend: [3020, 3050, 3080, 3090, 3100, 3105]
   },
   {
+    symbol: '9984.T',
+    name: 'SoftBank Group Corp.',
+    country: 'Japan',
+    region: 'asia',
+    exchange: 'TSE',
+    sector: 'Technology & Investment',
+    currency: 'JPY',
+    price: 8950,
+    changePercent: 0.0180,
+    marketCap: 13200000000000,
+    marketCapUsd: 13200000000000 / 152.5,
+    peRatio: 14.8,
+    pbRatio: 1.3,
+    roe: 0.115,
+    dividendYield: 0.005,
+    trend: [8750, 8820, 8870, 8900, 8920, 8950]
+  },
+  {
     symbol: '6758.T',
     name: 'Sony Group Corporation',
     country: 'Japan',
@@ -911,7 +929,8 @@ const GLOBAL_SCREENER_UNIVERSE: ScreenerStock[] = [
 
 screenerRouter.get('/', async (req, res) => {
   try {
-    const region = String(req.query.region || 'all').toLowerCase();
+    const rawRegion = String(req.query.region || 'all').toLowerCase();
+    const region = rawRegion === 'in' ? 'india' : rawRegion === 'eu' ? 'europe' : rawRegion;
     const sector = String(req.query.sector || 'all').toLowerCase();
     const minPe = req.query.minPe !== undefined && req.query.minPe !== '' ? Number(req.query.minPe) : null;
     const maxPe = req.query.maxPe !== undefined && req.query.maxPe !== '' ? Number(req.query.maxPe) : null;
@@ -1021,7 +1040,8 @@ screenerRouter.get('/', async (req, res) => {
         freshness: 'LIVE'
       }
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Screener query failed' });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Screener query failed';
+    res.status(500).json({ error: message });
   }
 });

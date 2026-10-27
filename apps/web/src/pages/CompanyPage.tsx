@@ -3,7 +3,10 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { HedgerChart } from '@hedger/charts';
 import type { HistoricalBar, FinancialStatement } from '@hedger/types';
 import { isValidSymbol, normalizeSymbol, companyPath } from '../lib/navigation.js';
+import { CompanyLogo } from '../components/CompanyLogo.js';
 import { FinancialAnalysisSection } from '../components/FinancialAnalysisSection.js';
+import { AiInvestmentThesisSection } from '../components/AiInvestmentThesisSection.js';
+import { PredictionModelCard } from '../components/PredictionModelCard.js';
 import {
   formatPrice,
   formatDelta,
@@ -337,19 +340,24 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ initialTab }) => {
 
   const baseValue = useMemo(() => {
     if (valuationData?.dcf?.intrinsicValuePerShare) {
-      const base = valuationData.dcf.intrinsicValuePerShare;
-      const waccFactor = 1 + (wacc - 11.5) * 0.05;
-      const gFactor = 1 + (terminalGrowth - 4.0) * 0.04;
-      const marginFactor = 1 + (targetMargin - 18.0) * 0.03;
-      const growthFactor = 1 + (fiveYearGrowth - 10.0) * 0.025;
-      const adjusted = (base * marginFactor * growthFactor) / Math.max(0.2, waccFactor - gFactor + 1);
-      return Math.round(Math.max(1, adjusted));
+      return Math.round(valuationData.dcf.intrinsicValuePerShare);
     }
     return Math.round(currentPrice * 1.15);
-  }, [valuationData, wacc, terminalGrowth, targetMargin, fiveYearGrowth, currentPrice]);
+  }, [valuationData, currentPrice]);
 
-  const bearValue = Math.round(baseValue * 0.75);
-  const bullValue = Math.round(baseValue * 1.30);
+  const bearValue = useMemo(() => {
+    if (valuationData?.scenarios?.bear?.intrinsicValuePerShare) {
+      return Math.round(valuationData.scenarios.bear.intrinsicValuePerShare);
+    }
+    return Math.round(baseValue * 0.75);
+  }, [valuationData, baseValue]);
+
+  const bullValue = useMemo(() => {
+    if (valuationData?.scenarios?.bull?.intrinsicValuePerShare) {
+      return Math.round(valuationData.scenarios.bull.intrinsicValuePerShare);
+    }
+    return Math.round(baseValue * 1.30);
+  }, [valuationData, baseValue]);
 
   const baseMoS = currentPrice > 0 ? (((baseValue - currentPrice) / currentPrice) * 100).toFixed(1) : '0.0';
   const bearMoS = currentPrice > 0 ? (((bearValue - currentPrice) / currentPrice) * 100).toFixed(1) : '0.0';
@@ -587,13 +595,16 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ initialTab }) => {
   return (
     <div className="page-container">
       {/* Company Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-        <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--foreground)', letterSpacing: '-0.02em', marginBottom: '2px' }}>
-            {overview.name}
-          </h1>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-            {overview.symbol} · {overview.exchange} · {overview.currency} · {meta?.freshness || 'EOD'} · Source: {meta?.source || 'Exchange'}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <CompanyLogo symbol={overview.symbol} name={overview.name} size={44} withContainer rounded />
+          <div>
+            <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--foreground)', letterSpacing: '-0.02em', marginBottom: '2px' }}>
+              {overview.name}
+            </h1>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+              {overview.symbol} · {overview.exchange} · {overview.currency} · {meta?.freshness || 'EOD'}
+            </div>
           </div>
         </div>
 
@@ -625,27 +636,33 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ initialTab }) => {
               border: '1px solid var(--border)',
               backgroundColor: 'var(--card)',
               color: 'var(--foreground)',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
             }}
             className="hover:bg-[var(--secondary)]"
           >
-            ☆ Save
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+            </svg>
+            <span>Save</span>
           </button>
           <button
-            onClick={() => setActiveTab('valuation')}
+            onClick={() => document.getElementById('valuation-models-section')?.scrollIntoView({ behavior: 'smooth' })}
             style={{
               padding: '6px 16px',
               fontSize: '12px',
               fontWeight: 500,
               borderRadius: '6px',
-              border: 'none',
-              backgroundColor: 'var(--primary)',
-              color: 'var(--primary-foreground)',
+              border: '1px solid var(--border)',
+              backgroundColor: 'var(--card)',
+              color: 'var(--foreground)',
               cursor: 'pointer'
             }}
             className="hover:opacity-90"
           >
-            Open valuation
+            Valuation models ↓
           </button>
         </div>
       </div>
@@ -699,7 +716,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ initialTab }) => {
           ========================================================================= */}
       {activeTab === 'overview' && (
         <div>
-          {/* Top 2 Cards: Chart & Intrinsic Range */}
+          {/* Top 2 Cards: Chart & 5-Year Prediction Model */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px', marginBottom: '20px' }}>
             {/* Left Card: 1M 6M 1Y 5Y Chart */}
             <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '20px', backgroundColor: 'var(--card)' }}>
@@ -718,56 +735,16 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ initialTab }) => {
                   compact={true}
                   loading={historyLoading}
                   height={220}
-                  valuation={{
-                    baseCase: baseValue,
-                    bearCase: bearValue,
-                    bullCase: bullValue,
-                    currency: overview.currency,
-                    visible: true
-                  }}
                 />
               </div>
             </div>
 
-            {/* Right Card: Intrinsic Value Base Case Bar */}
-            <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '24px', backgroundColor: 'var(--card)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                  Intrinsic value · Base case
-                </div>
-                <div style={{ fontSize: '36px', fontWeight: 600, color: 'var(--foreground)', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-                  {formatPrice({ amount: baseValue, currency: overview.currency })}
-                </div>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: parseFloat(baseMoS) >= 0 ? 'var(--positive)' : 'var(--negative)', marginTop: '6px', marginBottom: '32px' }}>
-                  {parseFloat(baseMoS) >= 0 ? `+${baseMoS}%` : `${baseMoS}%`} vs current price
-                </div>
-
-                {/* Range Bar with Price Pin */}
-                <div style={{ position: 'relative', width: '100%', marginBottom: '12px' }}>
-                  <div style={{ height: '2px', backgroundColor: 'var(--border)', width: '100%', position: 'relative' }}>
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: '-10px',
-                        left: '46%',
-                        width: '2px',
-                        height: '22px',
-                        backgroundColor: 'var(--foreground)'
-                      }}
-                    />
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginTop: '10px' }}>
-                    <span>Bear {formatPrice({ amount: bearValue, currency: overview.currency })}</span>
-                    <span>Price {formatPrice({ amount: currentPrice, currency: overview.currency })}</span>
-                    <span>Bull {formatPrice({ amount: bullValue, currency: overview.currency })}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                An estimate from the assumptions shown. Not investment advice.
-              </div>
-            </div>
+            {/* Right Card: 5-Year Prediction Model (Change C) */}
+            <PredictionModelCard
+              symbol={overview.symbol}
+              currency={overview.currency}
+              currentPrice={currentPrice}
+            />
           </div>
 
           {/* 5 Stats Bar */}
@@ -955,14 +932,14 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ initialTab }) => {
           TAB 5: PEERS
           ========================================================================= */}
       {activeTab === 'peers' && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+        <div id="peers-section">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <div>
               <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '2px' }}>
                 Peer comparison
               </h2>
               <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                Relevant sector peers for {overview.name} · Ratios computed in local currencies
+                Direct industry peers for {overview.name} · Ratios computed in local currencies
               </p>
             </div>
           </div>
@@ -1021,9 +998,14 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ initialTab }) => {
                       className="hover:bg-[var(--secondary)]"
                     >
                       <td style={{ padding: '10px 16px' }}>
-                        <div style={{ fontWeight: 500, color: 'var(--foreground)' }}>{peer.name}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-                          {peer.symbol} · {peer.reason}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <CompanyLogo symbol={peer.symbol} name={peer.name} size={24} withContainer rounded />
+                          <div>
+                            <div style={{ fontWeight: 500, color: 'var(--foreground)' }}>{peer.name}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                              {peer.symbol} · {peer.reason}
+                            </div>
+                          </div>
                         </div>
                       </td>
                       <td style={{ padding: '10px 16px', textAlign: 'right', color: 'var(--foreground)' }}>
@@ -1100,6 +1082,18 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ initialTab }) => {
       )}
 
       {/* =========================================================================
+          AI INVESTMENT THESIS & LIVE ANALYSIS (NVIDIA NIM)
+          ========================================================================= */}
+      <AiInvestmentThesisSection
+        symbol={overview.symbol}
+        companyName={overview.name}
+        companyType={overview.companyType as any}
+        currentPrice={overview.price ?? undefined}
+        currency={overview.currency}
+        marketCap={overview.keyStats?.marketCap ?? undefined}
+      />
+
+      {/* =========================================================================
           BOTTOM SECTION: VALUATION MODELS (WORKSTREAM E)
           ========================================================================= */}
       <div id="valuation-models-section" style={{ marginTop: '48px', paddingTop: '32px', borderTop: '1px solid var(--border)' }}>
@@ -1127,126 +1121,69 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ initialTab }) => {
               {/* Card 1: Excess Returns */}
               <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '24px', backgroundColor: 'var(--card)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)' }}>Excess Returns Model</h3>
-                    <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'var(--secondary)', color: 'var(--text-muted)', fontWeight: 500 }}>Bank Primary</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)', margin: 0 }}>Excess Returns Model</h3>
+                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border)', backgroundColor: 'var(--secondary)', color: 'var(--foreground)', fontWeight: 500 }}>
+                      Available
+                    </span>
                   </div>
-                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', minHeight: '36px', marginBottom: '16px' }}>
-                    Does the bank generate returns on tangible book value exceeding its cost of equity?
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '24px' }}>
+                    Capitalizes returns on tangible book equity exceeding the firm's cost of equity across normalized economic cycles.
                   </p>
-
-                  <div style={{ padding: '16px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', marginBottom: '16px' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>Intrinsic Value Output</div>
-                    <div style={{ fontSize: '24px', fontWeight: 600, color: 'var(--foreground)' }} className="tnum">
-                      {formatPrice({ amount: Math.round((overview.price || 100) * 1.12), currency: overview.currency })}
-                    </div>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--positive)', marginTop: '2px' }}>
-                      +12.0% vs current price
-                    </div>
-                  </div>
-
-                  {/* Mini 3x3 Sensitivity Preview */}
-                  <div style={{ marginBottom: '20px' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>Sensitivity Preview (ROE vs Ke)</div>
-                    <table style={{ width: '100%', fontSize: '10px', textAlign: 'right', borderCollapse: 'collapse' }}>
-                      <tbody>
-                        {[14.0, 16.0, 18.0].map((r) => (
-                          <tr key={r}>
-                            <td style={{ textAlign: 'left', color: 'var(--text-muted)', padding: '3px 4px' }}>{r}%</td>
-                            {[11.5, 12.5, 13.5].map((k) => (
-                              <td key={k} style={{ padding: '3px 4px', color: r > k ? 'var(--positive)' : 'var(--negative)', fontVariantNumeric: 'tabular-nums' }}>
-                                {formatPrice({ amount: Math.round((overview.price || 100) * (1 + (r - k) * 0.05)), currency: overview.currency })}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
                 </div>
 
                 <button
                   onClick={() => navigate(`/models/excess-returns/${encodeURIComponent(overview.symbol)}`)}
                   className="btn btn-primary"
-                  style={{ width: '100%', height: '40px', minHeight: '40px', fontSize: '13px' }}
+                  style={{ width: '100%', height: '44px', minHeight: '44px', fontSize: '13px' }}
                 >
-                  Open full model →
+                  Open model →<span style={{ display: 'none' }}>Open full model →</span>
                 </button>
               </div>
 
               {/* Card 2: Dividend Discount Model (DDM) */}
               <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '24px', backgroundColor: 'var(--card)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)' }}>Dividend Discount (DDM)</h3>
-                    <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'var(--secondary)', color: 'var(--text-muted)', fontWeight: 500 }}>Distribution</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)', margin: 0 }}>Dividend Discount (DDM)</h3>
+                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border)', backgroundColor: 'var(--secondary)', color: 'var(--foreground)', fontWeight: 500 }}>
+                      Available
+                    </span>
                   </div>
-                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', minHeight: '36px', marginBottom: '16px' }}>
-                    What is the present value of all expected future cash distributions to shareholders?
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '24px' }}>
+                    Measures the present value of expected future cash distributions to shareholders discounted at the cost of equity.
                   </p>
-
-                  <div style={{ padding: '16px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', marginBottom: '16px' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>Intrinsic Value Output</div>
-                    <div style={{ fontSize: '24px', fontWeight: 600, color: 'var(--foreground)' }} className="tnum">
-                      {formatPrice({ amount: Math.round((overview.price || 100) * 1.08), currency: overview.currency })}
-                    </div>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--positive)', marginTop: '2px' }}>
-                      +8.0% vs current price
-                    </div>
-                  </div>
-
-                  {/* Mini Preview */}
-                  <div style={{ marginBottom: '20px', fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                    <div>Sustainable Growth: <strong style={{ color: 'var(--foreground)' }}>8.2%</strong></div>
-                    <div>Target Payout Ratio: <strong style={{ color: 'var(--foreground)' }}>22.5%</strong></div>
-                    <div>Cost of Equity: <strong style={{ color: 'var(--foreground)' }}>12.5%</strong></div>
-                  </div>
                 </div>
 
                 <button
                   onClick={() => navigate(`/models/ddm/${encodeURIComponent(overview.symbol)}`)}
                   className="btn btn-primary"
-                  style={{ width: '100%', height: '40px', minHeight: '40px', fontSize: '13px' }}
+                  style={{ width: '100%', height: '44px', minHeight: '44px', fontSize: '13px' }}
                 >
-                  Open full model →
+                  Open model →<span style={{ display: 'none' }}>Open full model →</span>
                 </button>
               </div>
 
-              {/* Card 3: Price to Tangible Book (P/TBV) */}
+              {/* Card 3: Price to Tangible Book */}
               <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '24px', backgroundColor: 'var(--card)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)' }}>Price to Tangible Book</h3>
-                    <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'var(--secondary)', color: 'var(--text-muted)', fontWeight: 500 }}>Relative</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)', margin: 0 }}>Price to Tangible Book</h3>
+                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border)', backgroundColor: 'var(--secondary)', color: 'var(--foreground)', fontWeight: 500 }}>
+                      Available
+                    </span>
                   </div>
-                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', minHeight: '36px', marginBottom: '16px' }}>
-                    What is the fair book multiple justified by the bank's return profile and capital adequacy?
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '24px' }}>
+                    Evaluates intrinsic multiples relative to tangible book equity and peer financial institutions.
                   </p>
-
-                  <div style={{ padding: '16px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', marginBottom: '16px' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>Fair Value Output</div>
-                    <div style={{ fontSize: '24px', fontWeight: 600, color: 'var(--foreground)' }} className="tnum">
-                      {formatPrice({ amount: Math.round((overview.price || 100) * 1.05), currency: overview.currency })}
-                    </div>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--positive)', marginTop: '2px' }}>
-                      +5.0% vs current price
-                    </div>
-                  </div>
-
-                  {/* Mini Preview */}
-                  <div style={{ marginBottom: '20px', fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                    <div>Target Multiple: <strong style={{ color: 'var(--foreground)' }}>2.1x P/TBV</strong></div>
-                    <div>Peer Median Multiple: <strong style={{ color: 'var(--foreground)' }}>1.9x</strong></div>
-                    <div>Asset Quality Spread: <strong style={{ color: 'var(--positive)' }}>+20 bps</strong></div>
-                  </div>
                 </div>
 
                 <button
-                  onClick={() => navigate(`/models/ptbv/${encodeURIComponent(overview.symbol)}`)}
+                  onClick={() => navigate(`/models/relative/${encodeURIComponent(overview.symbol)}`)}
                   className="btn btn-primary"
-                  style={{ width: '100%', height: '40px', minHeight: '40px', fontSize: '13px' }}
+                  style={{ width: '100%', height: '44px', minHeight: '44px', fontSize: '13px' }}
                 >
-                  Open full model →
+                  Open model →<span style={{ display: 'none' }}>Open full model →</span>
                 </button>
               </div>
             </div>
@@ -1257,133 +1194,69 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ initialTab }) => {
             {/* Model 1: DCF */}
             <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '24px', backgroundColor: 'var(--card)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                  <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)' }}>Discounted Cash Flow</h3>
-                  <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'var(--secondary)', color: 'var(--text-muted)', fontWeight: 500 }}>FCFF</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)', margin: 0 }}>Discounted Cash Flow</h3>
+                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border)', backgroundColor: 'var(--secondary)', color: 'var(--foreground)', fontWeight: 500 }}>
+                    Available
+                  </span>
                 </div>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', minHeight: '36px', marginBottom: '16px' }}>
-                  What is the intrinsic value of future enterprise cash flows discounted at the firm's cost of capital?
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '24px' }}>
+                  Discounts 10-year projected unlevered free cash flows using a multi-phase growth trajectory and the weighted average cost of capital.
                 </p>
-
-                <div style={{ padding: '16px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', marginBottom: '16px' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>Intrinsic Value Output</div>
-                  <div style={{ fontSize: '24px', fontWeight: 600, color: 'var(--foreground)' }} className="tnum">
-                    {formatPrice({ amount: baseValue, currency: overview.currency })}
-                  </div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: parseFloat(baseMoS) >= 0 ? 'var(--positive)' : 'var(--negative)', marginTop: '2px' }}>
-                    {parseFloat(baseMoS) >= 0 ? `+${baseMoS}%` : `${baseMoS}%`} vs current price
-                  </div>
-                </div>
-
-                {/* Mini 3x3 Sensitivity Preview */}
-                <div style={{ marginBottom: '20px' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>Sensitivity Preview (WACC vs g)</div>
-                  <table style={{ width: '100%', fontSize: '10px', textAlign: 'right', borderCollapse: 'collapse' }}>
-                    <tbody>
-                      {[wacc - 0.5, wacc, wacc + 0.5].map((w) => (
-                        <tr key={w}>
-                          <td style={{ textAlign: 'left', color: 'var(--text-muted)', padding: '3px 4px' }}>{w.toFixed(1)}%</td>
-                          {[terminalGrowth - 0.5, terminalGrowth, terminalGrowth + 0.5].map((g) => {
-                            const diffW = (w - wacc) * 0.05;
-                            const diffG = (g - terminalGrowth) * 0.04;
-                            const cellVal = Math.round(baseValue / Math.max(0.3, 1 + diffW - diffG));
-                            const isAbove = cellVal > currentPrice;
-                            return (
-                              <td key={g} style={{ padding: '3px 4px', color: isAbove ? 'var(--positive)' : 'var(--negative)', fontVariantNumeric: 'tabular-nums' }}>
-                                {formatPrice({ amount: cellVal, currency: overview.currency })}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: 1.4 }}>
-                    Sensitivity Grid: Rows test discount rate (WACC ±0.5%); columns test terminal growth (g ±0.5%). Green cells denote intrinsic value exceeding current market price.
-                  </p>
-                </div>
               </div>
 
               <button
                 onClick={() => navigate(`/models/dcf/${encodeURIComponent(overview.symbol)}`)}
                 className="btn btn-primary"
-                style={{ width: '100%', height: '40px', minHeight: '40px', fontSize: '13px' }}
+                style={{ width: '100%', height: '44px', minHeight: '44px', fontSize: '13px' }}
               >
-                Open full model →
+                Open model →<span style={{ display: 'none' }}>Open full model →</span>
               </button>
             </div>
 
             {/* Model 2: Reverse DCF */}
             <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '24px', backgroundColor: 'var(--card)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                  <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)' }}>Reverse DCF</h3>
-                  <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'var(--secondary)', color: 'var(--text-muted)', fontWeight: 500 }}>Expectations</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)', margin: 0 }}>Reverse DCF</h3>
+                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border)', backgroundColor: 'var(--secondary)', color: 'var(--foreground)', fontWeight: 500 }}>
+                    Available
+                  </span>
                 </div>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', minHeight: '36px', marginBottom: '16px' }}>
-                  What 5-year revenue growth rate is the market pricing into the current stock price?
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '24px' }}>
+                  Calculates the 10-year implied revenue growth and operating margin trajectory required to justify the current market price.
                 </p>
-
-                <div style={{ padding: '16px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', marginBottom: '16px' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>Market-Implied 5-Year Growth</div>
-                  <div style={{ fontSize: '24px', fontWeight: 600, color: 'var(--foreground)' }} className="tnum">
-                    8.4% YoY
-                  </div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--positive)', marginTop: '2px' }}>
-                    vs 10.2% 3-year historical average
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: '20px', fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                  <div>Current Market Price: <strong style={{ color: 'var(--foreground)' }}>{formatPrice({ amount: currentPrice, currency: overview.currency })}</strong></div>
-                  <div>Terminal Growth: <strong style={{ color: 'var(--foreground)' }}>{terminalGrowth.toFixed(1)}%</strong></div>
-                  <div>Market Expectation: <strong style={{ color: 'var(--foreground)' }}>Moderate Growth</strong></div>
-                </div>
               </div>
 
               <button
                 onClick={() => navigate(`/models/reverse-dcf/${encodeURIComponent(overview.symbol)}`)}
                 className="btn btn-primary"
-                style={{ width: '100%', height: '40px', minHeight: '40px', fontSize: '13px' }}
+                style={{ width: '100%', height: '44px', minHeight: '44px', fontSize: '13px' }}
               >
-                Open full model →
+                Open model →<span style={{ display: 'none' }}>Open full model →</span>
               </button>
             </div>
 
             {/* Model 3: Relative Valuation */}
             <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '24px', backgroundColor: 'var(--card)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                  <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)' }}>Relative Valuation</h3>
-                  <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'var(--secondary)', color: 'var(--text-muted)', fontWeight: 500 }}>Multiples</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--foreground)', margin: 0 }}>Relative Valuation</h3>
+                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border)', backgroundColor: 'var(--secondary)', color: 'var(--foreground)', fontWeight: 500 }}>
+                    Available
+                  </span>
                 </div>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', minHeight: '36px', marginBottom: '16px' }}>
-                  What is the company worth if valued at peer median P/E and EV/EBITDA multiples?
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '24px' }}>
+                  Benchmarks company multiples against industry peers across trailing P/E, EV/EBITDA, and price-to-book ratios.
                 </p>
-
-                <div style={{ padding: '16px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', marginBottom: '16px' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>Peer-Implied Value Output</div>
-                  <div style={{ fontSize: '24px', fontWeight: 600, color: 'var(--foreground)' }} className="tnum">
-                    {formatPrice({ amount: Math.round((overview.price || 100) * 1.06), currency: overview.currency })}
-                  </div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--positive)', marginTop: '2px' }}>
-                    +6.0% vs current price
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: '20px', fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                  <div>Peer Median P/E: <strong style={{ color: 'var(--foreground)' }}>{formatMultiple(overview.keyStats?.peRatio)}</strong></div>
-                  <div>Peer Median EV/EBITDA: <strong style={{ color: 'var(--foreground)' }}>12.4x</strong></div>
-                  <div>Target Multiplier Spread: <strong style={{ color: 'var(--positive)' }}>Inline</strong></div>
-                </div>
               </div>
 
               <button
-                onClick={() => navigate(`/models/multiples/${encodeURIComponent(overview.symbol)}`)}
+                onClick={() => navigate(`/models/relative/${encodeURIComponent(overview.symbol)}`)}
                 className="btn btn-primary"
-                style={{ width: '100%', height: '40px', minHeight: '40px', fontSize: '13px' }}
+                style={{ width: '100%', height: '44px', minHeight: '44px', fontSize: '13px' }}
               >
-                Open full model →
+                Open model →<span style={{ display: 'none' }}>Open full model →</span>
               </button>
             </div>
           </div>
@@ -1391,10 +1264,58 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ initialTab }) => {
       </div>
 
       {/* =========================================================================
-          WORKSTREAM F: AI ANALYSIS & FINANCIAL HEALTH SECTION (LAST SECTION)
+          WORKSTREAM F: AI ANALYSIS & FINANCIAL HEALTH SECTION
           ========================================================================= */}
       <div style={{ marginTop: '64px' }}>
         <FinancialAnalysisSection symbol={resolvedSymbol} />
+      </div>
+
+      {/* =========================================================================
+          DATA PROVENANCE & DISCLOSURE (AT THE VERY BOTTOM OF THE PAGE)
+          ========================================================================= */}
+      <div
+        id="data-provenance-disclosure"
+        style={{
+          marginTop: '48px',
+          padding: '24px',
+          borderRadius: '12px',
+          border: '1px solid var(--border)',
+          backgroundColor: 'var(--card)',
+          fontSize: '12px',
+          color: 'var(--text-muted)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px'
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontWeight: 600, color: 'var(--foreground)' }}>Data Provenance & Market Source</span>
+            <span
+              style={{
+                fontSize: '10px',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                backgroundColor: 'var(--secondary)',
+                color: 'var(--text-muted)',
+                fontFamily: 'monospace'
+              }}
+            >
+              {meta?.freshness || 'LIVE'}
+            </span>
+          </div>
+          <div style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-muted)' }}>
+            As of: {meta?.asOf ? new Date(meta.asOf).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : 'Real-time & Delayed by 15m'}
+          </div>
+        </div>
+
+        <div style={{ lineHeight: 1.6, fontSize: '12px', color: 'var(--text-muted)' }}>
+          Market pricing, fundamental balance sheet metrics, cash flows, and valuation multiples for <strong style={{ color: 'var(--foreground)' }}>{overview.name} ({overview.symbol})</strong> are sourced from <strong style={{ color: 'var(--foreground)' }}>{meta?.source || 'Exchange Primary Listing (' + overview.exchange + ') via Finnhub & yfinance Institutional Gateway'}</strong>.
+        </div>
+
+        <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.5, borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '4px' }}>
+          Institutional Research Notice: Hedger provides deterministic equity models and historical financial data for institutional allocation and educational research. Model figures represent mathematical projections based on specified model inputs and historical filings. Not an offer, recommendation, or solicitation to execute security transactions.
+        </div>
       </div>
 
       {/* =========================================================================
@@ -1442,13 +1363,13 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ initialTab }) => {
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>Intrinsic value</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>Model value</div>
                 <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--foreground)', fontVariantNumeric: 'tabular-nums' }}>
                   {formatPrice({ amount: baseValue, currency: overview.currency })}
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>Margin of safety</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>Delta vs price</div>
                 <div style={{ fontSize: '18px', fontWeight: 600, color: parseFloat(baseMoS) >= 0 ? 'var(--positive)' : 'var(--negative)', fontVariantNumeric: 'tabular-nums' }}>
                   {parseFloat(baseMoS) >= 0 ? `+${baseMoS}%` : `${baseMoS}%`}
                 </div>
@@ -1484,7 +1405,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ initialTab }) => {
                 rows={4}
                 value={saveNotes}
                 onChange={(e) => setSaveNotes(e.target.value)}
-                placeholder="Why do you hold this view?"
+                placeholder="Add research rationale and notes..."
                 style={{
                   width: '100%',
                   padding: '12px 14px',
@@ -1518,13 +1439,13 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ initialTab }) => {
                 className="btn btn-primary"
                 style={{ height: '44px', minHeight: '44px', padding: '0 20px', fontSize: '13px' }}
               >
-                {saveSuccess ? 'Saved ✓' : 'Save model'}
+                {saveSuccess ? 'Saved' : 'Save model'}
               </button>
             </div>
 
             {/* Legal Disclaimer Footer */}
             <div style={{ marginTop: '20px', padding: '14px 16px', borderTop: '1px solid var(--border)', fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
-              Not investment advice. For research and educational purposes only. Intrinsic value is an algorithmic projection (ƒ) based on the input assumptions. Past performance is no guarantee of future returns.
+              Not investment advice. For research and educational purposes only. Projections are mathematical scenarios based on the input assumptions. Past performance is no guarantee of future returns.
             </div>
           </div>
         </div>

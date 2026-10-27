@@ -46,7 +46,7 @@ test.describe('Workstream E — Valuation Models: Bottom Section & Model Workben
 
     // Assert Workbench loaded
     await expect(page.locator('h1')).toContainText('Discounted Cash Flow');
-    await expect(page.locator('text=TCS.NS')).toBeVisible();
+    await expect(page.locator('text=TCS.NS').first()).toBeVisible();
 
     // Assert Parameters & Sliders visible
     await expect(page.locator('h2:has-text("Model Parameters & Inputs")')).toBeVisible();

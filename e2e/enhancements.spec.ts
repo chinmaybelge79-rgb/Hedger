@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Enhancement & Institutional DCF Verification Suite', () => {
   test('Landing page has elite finance wording, no emojis, expanded services, no deleted pill, and navbar redirects', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // 1. Assert no '++' anywhere in visible text
     const bodyText = await page.innerText('body');
@@ -40,7 +40,7 @@ test.describe('Enhancement & Institutional DCF Verification Suite', () => {
     await expect(page.getByRole('button', { name: 'Toggle Theme' })).not.toBeVisible();
 
     // Ensure circular profile button is present
-    const profileBtn = page.getByRole('button', { name: 'Profile and Settings Menu' });
+    const profileBtn = page.getByRole('button', { name: /Profile and Settings Menu/i });
     await expect(profileBtn).toBeVisible();
 
     // 6. Assert expanded institutional services suite
@@ -73,7 +73,7 @@ test.describe('Enhancement & Institutional DCF Verification Suite', () => {
     await expect(page.locator('h3', { hasText: 'Ultra' })).toBeVisible();
 
     // Monthly pricing
-    await expect(page.getByText('$0', { exact: true })).toBeVisible();
+    await expect(page.getByText('FREE', { exact: true })).toBeVisible();
     await expect(page.getByText('$4.99', { exact: true })).toBeVisible();
     await expect(page.getByText('$9.99', { exact: true })).toBeVisible();
     await expect(page.getByText('$19.99', { exact: true })).toBeVisible();
@@ -114,7 +114,7 @@ test.describe('Enhancement & Institutional DCF Verification Suite', () => {
     await expect(page.locator('text=Terminal & Profile Preferences')).toBeVisible();
     await expect(page.locator('text=Color Theme')).toBeVisible();
 
-    const darkBtn = page.getByRole('button', { name: 'Dark' });
+    const darkBtn = page.getByRole('button', { name: 'Dark', exact: true });
     await darkBtn.click();
     const html = page.locator('html');
     await expect(html).toHaveAttribute('data-theme', 'dark');
@@ -123,40 +123,35 @@ test.describe('Enhancement & Institutional DCF Verification Suite', () => {
     await page.screenshot({ path: '/Users/chinmayb/.gemini/antigravity/brain/960875a1-d837-4ae6-873c-d12b88c264d7/profile_page.png', fullPage: false });
 
     // Toggle back to Light
-    await page.getByRole('button', { name: 'Light' }).click();
+    await page.getByRole('button', { name: 'Light', exact: true }).click();
     await expect(html).toHaveAttribute('data-theme', 'light');
   });
 
-  test('Institutional DCF Model Workbench displays 5-year linked FCFF table, EV bridge, scenarios and sensitivity matrix', async ({ page }) => {
+  test('Institutional DCF Model Workbench displays 10-year linked UFCF table, EV bridge, scenarios and sensitivity matrix', async ({ page }) => {
     await page.goto('/models/dcf/AAPL');
     await page.waitForLoadState('networkidle');
 
     // 1. Assert DCF Title & Header
-    await expect(page.locator('h1')).toContainText('Institutional DCF Engine');
+    await expect(page.locator('h1')).toContainText('Institutional 10-Year DCF Engine');
 
-    // 2. Assert 5-Year Linked FCFF Table
-    await expect(page.locator('text=5-Year Free Cash Flow to Firm (FCFF) Model')).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Revenue', exact: true })).toBeVisible();
-    await expect(page.locator('text=EBIT (Operating Profit)')).toBeVisible();
-    await expect(page.locator('text=(=) NOPAT')).toBeVisible();
-    await expect(page.locator('text=(+) Depreciation & Amortization')).toBeVisible();
-    await expect(page.locator('text=(−) Capital Expenditures')).toBeVisible();
-    await expect(page.locator('text=(=) Free Cash Flow to Firm (FCFF)')).toBeVisible();
-    await expect(page.locator('text=Present Value of FCFF')).toBeVisible();
+    // 2. Assert Enterprise Value to Equity Value Bridge
+    await expect(page.locator('text=Enterprise Value to Equity Value Bridge')).toBeVisible();
+    await expect(page.locator('text=PV of Explicit FCF (10Y)')).toBeVisible();
 
-    // 3. Assert Enterprise to Equity Bridge
-    await expect(page.locator('text=Enterprise to Equity Value Bridge')).toBeVisible();
-    await expect(page.locator('text=Enterprise Value (EV):')).toBeVisible();
-    await expect(page.locator('text=(=) Intrinsic Fair Value per Share:')).toBeVisible();
+    // 3. Assert Scenarios
+    await expect(page.getByText('Bear Case', { exact: false })).toBeVisible();
+    await expect(page.getByText('Base Estimate', { exact: false })).toBeVisible();
+    await expect(page.getByText('Bull Case', { exact: false })).toBeVisible();
 
-    // 4. Assert Scenarios: Bear, Base, Bull
-    await expect(page.locator('text=Deterministic Valuation Scenarios')).toBeVisible();
-    await expect(page.getByText('Bear Case', { exact: true })).toBeVisible();
-    await expect(page.getByText('Base Case', { exact: true })).toBeVisible();
-    await expect(page.getByText('Bull Case', { exact: true })).toBeVisible();
+    // 4. Assert 10-Year Projections Table on Tab
+    await page.click('button#tab-projections');
+    await expect(page.locator('text=10-Year Financial Projection Table')).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'Year 1 explicit' })).toBeVisible();
+    await expect(page.locator('td:has-text("FCFF")')).toBeVisible();
 
-    // 5. Assert Sensitivity Analysis Matrix
-    await expect(page.locator('text=Sensitivity Analysis Matrix')).toBeVisible();
+    // 5. Assert Sensitivity Analysis Matrix on Tab
+    await page.click('button#tab-sensitivity');
+    await expect(page.locator('text=5×5 Valuation Sensitivity Matrix')).toBeVisible();
 
     // Capture screenshot of DCF Model Workbench
     await page.screenshot({ path: '/Users/chinmayb/.gemini/antigravity/brain/960875a1-d837-4ae6-873c-d12b88c264d7/dcf_workbench_updated.png', fullPage: true });
@@ -164,34 +159,35 @@ test.describe('Enhancement & Institutional DCF Verification Suite', () => {
 
   test('Dark and light mode logic toggles and persists attribute via profile settings popover', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const html = page.locator('html');
-    await expect(html).toHaveAttribute('data-theme', 'light');
+    await expect(html).toHaveAttribute('data-theme', 'dark');
 
     // Standalone theme toggle button should NOT be in the navbar
     await expect(page.getByRole('button', { name: 'Toggle Theme' })).not.toBeVisible();
 
-    // Open profile and settings popover via circular icon
-    const profileBtn = page.getByRole('button', { name: 'Profile and Settings Menu' });
-    await profileBtn.click();
-
-    // Click 'Dark' button inside profile settings popover
-    const darkBtn = page.getByRole('button', { name: 'Dark' });
-    await expect(darkBtn).toBeVisible();
-    await darkBtn.click();
-    await expect(html).toHaveAttribute('data-theme', 'dark');
+    // Open profile and settings popover via circular icon hover
+    const profileBtn = page.getByRole('button', { name: /Profile and Settings Menu/i });
+    await profileBtn.hover();
+    await page.waitForTimeout(200);
 
     // Click 'Light' button inside profile settings popover
-    const lightBtn = page.getByRole('button', { name: 'Light' });
+    const lightBtn = page.getByRole('button', { name: 'Light' }).first();
     await expect(lightBtn).toBeVisible();
     await lightBtn.click();
     await expect(html).toHaveAttribute('data-theme', 'light');
+
+    // Click 'Dark' button inside profile settings popover
+    const darkBtn = page.getByRole('button', { name: 'Dark' }).first();
+    await expect(darkBtn).toBeVisible();
+    await darkBtn.click();
+    await expect(html).toHaveAttribute('data-theme', 'dark');
   });
 
   test('Authentication modal supports Google, Apple, GitHub and email, and updates profile menu', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const getStartedBtn = page.getByRole('button', { name: 'Get Started' });
     await expect(getStartedBtn).toBeVisible();
@@ -218,9 +214,9 @@ test.describe('Enhancement & Institutional DCF Verification Suite', () => {
     await expect(page.getByRole('button', { name: /Sign Out/i })).toBeVisible();
   });
 
-  test('Circular profile initials icon popover only appears after hover and click', async ({ page }) => {
+  test('Circular profile initials icon popover appears on hover and clicking opens profile', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // 1. Verify circular initials badge (profile picture removed as requested)
     const profileBtn = page.getByRole('button', { name: /Profile and Settings Menu/i });
@@ -228,27 +224,24 @@ test.describe('Enhancement & Institutional DCF Verification Suite', () => {
     await expect(profileBtn.locator('img')).toHaveCount(0);
     await expect(profileBtn).toHaveText('AM');
 
-    // Popover is not open initially
-    await expect(page.locator('text=Appearance & Settings')).not.toBeVisible();
-
-    // Hover alone does NOT make popover appear
+    // Hover reveals profile popover
     await profileBtn.hover();
-    await page.waitForTimeout(300);
-    await expect(page.locator('text=Appearance & Settings')).not.toBeVisible();
-
-    // Only after hover and click does popover appear
-    await profileBtn.click();
     await expect(page.locator('text=Appearance & Settings')).toBeVisible();
 
-    // 3. Verify popover contents: User info, navigation links, theme switcher
+    // Verify popover contents: User info, navigation links, theme switcher
     await expect(page.getByRole('button', { name: /Dashboard & Profile/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /Active Watchlist/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /Saved Valuation Models/i })).toBeVisible();
     await expect(page.locator('text=Appearance & Settings')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Light' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Dark' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'System' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Light' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Dark' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'System' }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: /Terminal Preferences/i })).toBeVisible();
+
+    // 4. Clicking the profile circle directly navigates to profile
+    await profileBtn.click();
+    await expect(page).toHaveURL(/.*\/profile/);
+    await expect(page.locator('h1')).toContainText('Personal Allocator Profile');
 
     // 4. Capture screenshot of navbar and open profile dropdown
     await page.screenshot({
@@ -259,7 +252,7 @@ test.describe('Enhancement & Institutional DCF Verification Suite', () => {
 
   test('Clicking Hedger logo and heading in navbar brings user directly to homepage landing', async ({ page }) => {
     await page.goto('/markets');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Click the Hedger Logo in header
     const logo = page.locator('header a[title*="Homepage"]');
@@ -270,5 +263,22 @@ test.describe('Enhancement & Institutional DCF Verification Suite', () => {
     await expect(page).toHaveURL('/');
     await expect(page.locator('h1:has-text("Institutional-grade equity research in your hands")')).toBeVisible();
     await expect(page.locator('text=Appearance & Settings')).not.toBeVisible();
+  });
+
+  test('Landing page interactive terminal showcase updates with live market cap and trailing P/E from market API', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+
+    // Click NVDA tab in the showcase
+    const nvdaShowcaseTab = page.locator('.card button').filter({ hasText: /^NVDA$/ });
+    await expect(nvdaShowcaseTab).toBeVisible();
+    await nvdaShowcaseTab.click();
+    await page.waitForTimeout(800);
+
+    // Verify company name and live market cap ($5.xxT)
+    await expect(page.locator('.card h2:has-text("NVIDIA Corporation")')).toBeVisible();
+    const marketCapElement = page.locator('.card').filter({ hasText: 'NVIDIA Corporation' }).locator('text=Market Cap').locator('..');
+    await expect(marketCapElement).toContainText('$5.');
+    await expect(marketCapElement).not.toContainText('$3.48T');
   });
 });

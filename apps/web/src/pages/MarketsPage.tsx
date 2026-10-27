@@ -4,7 +4,9 @@ import { Sparkline } from '../components/Sparkline.js';
 import { HedgerChart } from '@hedger/charts';
 import type { HistoricalBar } from '@hedger/types';
 import { companyPath } from '../lib/navigation.js';
+import { CompanyLogo } from '../components/CompanyLogo.js';
 import { formatPrice, formatPercent } from '@hedger/format';
+import { useMarket } from '../context/MarketContext.js';
 
 interface MarketIndex {
   symbol: string;
@@ -581,10 +583,18 @@ export const MarketsPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const { activeMarket, setActiveMarket } = useMarket();
+
   const regions = ['India', 'United States', 'China', 'Europe', 'Commodities'];
 
-  const resolveParamRegion = (param: string | null) => {
-    if (!param) return 'India';
+  const resolveParamRegion = (param: string | null, market: string = activeMarket) => {
+    if (!param) {
+      if (market === 'in') return 'India';
+      if (market === 'us') return 'United States';
+      if (market === 'eu') return 'Europe';
+      if (market === 'asia') return 'China';
+      return 'India';
+    }
     const norm = param.toLowerCase();
     if (norm.includes('commodit') || norm.includes('global')) return 'Commodities';
     if (norm.includes('us') || norm.includes('united')) return 'United States';
@@ -593,7 +603,7 @@ export const MarketsPage: React.FC = () => {
     return 'India';
   };
 
-  const initialRegion = resolveParamRegion(searchParams.get('region'));
+  const initialRegion = resolveParamRegion(searchParams.get('region'), activeMarket);
   const [activeRegion, setActiveRegion] = useState<string>(initialRegion);
   const [marketData, setMarketData] = useState<MarketOverviewData>(
     REGION_DEFAULT_DATA[initialRegion] || REGION_DEFAULT_DATA['India']
@@ -613,6 +623,12 @@ export const MarketsPage: React.FC = () => {
     if (reg === activeRegion) return;
     setActiveRegion(reg);
     setSearchParams({ region: reg }, { replace: true });
+
+    // Sync back to global activeMarket
+    if (reg === 'United States') setActiveMarket('us');
+    else if (reg === 'India') setActiveMarket('in');
+    else if (reg === 'Europe') setActiveMarket('eu');
+    else if (reg === 'China') setActiveMarket('asia');
 
     // 1. Immediately switch the regional market data from in-memory cache (< 1ms)
     const targetData = overviewClientCache.get(reg) || REGION_DEFAULT_DATA[reg];
@@ -641,6 +657,20 @@ export const MarketsPage: React.FC = () => {
       }
     }
   }, [searchParams]);
+
+  // Sync if global activeMarket changes from top switcher
+  useEffect(() => {
+    let targetRegion = 'United States';
+    if (activeMarket === 'in') targetRegion = 'India';
+    else if (activeMarket === 'us') targetRegion = 'United States';
+    else if (activeMarket === 'eu') targetRegion = 'Europe';
+    else if (activeMarket === 'asia') targetRegion = 'China';
+    else if (activeMarket === 'all') return;
+
+    if (targetRegion !== activeRegion) {
+      handleSelectRegion(targetRegion);
+    }
+  }, [activeMarket]);
 
   // 1. Pre-fetch all regions in background so cache stays live with real-time updates
   useEffect(() => {
@@ -767,8 +797,11 @@ export const MarketsPage: React.FC = () => {
                 transition: 'all 0.2s ease'
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--foreground)' }}>{idx.name}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <CompanyLogo symbol={idx.symbol} name={idx.name} size={20} rounded />
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)' }}>{idx.name}</span>
+                </div>
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{idx.currency}</span>
               </div>
 
@@ -975,9 +1008,12 @@ export const MarketsPage: React.FC = () => {
                   }}
                   className="hover:bg-[var(--secondary)]"
                 >
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--foreground)' }}>{st.name}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{st.symbol}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <CompanyLogo symbol={st.symbol} name={st.name} size={28} withContainer rounded />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--foreground)' }}>{st.name}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{st.symbol}</div>
+                    </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--foreground)', fontVariantNumeric: 'tabular-nums' }}>
@@ -1014,9 +1050,12 @@ export const MarketsPage: React.FC = () => {
                   }}
                   className="hover:bg-[var(--secondary)]"
                 >
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--foreground)' }}>{st.name}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{st.symbol}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <CompanyLogo symbol={st.symbol} name={st.name} size={28} withContainer rounded />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--foreground)' }}>{st.name}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{st.symbol}</div>
+                    </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--foreground)', fontVariantNumeric: 'tabular-nums' }}>

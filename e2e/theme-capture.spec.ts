@@ -9,21 +9,22 @@ test('capture theme visual verification screenshots', async ({ page }) => {
   // 1. Landing Page - Light Mode
   await page.goto('/');
   await page.evaluate(() => {
-    document.documentElement.setAttribute('data-theme', 'light');
-    document.documentElement.classList.remove('dark');
-    document.documentElement.classList.add('light');
-    localStorage.setItem('hedger_theme', 'light');
+    localStorage.setItem('hedger-theme', 'light');
   });
+  await page.reload();
   await page.waitForTimeout(1000);
   await page.screenshot({ path: path.join(ARTIFACTS_DIR, 'landing_light_mode.png'), fullPage: false });
 
-  // 2. Landing Page - Dark Mode
-  await page.evaluate(() => {
-    document.documentElement.setAttribute('data-theme', 'dark');
-    document.documentElement.classList.remove('light');
-    document.documentElement.classList.add('dark');
-    localStorage.setItem('hedger_theme', 'dark');
-  });
+  // 2. Landing Page - Dark Mode via Toggle Button
+  const toggleBtn = page.locator('button[aria-label*="Mode"]');
+  if (await toggleBtn.isVisible()) {
+    await toggleBtn.click();
+  } else {
+    await page.evaluate(() => {
+      localStorage.setItem('hedger-theme', 'dark');
+    });
+    await page.reload();
+  }
   await page.waitForTimeout(1000);
   await page.screenshot({ path: path.join(ARTIFACTS_DIR, 'landing_dark_mode.png'), fullPage: false });
 
@@ -81,9 +82,9 @@ test('capture theme visual verification screenshots', async ({ page }) => {
   await expect(profileBtn.locator('img')).toHaveCount(0);
   await expect(profileBtn).toHaveText('AM');
 
-  // Open profile menu popover
-  await profileBtn.click();
-  await page.waitForTimeout(500);
+  // Hover profile button to reveal profile menu popover
+  await profileBtn.hover();
+  await page.waitForTimeout(600);
   await expect(page.locator('text=Alex Morgan')).toBeVisible();
   await page.screenshot({ path: path.join(ARTIFACTS_DIR, 'navbar_initials_popover.png'), fullPage: false });
 

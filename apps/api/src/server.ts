@@ -7,6 +7,10 @@ import { marketsRouter } from './routes/markets.js';
 import { screenerRouter } from './routes/screener.js';
 import { devRouter } from './routes/dev.js';
 import { savedRouter } from './routes/saved.js';
+import { authRouter } from './routes/auth.js';
+import { aiRouter } from './routes/ai.js';
+import { supportRouter } from './routes/support.js';
+import { adminRouter } from './routes/admin.js';
 
 const app = express();
 
@@ -24,10 +28,16 @@ app.use((req, _res, next) => {
 
 // API Routes
 app.use('/api/instruments', instrumentsRouter);
+app.use('/api/v1/instruments', instrumentsRouter);
 app.use('/api/markets', marketsRouter);
 app.use('/api/screener', screenerRouter);
 app.use('/api/dev', devRouter);
 app.use('/api/saved', savedRouter);
+app.use('/api/v1/saved', savedRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/ai', aiRouter);
+app.use('/api/support', supportRouter);
+app.use('/api/admin', adminRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({
@@ -38,6 +48,11 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-app.listen(config.PORT, () => {
-  console.log(`Hedger API server listening on http://localhost:${config.PORT}`);
-});
+export { app };
+export default app;
+
+if (!process.env.VERCEL) {
+  app.listen(config.PORT, () => {
+    console.log(`Hedger API server listening on http://localhost:${config.PORT}`);
+  });
+}

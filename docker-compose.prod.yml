@@ -1,0 +1,69 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hedger-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: hedger
+      POSTGRES_USER: hedger
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hedger_secure_db_pass_2026}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hedger -d hedger"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: hedger-redis
+    restart: always
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "6379:6379"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: hedger-api
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://hedger:${POSTGRES_PASSWORD:-hedger_secure_db_pass_2026}@postgres:5432/hedger
+      REDIS_URL: redis://redis:6379
+      NVIDIA_NIM_API_KEY: ${NVIDIA_NIM_API_KEY}
+      SESSION_SECRET: ${SESSION_SECRET:-hedger_production_session_secret_32chars_min}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost,http://localhost:80,https://hedger.capital}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: hedger-web
+    restart: always
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+
+volumes:
+  postgres_data:
+  redis_data:

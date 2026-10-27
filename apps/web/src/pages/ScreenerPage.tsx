@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Sparkline } from '../components/Sparkline.js';
 import { companyPath } from '../lib/navigation.js';
+import { CompanyLogo } from '../components/CompanyLogo.js';
+import { useMarket } from '../context/MarketContext.js';
 import {
   formatPrice,
   formatCompact,
@@ -74,12 +76,25 @@ const AVAILABLE_FILTERS: FilterOption[] = [
 
 export const ScreenerPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { activeMarket, setActiveMarket, marketConfig, isInstrumentInActiveMarket } = useMarket();
+
+  // Helper to map global activeMarket to screener region identifier
+  const regionFromMarket = (m: string) => {
+    if (m === 'in') return 'india';
+    if (m === 'eu') return 'europe';
+    if (m === 'asia') return 'asia';
+    if (m === 'all') return 'all';
+    return 'us';
+  };
+
+  const initialRegion = searchParams.get('region') || regionFromMarket(activeMarket);
 
   // State
   const [allStocks, setAllStocks] = useState<ScreenerStock[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [selectedRegion, setSelectedRegion] = useState<string>('all');
-  const [activeFilterIds, setActiveFilterIds] = useState<string[]>(['roe-15', 'pe-25']);
+  const [selectedRegion, setSelectedRegion] = useState<string>(initialRegion);
+  const [activeFilterIds, setActiveFilterIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState<boolean>(false);
   const [filterMenuCategory, setFilterMenuCategory] = useState<string>('all');
@@ -88,8 +103,14 @@ export const ScreenerPage: React.FC = () => {
   const [sortField, setSortField] = useState<'marketCap' | 'price' | 'changePercent' | 'peRatio' | 'roe' | 'name'>('marketCap');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  // Comparison selection
+  // Comparison selection & strict same-currency constraint
   const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
+  const [compareCurrencyNotice, setCompareCurrencyNotice] = useState<string | null>(null);
+  const [isCompareMenuOpen, setIsCompareMenuOpen] = useState<boolean>(false);
+  const [manualCompareQuery, setManualCompareQuery] = useState<string>('');
+  const [remoteSearchResults, setRemoteSearchResults] = useState<Array<{ symbol: string; name: string; currency: string; exchange: string; price?: number }>>([]);
+  const [isSearchingRemote, setIsSearchingRemote] = useState<boolean>(false);
+  const compareMenuRef = useRef<HTMLDivElement>(null);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -97,22 +118,151 @@ export const ScreenerPage: React.FC = () => {
 
   const filterMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close filter menu when clicking outside
+  // Helper to determine the currency of a stock symbol
+  const getStockCurrency = (symbol: string): string => {
+    const s = allStocks.find((item) => item.symbol.toUpperCase() === symbol.toUpperCase());
+    if (s?.currency) return s.currency;
+    const remote = remoteSearchResults.find((item) => item.symbol.toUpperCase() === symbol.toUpperCase());
+    if (remote?.currency) return remote.currency;
+    const sym = symbol.toUpperCase();
+    if (sym.endsWith('.NS') || sym.endsWith('.BO')) return 'INR';
+    if (sym.endsWith('.L')) return 'GBP';
+    if (sym.endsWith('.DE') || sym.endsWith('.PA') || sym.endsWith('.AS') || sym.endsWith('.MC') || sym.endsWith('.MI')) return 'EUR';
+    if (sym.endsWith('.T')) return 'JPY';
+    if (sym.endsWith('.HK')) return 'HKD';
+    return 'USD';
+  };
+
+  // Base comparison currency determined by the first selected stock
+  const compareBaseCurrency = useMemo(() => {
+    if (selectedForCompare.length === 0) return null;
+    return getStockCurrency(selectedForCompare[0]);
+  }, [selectedForCompare, allStocks, remoteSearchResults]);
+
+  // Synchronize when global activeMarket changes
+  useEffect(() => {
+    const targetReg = regionFromMarket(activeMarket);
+    if (targetReg !== selectedRegion) {
+      setSelectedRegion(targetReg);
+      setCurrentPage(1);
+    }
+  }, [activeMarket]);
+
+  // Synchronize URL query param if present
+  useEffect(() => {
+    const regParam = searchParams.get('region');
+    if (regParam) {
+      const norm = regParam.toLowerCase();
+      const mapped = norm === 'in' ? 'india' : norm === 'eu' ? 'europe' : norm;
+      if (mapped !== selectedRegion) {
+        setSelectedRegion(mapped);
+      }
+      if (mapped === 'india' && activeMarket !== 'in') setActiveMarket('in');
+      else if (mapped === 'us' && activeMarket !== 'us') setActiveMarket('us');
+      else if (mapped === 'europe' && activeMarket !== 'eu') setActiveMarket('eu');
+      else if (mapped === 'asia' && activeMarket !== 'asia') setActiveMarket('asia');
+      else if (mapped === 'all' && activeMarket !== 'all') setActiveMarket('all');
+    }
+  }, [searchParams, selectedRegion, activeMarket, setActiveMarket]);
+
+  // Remote instruments search for manual compare picker
+  useEffect(() => {
+    const q = manualCompareQuery.trim();
+    if (q.length < 2) {
+      setRemoteSearchResults([]);
+      return;
+    }
+    let isCancelled = false;
+    setIsSearchingRemote(true);
+    const timer = setTimeout(() => {
+      fetch(`/api/instruments/search?q=${encodeURIComponent(q)}`)
+        .then((r) => (r.ok ? r.json() : []))
+        .then((items) => {
+          if (isCancelled) return;
+          if (Array.isArray(items)) {
+            setRemoteSearchResults(
+              items.map((it: any) => ({
+                symbol: it.symbol,
+                name: it.name || it.symbol,
+                currency: it.currency || (it.symbol.endsWith('.NS') ? 'INR' : 'USD'),
+                exchange: it.exchange || '',
+                price: it.price
+              }))
+            );
+          }
+          setIsSearchingRemote(false);
+        })
+        .catch(() => {
+          if (!isCancelled) setIsSearchingRemote(false);
+        });
+    }, 200);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+  }, [manualCompareQuery]);
+
+  // Combined manual compare search results
+  const combinedCompareSearchResults = useMemo(() => {
+    const q = manualCompareQuery.trim().toLowerCase();
+    const map = new Map<string, { symbol: string; name: string; currency: string; exchange: string; price?: number }>();
+
+    for (const s of allStocks) {
+      if (
+        !q ||
+        s.symbol.toLowerCase().includes(q) ||
+        s.name.toLowerCase().includes(q) ||
+        s.sector.toLowerCase().includes(q)
+      ) {
+        map.set(s.symbol, {
+          symbol: s.symbol,
+          name: s.name,
+          currency: s.currency,
+          exchange: s.exchange,
+          price: s.price
+        });
+      }
+    }
+
+    for (const r of remoteSearchResults) {
+      if (!map.has(r.symbol)) {
+        map.set(r.symbol, r);
+      }
+    }
+
+    const list = Array.from(map.values());
+
+    if (compareBaseCurrency) {
+      return list.sort((a, b) => {
+        const aMatch = a.currency === compareBaseCurrency ? 0 : 1;
+        const bMatch = b.currency === compareBaseCurrency ? 0 : 1;
+        return aMatch - bMatch;
+      }).slice(0, 15);
+    }
+
+    return list.slice(0, 15);
+  }, [allStocks, remoteSearchResults, manualCompareQuery, compareBaseCurrency]);
+
+  // Close filter menu and manual compare menu when clicking outside
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
       if (filterMenuRef.current && !filterMenuRef.current.contains(e.target as Node)) {
         setIsFilterMenuOpen(false);
       }
+      if (compareMenuRef.current && !compareMenuRef.current.contains(e.target as Node)) {
+        setIsCompareMenuOpen(false);
+      }
     };
-    if (isFilterMenuOpen) {
+    if (isFilterMenuOpen || isCompareMenuOpen) {
       document.addEventListener('mousedown', handleOutsideClick);
     }
     return () => {
       document.removeEventListener('mousedown', handleOutsideClick);
     };
-  }, [isFilterMenuOpen]);
+  }, [isFilterMenuOpen, isCompareMenuOpen]);
 
-  // Fetch stocks from API
+  // Fetch stocks from API scoped strictly to selected region
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
@@ -150,13 +300,17 @@ export const ScreenerPage: React.FC = () => {
   const resetAllFilters = () => {
     setActiveFilterIds([]);
     setSearchQuery('');
-    setSelectedRegion('all');
     setCurrentPage(1);
   };
 
-  // Filter application
+  // Filter application: Strictly guarantees no other country stocks leak through
   const filteredStocks = useMemo(() => {
     return allStocks.filter((stock) => {
+      // 1. Strict Active Market Scoping: ensure no other country stocks leak through
+      if (!isInstrumentInActiveMarket(stock)) {
+        return false;
+      }
+
       // Search query
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
@@ -176,7 +330,7 @@ export const ScreenerPage: React.FC = () => {
 
       return true;
     });
-  }, [allStocks, activeFilterIds, searchQuery]);
+  }, [allStocks, activeFilterIds, searchQuery, isInstrumentInActiveMarket]);
 
   // Sorting
   const sortedStocks = useMemo(() => {
@@ -224,23 +378,79 @@ export const ScreenerPage: React.FC = () => {
     }
   };
 
-  // Compare selection
+  // Compare selection & same-currency enforcement
+  const handleRemoveCompareSymbol = (sym: string) => {
+    setSelectedForCompare((prev) => prev.filter((s) => s !== sym));
+    setCompareCurrencyNotice(null);
+  };
+
+  const handleManualAddCompare = (symbol: string) => {
+    setCompareCurrencyNotice(null);
+    const targetCurr = getStockCurrency(symbol);
+
+    if (selectedForCompare.length === 0) {
+      setSelectedForCompare([symbol]);
+      return;
+    }
+
+    if (selectedForCompare.includes(symbol)) {
+      setSelectedForCompare((prev) => prev.filter((s) => s !== symbol));
+      return;
+    }
+
+    const baseCurr = getStockCurrency(selectedForCompare[0]);
+    if (baseCurr !== targetCurr) {
+      setCompareCurrencyNotice(
+        `Comparison restricted: Companies can only be compared to same currency companies only (${baseCurr}). ${symbol} is denominated in ${targetCurr}.`
+      );
+      return;
+    }
+
+    setSelectedForCompare([selectedForCompare[0], symbol]);
+    setIsCompareMenuOpen(false);
+  };
+
   const toggleSelectForCompare = (e: React.MouseEvent, symbol: string) => {
     e.stopPropagation();
+    setCompareCurrencyNotice(null);
+
     setSelectedForCompare((prev) => {
       if (prev.includes(symbol)) {
         return prev.filter((s) => s !== symbol);
-      } else {
-        if (prev.length >= 2) {
-          return [prev[1], symbol];
-        }
-        return [...prev, symbol];
       }
+
+      if (prev.length === 0) {
+        return [symbol];
+      }
+
+      const baseCurr = getStockCurrency(prev[0]);
+      const targetCurr = getStockCurrency(symbol);
+
+      if (baseCurr !== targetCurr) {
+        setCompareCurrencyNotice(
+          `Comparison restricted: Companies can only be compared to same currency companies only (${baseCurr}). ${symbol} is denominated in ${targetCurr}.`
+        );
+        return prev;
+      }
+
+      if (prev.length >= 2) {
+        return [prev[0], symbol];
+      }
+
+      return [prev[0], symbol];
     });
   };
 
   const handleLaunchCompare = () => {
     if (selectedForCompare.length === 2) {
+      const currA = getStockCurrency(selectedForCompare[0]);
+      const currB = getStockCurrency(selectedForCompare[1]);
+      if (currA !== currB) {
+        setCompareCurrencyNotice(
+          `Comparison restricted: Companies can only be compared to same currency companies only (${currA} vs ${currB}).`
+        );
+        return;
+      }
       navigate(`/compare?a=${encodeURIComponent(selectedForCompare[0])}&b=${encodeURIComponent(selectedForCompare[1])}`);
     } else if (selectedForCompare.length === 1) {
       navigate(`/compare?a=${encodeURIComponent(selectedForCompare[0])}`);
@@ -289,6 +499,12 @@ export const ScreenerPage: React.FC = () => {
               onClick={() => {
                 setSelectedRegion(reg.id);
                 setCurrentPage(1);
+                if (reg.id === 'india') setActiveMarket('in');
+                else if (reg.id === 'us') setActiveMarket('us');
+                else if (reg.id === 'europe') setActiveMarket('eu');
+                else if (reg.id === 'asia') setActiveMarket('asia');
+                else if (reg.id === 'all') setActiveMarket('all');
+                setSearchParams({ region: reg.id }, { replace: true });
               }}
               style={{
                 height: '36px',
@@ -325,6 +541,7 @@ export const ScreenerPage: React.FC = () => {
         {/* Active Market Chip */}
         <span
           className="filter-chip active"
+          data-testid="screener-active-market-chip"
           style={{
             height: '36px',
             backgroundColor: 'var(--primary)',
@@ -337,7 +554,7 @@ export const ScreenerPage: React.FC = () => {
             fontSize: '12px'
           }}
         >
-          {regions.find((r) => r.id === selectedRegion)?.label || 'All Markets'}
+          <span>{regions.find((r) => r.id === selectedRegion)?.label || marketConfig.shortName}</span>
         </span>
 
         {/* Dynamic Filter Pills */}
@@ -483,8 +700,355 @@ export const ScreenerPage: React.FC = () => {
                       }}
                     >
                       <span style={{ fontWeight: isSelected ? 600 : 400 }}>{f.label}</span>
-                      <span style={{ fontSize: '11px', fontWeight: 600 }}>{isSelected ? '✓ Added' : '+ Add'}</span>
+                      <span style={{ fontSize: '11px', fontWeight: 600 }}>{isSelected ? 'Added' : '+ Add'}</span>
                     </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Manual Compare Search Trigger & Popover */}
+        <div style={{ position: 'relative' }} ref={compareMenuRef}>
+          <button
+            type="button"
+            data-testid="screener-manual-compare-btn"
+            onClick={() => setIsCompareMenuOpen((prev) => !prev)}
+            className="filter-chip"
+            style={{
+              height: '36px',
+              borderStyle: selectedForCompare.length > 0 ? 'solid' : 'dashed',
+              color: isCompareMenuOpen || selectedForCompare.length > 0 ? 'var(--foreground)' : 'var(--text-muted)',
+              borderColor: isCompareMenuOpen || selectedForCompare.length > 0 ? 'var(--foreground)' : 'var(--border)',
+              backgroundColor: isCompareMenuOpen ? 'var(--secondary)' : 'var(--card)',
+              cursor: 'pointer',
+              padding: '0 14px',
+              borderRadius: '18px',
+              fontSize: '12px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <span>+ Add to Compare</span>
+            {selectedForCompare.length > 0 && (
+              <span
+                style={{
+                  backgroundColor: 'var(--primary)',
+                  color: 'var(--primary-foreground)',
+                  padding: '2px 6px',
+                  borderRadius: '10px',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  marginLeft: '4px'
+                }}
+              >
+                {selectedForCompare.length}
+              </span>
+            )}
+            <span style={{ fontSize: '10px', marginLeft: '2px' }}>{isCompareMenuOpen ? '▲' : '▼'}</span>
+          </button>
+
+          {/* Manual Compare Search Dropdown Popover */}
+          {isCompareMenuOpen && (
+            <div
+              data-testid="screener-manual-compare-popover"
+              style={{
+                position: 'absolute',
+                top: '44px',
+                left: 0,
+                zIndex: 110,
+                width: '420px',
+                backgroundColor: 'var(--card)',
+                borderRadius: '12px',
+                border: '1px solid var(--border)',
+                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.16)',
+                padding: '16px',
+                fontSize: '12px'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontWeight: 600, color: 'var(--foreground)', fontSize: '13px' }}>
+                  Search Company to Compare
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsCompareMenuOpen(false)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    padding: '2px 4px'
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* Currency Scope Notice */}
+              <div
+                style={{
+                  fontSize: '11px',
+                  color: 'var(--text-muted)',
+                  marginBottom: '12px',
+                  lineHeight: '1.4'
+                }}
+              >
+                {compareBaseCurrency ? (
+                  <span>
+                    Active comparison currency:{' '}
+                    <strong style={{ color: 'var(--foreground)' }}>{compareBaseCurrency}</strong>. Only companies denominated in {compareBaseCurrency} can be compared.
+                  </span>
+                ) : (
+                  <span>Search any company. Selecting a company locks comparison to that company&apos;s currency.</span>
+                )}
+              </div>
+
+              {/* Search Input */}
+              <div style={{ position: 'relative', marginBottom: '12px' }}>
+                <input
+                  type="text"
+                  data-testid="manual-compare-search-input"
+                  value={manualCompareQuery}
+                  onChange={(e) => setManualCompareQuery(e.target.value)}
+                  placeholder={compareBaseCurrency ? `Search ${compareBaseCurrency} symbol or company name...` : "Search symbol or company name..."}
+                  autoFocus
+                  style={{
+                    width: '100%',
+                    height: '36px',
+                    padding: '0 12px',
+                    fontSize: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border)',
+                    backgroundColor: 'var(--background)',
+                    color: 'var(--foreground)',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                {manualCompareQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setManualCompareQuery('')}
+                    style={{
+                      position: 'absolute',
+                      right: '8px',
+                      top: '8px',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
+              {/* Selected List Chips inside Popover */}
+              {selectedForCompare.length > 0 && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    flexWrap: 'wrap',
+                    marginBottom: '12px',
+                    padding: '8px',
+                    backgroundColor: 'var(--secondary)',
+                    borderRadius: '6px'
+                  }}
+                >
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Selected:</span>
+                  {selectedForCompare.map((sym) => (
+                    <span
+                      key={sym}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        backgroundColor: 'var(--card)',
+                        border: '1px solid var(--border)',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontFamily: 'monospace'
+                      }}
+                    >
+                      <CompanyLogo symbol={sym} size={14} rounded />
+                      <span>{sym}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCompareSymbol(sym)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          padding: 0,
+                          fontSize: '12px',
+                          lineHeight: 1
+                        }}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  {selectedForCompare.length === 2 && (
+                    <button
+                      type="button"
+                      onClick={handleLaunchCompare}
+                      style={{
+                        marginLeft: 'auto',
+                        padding: '4px 8px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        backgroundColor: 'var(--primary)',
+                        color: 'var(--primary-foreground)',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Compare →
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Candidate List */}
+              <div
+                data-testid="manual-compare-results-list"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  maxHeight: '260px',
+                  overflowY: 'auto'
+                }}
+              >
+                {isSearchingRemote && (
+                  <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '11px' }}>
+                    Searching global instruments...
+                  </div>
+                )}
+                {!isSearchingRemote && combinedCompareSearchResults.length === 0 && (
+                  <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '11px' }}>
+                    No companies found matching &quot;{manualCompareQuery}&quot;
+                  </div>
+                )}
+                {combinedCompareSearchResults.map((item) => {
+                  const isAlreadySelected = selectedForCompare.includes(item.symbol);
+                  const isCurrencyMismatch = !!compareBaseCurrency && item.currency !== compareBaseCurrency;
+
+                  return (
+                    <div
+                      key={item.symbol}
+                      data-testid={`manual-compare-row-${item.symbol}`}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        backgroundColor: isAlreadySelected ? 'var(--secondary)' : 'var(--card)',
+                        border: '1px solid var(--border)',
+                        opacity: isCurrencyMismatch ? 0.6 : 1,
+                        transition: 'background-color 0.1s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, paddingRight: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontWeight: 600, color: 'var(--foreground)', fontSize: '12px' }}>
+                            {item.symbol}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              padding: '2px 4px',
+                              borderRadius: '3px',
+                              backgroundColor: isCurrencyMismatch ? 'rgba(234, 88, 12, 0.15)' : 'var(--secondary)',
+                              color: isCurrencyMismatch ? '#ea580c' : 'var(--text-muted)',
+                              fontWeight: 600
+                            }}
+                          >
+                            {item.currency}
+                          </span>
+                        </div>
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            color: 'var(--text-muted)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            maxWidth: '240px'
+                          }}
+                        >
+                          {item.name}
+                        </span>
+                      </div>
+
+                      <div>
+                        {isAlreadySelected ? (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCompareSymbol(item.symbol)}
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '11px',
+                              borderRadius: '4px',
+                              border: '1px solid var(--border)',
+                              backgroundColor: 'transparent',
+                              color: 'var(--text-muted)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Remove
+                          </button>
+                        ) : isCurrencyMismatch ? (
+                          <button
+                            type="button"
+                            onClick={() => handleManualAddCompare(item.symbol)}
+                            title={`Cannot compare ${item.currency} with ${compareBaseCurrency}`}
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '10px',
+                              borderRadius: '4px',
+                              border: '1px solid var(--border)',
+                              backgroundColor: 'var(--secondary)',
+                              color: 'var(--text-muted)',
+                              cursor: 'not-allowed',
+                              fontWeight: 500
+                            }}
+                          >
+                            {item.currency} != {compareBaseCurrency}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            data-testid={`add-compare-item-${item.symbol}`}
+                            onClick={() => handleManualAddCompare(item.symbol)}
+                            style={{
+                              padding: '4px 10px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              borderRadius: '4px',
+                              border: 'none',
+                              backgroundColor: 'var(--primary)',
+                              color: 'var(--primary-foreground)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            + Compare
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -553,9 +1117,10 @@ export const ScreenerPage: React.FC = () => {
         )}
       </div>
 
-      {/* Floating Realistic Compare Bar (When rows are checked) */}
+      {/* Floating Realistic Compare Bar (When rows are checked or added) */}
       {selectedForCompare.length > 0 && (
         <div
+          data-testid="screener-floating-compare-bar"
           style={{
             position: 'sticky',
             top: '70px',
@@ -572,11 +1137,11 @@ export const ScreenerPage: React.FC = () => {
             animation: 'fadeIn 0.2s ease-in'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 600 }}>
               {selectedForCompare.length === 1 ? '1 company selected' : '2 companies ready to compare'}:
             </span>
-            <div style={{ display: 'flex', gap: '6px' }}>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
               {selectedForCompare.map((sym) => (
                 <span
                   key={sym}
@@ -585,23 +1150,81 @@ export const ScreenerPage: React.FC = () => {
                     padding: '3px 8px',
                     borderRadius: '4px',
                     fontFamily: 'monospace',
-                    fontSize: '12px'
+                    fontSize: '12px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
                   }}
                 >
-                  {sym}
+                  <span>{sym}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveCompareSymbol(sym)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--primary-foreground)',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      padding: 0,
+                      lineHeight: 1,
+                      opacity: 0.8
+                    }}
+                    title={`Remove ${sym}`}
+                  >
+                    ×
+                  </button>
                 </span>
               ))}
             </div>
-            {selectedForCompare.length === 1 && (
-              <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
-                (Check a 2nd company in the table below)
+
+            {/* Currency Scope Indicator */}
+            {compareBaseCurrency && (
+              <span
+                data-testid="screener-compare-currency-badge"
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  padding: '2px 8px',
+                  borderRadius: '10px',
+                  fontSize: '11px',
+                  fontWeight: 600
+                }}
+              >
+                Same Currency: {compareBaseCurrency}
               </span>
+            )}
+
+            {selectedForCompare.length === 1 && (
+              <button
+                type="button"
+                data-testid="search-second-company-btn"
+                onClick={() => {
+                  setIsCompareMenuOpen(true);
+                  if (compareMenuRef.current) {
+                    compareMenuRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                  }
+                }}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.15)',
+                  border: '1px dashed rgba(255, 255, 255, 0.4)',
+                  color: 'var(--primary-foreground)',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                  cursor: 'pointer'
+                }}
+              >
+                + Search 2nd {compareBaseCurrency} company
+              </button>
             )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button
-              onClick={() => setSelectedForCompare([])}
+              onClick={() => {
+                setSelectedForCompare([]);
+                setCompareCurrencyNotice(null);
+              }}
               style={{
                 background: 'none',
                 border: 'none',
@@ -616,6 +1239,7 @@ export const ScreenerPage: React.FC = () => {
             <button
               onClick={handleLaunchCompare}
               disabled={selectedForCompare.length === 0}
+              data-testid="launch-compare-btn"
               style={{
                 height: '36px',
                 padding: '0 16px',
@@ -633,6 +1257,45 @@ export const ScreenerPage: React.FC = () => {
                 : 'Open in Compare →'}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Currency Restriction Notice Banner */}
+      {compareCurrencyNotice && (
+        <div
+          data-testid="compare-currency-notice"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '10px 16px',
+            borderRadius: '8px',
+            backgroundColor: 'rgba(234, 88, 12, 0.1)',
+            border: '1px solid rgba(234, 88, 12, 0.3)',
+            color: 'var(--foreground)',
+            fontSize: '12px',
+            marginBottom: '16px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontWeight: 600, color: '#ea580c' }}>Currency Restriction:</span>
+            <span>{compareCurrencyNotice}</span>
+          </div>
+          <button
+            type="button"
+            data-testid="dismiss-compare-currency-notice"
+            onClick={() => setCompareCurrencyNotice(null)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              fontSize: '14px',
+              padding: '2px 4px'
+            }}
+          >
+            ×
+          </button>
         </div>
       )}
 
@@ -721,6 +1384,11 @@ export const ScreenerPage: React.FC = () => {
               paginatedStocks.map((st) => {
                 const isSelected = selectedForCompare.includes(st.symbol);
                 const isPositive = st.changePercent >= 0;
+                const isCurrencyMismatch = Boolean(
+                  selectedForCompare.length === 1 &&
+                  compareBaseCurrency &&
+                  st.currency !== compareBaseCurrency
+                );
 
                 return (
                   <tr
@@ -733,46 +1401,71 @@ export const ScreenerPage: React.FC = () => {
                   >
                     {/* Checkbox for Compare */}
                     <td
-                      style={{ padding: '13px 8px 13px 16px', textAlign: 'center' }}
+                      data-testid={`screener-row-compare-cell-${st.symbol}`}
+                      style={{
+                        padding: '13px 8px 13px 16px',
+                        textAlign: 'center',
+                        cursor: isCurrencyMismatch ? 'not-allowed' : 'pointer'
+                      }}
                       onClick={(e) => toggleSelectForCompare(e, st.symbol)}
+                      title={
+                        isCurrencyMismatch
+                          ? `Cannot compare ${st.currency} with ${compareBaseCurrency}. Companies can only be compared to same currency companies.`
+                          : isSelected
+                          ? 'Click to remove from compare'
+                          : 'Click to add to compare'
+                      }
                     >
                       <input
                         type="checkbox"
                         checked={isSelected}
+                        disabled={isCurrencyMismatch}
                         onChange={() => {}}
-                        style={{ cursor: 'pointer', width: '15px', height: '15px' }}
+                        data-testid={`screener-row-compare-checkbox-${st.symbol}`}
+                        style={{
+                          cursor: isCurrencyMismatch ? 'not-allowed' : 'pointer',
+                          width: '15px',
+                          height: '15px',
+                          opacity: isCurrencyMismatch ? 0.3 : 1,
+                          pointerEvents: isCurrencyMismatch ? 'none' : 'auto'
+                        }}
                       />
                     </td>
 
                     {/* Company */}
                     <td style={{ padding: '13px 16px' }}>
-                      <div style={{ fontWeight: 500, color: 'var(--foreground)', fontSize: '13px' }}>{st.name}</div>
-                      <div
-                        style={{
-                          fontSize: '11px',
-                          color: 'var(--text-muted)',
-                          fontFamily: 'monospace',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          marginTop: '2px'
-                        }}
-                      >
-                        <span>{st.symbol}</span>
-                        <span>·</span>
-                        <span>{st.exchange}</span>
-                        <span>·</span>
-                        <span
-                          style={{
-                            backgroundColor: 'var(--secondary)',
-                            padding: '2px 6px',
-                            borderRadius: '3px',
-                            color: 'var(--text-muted)',
-                            fontSize: '10px'
-                          }}
-                        >
-                          {st.sector}
-                        </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <CompanyLogo symbol={st.symbol} name={st.name} size={24} withContainer rounded />
+                        <div>
+                          <div style={{ fontWeight: 500, color: 'var(--foreground)', fontSize: '13px' }}>{st.name}</div>
+                          <div
+                            style={{
+                              fontSize: '11px',
+                              color: 'var(--text-muted)',
+                              fontFamily: 'monospace',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              marginTop: '2px'
+                            }}
+                          >
+                            <span>{st.symbol}</span>
+                            <span>·</span>
+                            <span>{st.exchange}</span>
+                            <span>·</span>
+                            <span
+                              style={{
+                                backgroundColor: 'var(--secondary)',
+                                padding: '2px 6px',
+                                borderRadius: '3px',
+                                color: 'var(--text-muted)',
+                                fontSize: '10px'
+                              }}
+                            >
+                              {st.sector}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </td>
 

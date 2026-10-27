@@ -19,14 +19,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch {
       // ignore
     }
-    return 'light'; // Default to pristine institutional white target
+    return 'dark'; // Default to institutional pitch-black dark mode target
   });
 
   const [systemPrefersDark, setSystemPrefersDark] = useState<boolean>(() => {
     if (typeof window !== 'undefined' && window.matchMedia) {
       return window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
-    return false;
+    return true;
   });
 
   useEffect(() => {
@@ -43,12 +43,17 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', resolvedTheme);
+    root.style.colorScheme = resolvedTheme;
     if (resolvedTheme === 'dark') {
       root.classList.add('dark');
       root.classList.remove('light');
+      document.body.style.backgroundColor = '#000000';
+      document.body.style.color = '#FFFFFF';
     } else {
       root.classList.add('light');
       root.classList.remove('dark');
+      document.body.style.backgroundColor = '#FFFFFF';
+      document.body.style.color = '#171717';
     }
     try {
       localStorage.setItem('hedger-theme', theme);

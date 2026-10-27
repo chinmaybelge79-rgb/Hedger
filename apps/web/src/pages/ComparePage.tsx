@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { companyPath, isValidSymbol, normalizeSymbol } from '../lib/navigation.js';
+import { CompanyLogo } from '../components/CompanyLogo.js';
+import { useMarket } from '../context/MarketContext.js';
 import {
   formatPrice,
   formatDelta,
@@ -9,6 +11,7 @@ import {
   formatPercent,
   formatDate
 } from '@hedger/format';
+import { reconcileFiscalCalendars } from '@hedger/valuation';
 
 interface PeerCandidate {
   symbol: string;
@@ -55,9 +58,12 @@ const FX_TIMESTAMP = '23 Oct 2026, 15:30 IST · RBI & ECB Reference Rates';
 export const ComparePage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { activeMarket, setActiveMarket, marketConfig, isInstrumentInActiveMarket, getDefaultComparisonPair } = useMarket();
 
-  const rawSymbolA = searchParams.get('a') || 'TCS.NS';
-  const rawSymbolB = searchParams.get('b') || 'INFY.NS';
+  const defaultPair = useMemo(() => getDefaultComparisonPair(activeMarket), [activeMarket, getDefaultComparisonPair]);
+
+  const rawSymbolA = searchParams.get('a') || defaultPair.a;
+  const rawSymbolB = searchParams.get('b') || defaultPair.b;
 
   const symbolA = normalizeSymbol(rawSymbolA);
   const symbolB = normalizeSymbol(rawSymbolB);
@@ -150,17 +156,37 @@ export const ComparePage: React.FC = () => {
     return common.length > 0 ? common : ['2025', '2024', '2023'];
   }, [fiscalDatesA, fiscalDatesB]);
 
-  const fiscalAlignmentWarning = useMemo(() => {
-    if (!cashFlowA?.fiscalDates?.[0] || !cashFlowB?.fiscalDates?.[0]) return null;
-    const dateA = new Date(cashFlowA.fiscalDates[0]);
-    const dateB = new Date(cashFlowB.fiscalDates[0]);
-    if (dateA.getMonth() !== dateB.getMonth()) {
-      const monthA = dateA.toLocaleString('en-US', { month: 'long' });
-      const monthB = dateB.toLocaleString('en-US', { month: 'long' });
-      return `Fiscal year end mismatch: ${symbolA} reports in ${monthA}, while ${symbolB} reports in ${monthB}. Multi-year totals reflect different macroeconomic calendars.`;
-    }
-    return null;
-  }, [cashFlowA, cashFlowB, symbolA, symbolB]);
+  const [autoReconcileCalendar, setAutoReconcileCalendar] = useState<boolean>(true);
+
+  const conversionRateA = (FX_RATES_TO_USD[dataA?.currency || 'INR'] ?? 1.0) / (FX_RATES_TO_USD[targetCurrency] ?? 1.0);
+  const conversionRateB = (FX_RATES_TO_USD[dataB?.currency || 'INR'] ?? 1.0) / (FX_RATES_TO_USD[targetCurrency] ?? 1.0);
+
+  const reconciliationData = useMemo(() => {
+    if (!cashFlowA?.fiscalDates || !cashFlowB?.fiscalDates) return null;
+    return reconcileFiscalCalendars(
+      symbolA,
+      dataA?.currency || 'INR',
+      fiscalDatesA,
+      {
+        revenue: incomeA?.rows?.find((r: any) => /revenue/i.test(r.key))?.values,
+        ebitda: incomeA?.rows?.find((r: any) => /ebitda|operating_income/i.test(r.key))?.values,
+        netIncome: incomeA?.rows?.find((r: any) => /net_income/i.test(r.key))?.values,
+        cfo: cashFlowA?.rows?.find((r: any) => /operating_cash_flow/i.test(r.key))?.values
+      },
+      symbolB,
+      dataB?.currency || 'INR',
+      fiscalDatesB,
+      {
+        revenue: incomeB?.rows?.find((r: any) => /revenue/i.test(r.key))?.values,
+        ebitda: incomeB?.rows?.find((r: any) => /ebitda|operating_income/i.test(r.key))?.values,
+        netIncome: incomeB?.rows?.find((r: any) => /net_income/i.test(r.key))?.values,
+        cfo: cashFlowB?.rows?.find((r: any) => /operating_cash_flow/i.test(r.key))?.values
+      },
+      targetCurrency,
+      conversionRateA,
+      conversionRateB
+    );
+  }, [symbolA, dataA, fiscalDatesA, incomeA, cashFlowA, symbolB, dataB, fiscalDatesB, incomeB, cashFlowB, targetCurrency, conversionRateA, conversionRateB]);
 
   // Extract CFO for selected fiscal year
   const getCFOForYear = (statement: any, year: string) => {
@@ -222,12 +248,33 @@ export const ComparePage: React.FC = () => {
       {/* Control Selector Bar */}
       <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '16px 20px', backgroundColor: 'var(--card)', marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-          {/* Company A */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Company A with Market-scoped dropdown */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>Target:</span>
-            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)' }}>
-              {dataA?.name || symbolA} ({symbolA})
-            </span>
+            <select
+              value={symbolA}
+              onChange={(e) => setSearchParams({ a: e.target.value, b: symbolB })}
+              style={{
+                height: '36px',
+                padding: '0 12px',
+                fontSize: '13px',
+                fontWeight: 600,
+                borderRadius: '6px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--card)',
+                color: 'var(--foreground)',
+                cursor: 'pointer'
+              }}
+            >
+              <option value={symbolA}>{dataA?.name || symbolA} ({symbolA})</option>
+              {marketConfig.quickTickers
+                .filter((t) => t.symbol !== symbolA && isInstrumentInActiveMarket(t))
+                .map((t) => (
+                  <option key={t.symbol} value={t.symbol}>
+                    {t.name} ({t.symbol}) · {t.exchange}
+                  </option>
+                ))}
+            </select>
           </div>
 
           {/* Swap Button */}
@@ -240,8 +287,8 @@ export const ComparePage: React.FC = () => {
             ⇄ Swap
           </button>
 
-          {/* Peer Picker Dropdown */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Peer Picker Dropdown strictly scoped to active market */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>Compare with:</span>
             <select
               value={symbolB}
@@ -259,10 +306,17 @@ export const ComparePage: React.FC = () => {
             >
               <option value={symbolB}>{dataB?.name || symbolB} ({symbolB})</option>
               {peersA
-                .filter((p) => p.symbol !== symbolB && p.symbol !== symbolA)
+                .filter((p) => p.symbol !== symbolB && p.symbol !== symbolA && isInstrumentInActiveMarket(p))
                 .map((p) => (
                   <option key={p.symbol} value={p.symbol}>
                     {p.name} ({p.symbol}) · {p.reason}
+                  </option>
+                ))}
+              {marketConfig.quickTickers
+                .filter((t) => t.symbol !== symbolA && t.symbol !== symbolB && !peersA.some((p) => p.symbol === t.symbol) && isInstrumentInActiveMarket(t))
+                .map((t) => (
+                  <option key={t.symbol} value={t.symbol}>
+                    {t.name} ({t.symbol}) · {t.exchange}
                   </option>
                 ))}
             </select>
@@ -341,30 +395,82 @@ export const ComparePage: React.FC = () => {
         </div>
       )}
 
-      {/* Fiscal Year Alignment Warning Banner */}
-      {fiscalAlignmentWarning && (
+      {/* Fiscal Year Calendar Reconciliation Engine Banner */}
+      {reconciliationData && !reconciliationData.isAligned && (
         <div
           style={{
             border: '1px solid var(--border)',
-            borderRadius: '8px',
-            backgroundColor: 'var(--secondary)',
-            padding: '12px 16px',
-            marginBottom: '24px',
-            fontSize: '12px',
-            color: 'var(--text-muted)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
+            borderRadius: '12px',
+            backgroundColor: 'var(--card-bg, #09090b)',
+            padding: '16px 20px',
+            marginBottom: '24px'
           }}
         >
-          <span style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--negative)' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="12" />
-              <line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-          </span>
-          <span>{fiscalAlignmentWarning}</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: autoReconcileCalendar ? '16px' : '0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', color: '#eab308' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              </span>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)' }}>
+                  Fiscal Year Alignment: {symbolA} ({reconciliationData.sourceMismatch.monthNameA}) vs {symbolB} ({reconciliationData.sourceMismatch.monthNameB})
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  Automated calendar reconciliation shifts differing fiscal year-ends into synchronized Trailing Twelve Month (TTM) comparative quarters.
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '4px', backgroundColor: autoReconcileCalendar ? 'rgba(34, 197, 94, 0.15)' : 'var(--surface)', color: autoReconcileCalendar ? '#22c55e' : 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                {autoReconcileCalendar ? 'TTM Calendar Reconciled' : 'Raw Filing Dates'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setAutoReconcileCalendar(prev => !prev)}
+                className="btn btn-secondary"
+                style={{ height: '32px', minHeight: '32px', padding: '0 12px', fontSize: '11px', fontWeight: 600 }}
+              >
+                {autoReconcileCalendar ? 'Disable Alignment' : 'Auto-Reconcile TTM'}
+              </button>
+            </div>
+          </div>
+
+          {autoReconcileCalendar && (
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                Synchronized Calendar Quarters (Dec 31 Normalization in {targetCurrency})
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+                      <th style={{ padding: '6px 10px', textAlign: 'left' }}>Calendar Quarter</th>
+                      <th style={{ padding: '6px 10px', textAlign: 'right' }}>{symbolA} Reported</th>
+                      <th style={{ padding: '6px 10px', textAlign: 'right' }}>{symbolA} ({targetCurrency})</th>
+                      <th style={{ padding: '6px 10px', textAlign: 'right' }}>{symbolB} Reported</th>
+                      <th style={{ padding: '6px 10px', textAlign: 'right' }}>{symbolB} ({targetCurrency})</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reconciliationData.quarterlyTimeline.map((q, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '6px 10px', fontWeight: 600, color: 'var(--foreground)' }}>{q.calendarQuarter} ({q.periodEnd})</td>
+                        <td style={{ padding: '6px 10px', textAlign: 'right', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{formatCompact({ amount: q.companyA_reported, currency: dataA?.currency || 'INR' })}</td>
+                        <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 600, color: 'var(--foreground)', fontFamily: 'monospace' }}>{formatCompact({ amount: q.companyA_normalized, currency: targetCurrency })}</td>
+                        <td style={{ padding: '6px 10px', textAlign: 'right', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{formatCompact({ amount: q.companyB_reported, currency: dataB?.currency || 'INR' })}</td>
+                        <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 600, color: 'var(--foreground)', fontFamily: 'monospace' }}>{formatCompact({ amount: q.companyB_normalized, currency: targetCurrency })}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -377,15 +483,18 @@ export const ComparePage: React.FC = () => {
           style={{ padding: '24px', cursor: 'pointer', transition: 'border-color 0.15s ease' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-            <div>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Target Instrument
-              </span>
-              <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--foreground)', marginTop: '2px' }}>
-                {dataA?.name || symbolA}
-              </h2>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-                {symbolA} · {dataA?.exchange} · {dataA?.currency}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <CompanyLogo symbol={symbolA} name={dataA?.name} size={36} withContainer rounded />
+              <div>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Target Instrument
+                </span>
+                <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--foreground)', marginTop: '2px', marginBottom: '2px' }}>
+                  {dataA?.name || symbolA}
+                </h2>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                  {symbolA} · {dataA?.exchange} · {dataA?.currency}
+                </div>
               </div>
             </div>
             <span style={{ fontSize: '11px', color: 'var(--text-muted)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: '4px' }}>
@@ -431,15 +540,18 @@ export const ComparePage: React.FC = () => {
           style={{ padding: '24px', cursor: 'pointer', transition: 'border-color 0.15s ease' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-            <div>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Comparison Peer
-              </span>
-              <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--foreground)', marginTop: '2px' }}>
-                {dataB?.name || symbolB}
-              </h2>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-                {symbolB} · {dataB?.exchange} · {dataB?.currency}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <CompanyLogo symbol={symbolB} name={dataB?.name} size={36} withContainer rounded />
+              <div>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Comparison Peer
+                </span>
+                <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--foreground)', marginTop: '2px', marginBottom: '2px' }}>
+                  {dataB?.name || symbolB}
+                </h2>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                  {symbolB} · {dataB?.exchange} · {dataB?.currency}
+                </div>
               </div>
             </div>
             <span style={{ fontSize: '11px', color: 'var(--text-muted)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: '4px' }}>

@@ -18,16 +18,17 @@ export const HedgerLogo: React.FC<HedgerLogoProps> = ({
   variant = 'auto',
   trimmed = false
 }) => {
-  let isDark = false;
+  let isDark = true;
   try {
     const themeContext = useTheme();
     isDark = themeContext.resolvedTheme === 'dark';
   } catch {
     // If used outside ThemeProvider, fallback to DOM inspection
     if (typeof document !== 'undefined') {
-      isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      isDark = document.documentElement.getAttribute('data-theme') !== 'light';
     }
   }
+
 
   const effectiveVariant = variant === 'auto'
     ? (isDark ? 'white-on-black' : 'black-on-white')
@@ -37,7 +38,7 @@ export const HedgerLogo: React.FC<HedgerLogoProps> = ({
   const fg = effectiveVariant === 'white-on-black' ? '#FFFFFF' : '#000000';
 
   if (trimmed) {
-    const actualHeight = height || size || 28;
+    const actualHeight = height || size || 24;
     const actualWidth = width || Math.round(actualHeight * (178 / 244));
     return (
       <svg

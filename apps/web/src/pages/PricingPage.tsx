@@ -1,11 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
+import { PlatformServicesPromise } from '../components/PlatformServicesPromise.js';
 
 export const PricingPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, updatePlan } = useAuth();
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+
+  const CheckIcon = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '2px' }} aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
 
   const handleSelectPlan = (plan: 'basic' | 'plus' | 'pro' | 'ultra') => {
     if (isAuthenticated) {
@@ -36,12 +43,12 @@ export const PricingPage: React.FC = () => {
           style={{
             fontSize: '15px',
             color: 'var(--text-muted)',
-            maxWidth: '580px',
+            maxWidth: '640px',
             margin: '0 auto 24px',
             lineHeight: 1.5
           }}
         >
-          Deterministic valuation engines, audited fundamentals, and cross-border peer comparisons calibrated to your portfolio scale.
+          Make more valuations and investment theses in our paid plans. Unlock multi-scenario DCF workbenches, reverse DCF projections, and full downloadable institutional reports.
         </p>
 
         {/* Monthly / Yearly Billing Toggle */}
@@ -130,8 +137,8 @@ export const PricingPage: React.FC = () => {
             </p>
 
             <div style={{ padding: '16px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', marginBottom: '20px' }}>
-              <div style={{ fontSize: '32px', fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>
-                $0
+              <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--text)', lineHeight: 1, letterSpacing: '-0.02em' }}>
+                FREE
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
                 Free forever · Zero commitment
@@ -139,11 +146,11 @@ export const PricingPage: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12px', color: 'var(--text)' }}>
-              <div>[✓] Global screener across NSE, US, EU, and Asia</div>
-              <div>[✓] 15-minute delayed quotes and historical charts</div>
-              <div>[✓] 3 institutional DCF valuations per day</div>
-              <div>[✓] 5-year audited financial statements</div>
-              <div>[✓] Global equity search (⌘K)</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Global screener across NSE, US, EU, and Asia</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>15-minute delayed quotes and historical charts</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>3 institutional DCF valuations per day</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>5-year audited financial statements</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Global equity search (⌘K)</span></div>
             </div>
           </div>
 
@@ -188,11 +195,12 @@ export const PricingPage: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12px', color: 'var(--text)' }}>
-              <div>[✓] Real-time price streaming (NSE & US)</div>
-              <div>[✓] Unlimited DCF & Reverse DCF valuations</div>
-              <div>[✓] Interactive 5x5 WACC vs growth sensitivity grid</div>
-              <div>[✓] 10-year audited financial statement history</div>
-              <div>[✓] Clean spreadsheet CSV data export</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Real-time price streaming (NSE & US)</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Unlimited DCF & Reverse DCF valuations</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>3 AI Investment Theses & 1 Report Download/mo</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Interactive 5x5 WACC vs growth sensitivity grid</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>10-year audited financial statement history</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Clean spreadsheet CSV data export</span></div>
             </div>
           </div>
 
@@ -256,11 +264,12 @@ export const PricingPage: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12px', color: 'var(--text)' }}>
-              <div>[✓] Everything in Plus included</div>
-              <div>[✓] Cross-Border Peer Comparison Workbench</div>
-              <div>[✓] Automatic FX conversion & fiscal year alignment</div>
-              <div>[✓] Banking Excess Returns & Dividend Discount models</div>
-              <div>[✓] Unlimited model persistence & parameter notes</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Everything in Plus included</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>25 AI Investment Theses & 10 Downloads/mo</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Cross-Border Peer Comparison Workbench</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Automatic FX conversion & fiscal year alignment</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Banking Excess Returns & Dividend Discount models</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Unlimited model persistence & parameter notes</span></div>
             </div>
           </div>
 
@@ -305,11 +314,11 @@ export const PricingPage: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12px', color: 'var(--text)' }}>
-              <div>[✓] Everything in Pro included</div>
-              <div>[✓] Forward Portfolio Prediction & Monte Carlo stress testing</div>
-              <div>[✓] Deterministic Financial Health & Quality audits</div>
-              <div>[✓] Custom WACC and capital structure builder</div>
-              <div>[✓] Dedicated valuation methodology support</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Everything in Pro included</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Forward Portfolio Prediction & Monte Carlo stress testing</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Deterministic Financial Health & Quality audits</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Custom WACC and capital structure builder</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Dedicated valuation methodology support</span></div>
             </div>
           </div>
 
@@ -322,6 +331,13 @@ export const PricingPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Institutional Service Commitments & Full Feature Matrix */}
+      <PlatformServicesPromise
+        onSelectPlan={handleSelectPlan}
+        currentPlan={user?.plan}
+        showCta={true}
+      />
     </div>
   );
 };

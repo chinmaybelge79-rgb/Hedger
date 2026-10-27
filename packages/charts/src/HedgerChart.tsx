@@ -76,17 +76,21 @@ export const HedgerChart: React.FC<HedgerChartProps> = ({
   }, [propTheme]);
 
   // Chart configuration state
-  const [period, setPeriod] = useState<string>(defaultPeriod);
+  const [period, setPeriod] = useState<string>(() => {
+    const p = (defaultPeriod || '1y').toLowerCase();
+    return p === 'all' || p === 'max' ? '5y' : p;
+  });
   const [chartType, setChartType] = useState<'mountain' | 'candles'>('mountain');
   const [isLogScale, setIsLogScale] = useState<boolean>(false);
   const [showVolume, setShowVolume] = useState<boolean>(true);
   const [showValuation, setShowValuation] = useState<boolean>(!!valuation?.visible);
   const [showEvents, setShowEvents] = useState<boolean>(true);
 
-  // Sync internal period with prop if updated from outside
+  // Sync internal period with prop if updated from outside (clamp max to 5y)
   useEffect(() => {
     if (defaultPeriod) {
-      setPeriod(defaultPeriod);
+      const p = defaultPeriod.toLowerCase();
+      setPeriod(p === 'all' || p === 'max' ? '5y' : p);
     }
   }, [defaultPeriod]);
 
@@ -112,10 +116,9 @@ export const HedgerChart: React.FC<HedgerChartProps> = ({
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [bars]);
 
-  // Filter bars according to timeframe period (1M, 6M, 1Y, 3Y, 5Y, ALL)
+  // Filter bars according to timeframe period (1M, 6M, 1Y, 3Y, 5Y) - max 5 years
   const filteredBars = useMemo(() => {
     if (sortedBars.length === 0) return [];
-    if (period === 'all' || period === 'max') return sortedBars;
 
     const latest = new Date(sortedBars[sortedBars.length - 1].date);
     const cutoff = new Date(latest);
@@ -124,7 +127,7 @@ export const HedgerChart: React.FC<HedgerChartProps> = ({
     else if (period === '6m' || period === '6mo') cutoff.setMonth(cutoff.getMonth() - 6);
     else if (period === '1y') cutoff.setFullYear(cutoff.getFullYear() - 1);
     else if (period === '3y') cutoff.setFullYear(cutoff.getFullYear() - 3);
-    else if (period === '5y') cutoff.setFullYear(cutoff.getFullYear() - 5);
+    else cutoff.setFullYear(cutoff.getFullYear() - 5); // 5Y is max
 
     const filtered = sortedBars.filter((b) => new Date(b.date) >= cutoff);
     return filtered.length > 5 ? filtered : sortedBars;
@@ -274,11 +277,14 @@ export const HedgerChart: React.FC<HedgerChartProps> = ({
   // Zoom interaction via wheel
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    if (filteredBars.length <= 5) return;
+    // Enforce an institutional minimum bar threshold (at least 20 bars)
+    // to strictly prevent over-zooming that would distort bars or collide with axis numbers/letters.
+    const MIN_ZOOM_BARS = Math.min(filteredBars.length, 20);
+    if (filteredBars.length <= MIN_ZOOM_BARS) return;
 
     const zoomFactor = e.deltaY > 0 ? 1.15 : 0.85;
     const count = range.end - range.start;
-    const newCount = Math.max(5, Math.min(filteredBars.length, Math.round(count * zoomFactor)));
+    const newCount = Math.max(MIN_ZOOM_BARS, Math.min(filteredBars.length, Math.round(count * zoomFactor)));
 
     const rect = canvasRef.current?.getBoundingClientRect();
     const mouseX = rect ? e.clientX - rect.left : dimensions.width / 2;
@@ -317,7 +323,7 @@ export const HedgerChart: React.FC<HedgerChartProps> = ({
 
   const timeframes = compact
     ? ['1m', '6m', '1y', '5y']
-    : ['1m', '6m', '1y', '3y', '5y', 'all'];
+    : ['1m', '6m', '1y', '3y', '5y'];
 
   return (
     <div ref={containerRef} style={{ width: '100%', userSelect: 'none', backgroundColor: 'transparent', borderRadius: '10px' }}>

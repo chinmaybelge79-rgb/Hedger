@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { formatDate } from '@hedger/format';
+import { VALUATION_STATUS_ENABLED } from '../flags.js';
 
 interface MetricEvaluation {
   key: string;
@@ -41,12 +42,22 @@ interface FinancialAnalysisData {
   };
 }
 
+interface ValuationStatusData {
+  status: 'Overvalued' | 'Fairly valued' | 'Undervalued' | 'Not enough data';
+  rHist: number | null;
+  rPeer: number | null;
+  metricName: string;
+  summaryText: string;
+  footerText: string;
+}
+
 interface FinancialAnalysisSectionProps {
   symbol: string;
 }
 
 export const FinancialAnalysisSection: React.FC<FinancialAnalysisSectionProps> = ({ symbol }) => {
   const [data, setData] = useState<FinancialAnalysisData | null>(null);
+  const [valStatus, setValStatus] = useState<ValuationStatusData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,14 +66,23 @@ export const FinancialAnalysisSection: React.FC<FinancialAnalysisSectionProps> =
     setLoading(true);
     setError(null);
 
-    fetch(`/api/instruments/${encodeURIComponent(symbol)}/analysis`)
-      .then((res) => {
+    Promise.all([
+      fetch(`/api/instruments/${encodeURIComponent(symbol)}/analysis`).then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
-      })
-      .then((json) => {
+      }),
+      VALUATION_STATUS_ENABLED
+        ? fetch(`/api/v1/instruments/${encodeURIComponent(symbol)}/valuation-status`)
+            .then((res) => (res.ok ? res.json() : null))
+            .catch(() => null)
+        : Promise.resolve(null)
+    ])
+      .then(([analysisJson, statusJson]) => {
         if (!isMounted) return;
-        setData(json);
+        setData(analysisJson);
+        if (statusJson && statusJson.data) {
+          setValStatus(statusJson.data);
+        }
         setLoading(false);
       })
       .catch((err) => {
@@ -99,12 +119,6 @@ export const FinancialAnalysisSection: React.FC<FinancialAnalysisSectionProps> =
   if (error || !data) {
     return null;
   }
-
-  const isStrong = data.label.includes('Strong');
-  const isWeak = data.label.includes('Weak');
-  const chipBg = isStrong ? 'rgba(22, 163, 74, 0.12)' : isWeak ? 'rgba(220, 38, 38, 0.12)' : 'var(--secondary)';
-  const chipColor = isStrong ? 'var(--positive)' : isWeak ? 'var(--negative)' : 'var(--foreground)';
-  const chipBorder = isStrong ? 'rgba(22, 163, 74, 0.3)' : isWeak ? 'rgba(220, 38, 38, 0.3)' : 'var(--border)';
 
   const formatMetricVal = (m: MetricEvaluation) => {
     if (m.value === null || m.value === undefined) return '—';
@@ -146,75 +160,50 @@ export const FinancialAnalysisSection: React.FC<FinancialAnalysisSectionProps> =
             Financial Health & Quality Analysis
           </h2>
           <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-            Objective reading of audited fundamentals against standardized thresholds without investment advice.
+            Objective reading of audited fundamentals against standardized thresholds without opinions or advice.
           </p>
         </div>
 
-        {/* Prominent Highlighted Health Score & Status Badge */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
-            padding: '12px 16px',
-            borderRadius: '12px',
-            backgroundColor: chipBg,
-            border: `1.5px solid ${chipBorder}`,
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)'
-          }}
-        >
-          {data.score !== null && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div
-                style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--card)',
-                  border: `2px solid ${chipColor}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '20px',
-                  fontWeight: 700,
-                  color: chipColor,
-                  fontVariantNumeric: 'tabular-nums',
-                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
-                }}
-              >
-                {data.score}
-              </div>
-              <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
-                  Health Score
-                </div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                  <strong style={{ color: 'var(--text)', fontSize: '13px' }}>{data.score}</strong> / 100
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div style={{ width: '1px', height: '36px', backgroundColor: chipBorder }} />
-
+        {/* Change B: Plain Valuation Status Chip (neutral outline, no green/red, no rating chip) */}
+        {VALUATION_STATUS_ENABLED && valStatus && (
           <div
+            data-testid="valuation-status-container"
             style={{
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'flex-start'
+              alignItems: 'flex-start',
+              gap: '6px',
+              maxWidth: '380px'
             }}
           >
-            <span style={{ fontSize: '14px', fontWeight: 700, color: chipColor }}>
-              {data.label}
-            </span>
-            <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--text-muted)', marginTop: '2px' }}>
-              {data.meaning}
-            </span>
+            <div
+              data-testid="valuation-status-chip"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '6px 14px',
+                borderRadius: '6px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--card)',
+                color: 'var(--foreground)',
+                fontSize: '13px',
+                fontWeight: 600,
+                letterSpacing: '0.01em'
+              }}
+            >
+              {valStatus.status}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--foreground)', lineHeight: 1.4 }}>
+              {valStatus.summaryText}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', opacity: 0.85 }}>
+              {valStatus.footerText}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* 5 Pillars Progress Grid */}
+      {/* 5 Pillars Progress Grid (Change A: descriptive pillars without a verdict chip) */}
       <div style={{ marginBottom: '24px' }}>
         <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '16px' }}>
           Five Pillars Breakdown
@@ -340,10 +329,10 @@ export const FinancialAnalysisSection: React.FC<FinancialAnalysisSectionProps> =
         </div>
       </details>
 
-      {/* Compliance & Legal Disclaimer Footer */}
+      {/* Compliance & Disclosure Footer */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', borderTop: '1px solid var(--border)', paddingTop: '16px', fontSize: '11px', color: 'var(--text-muted)' }}>
         <div>
-          {data.disclaimer} Not investment advice or an endorsement.
+          {data.disclaimer} Not investment advice or an endorsement. Deterministic financial model output for research purposes.
         </div>
         <div style={{ fontFamily: 'monospace' }}>
           As of {formatDate(data.asOf)} · Completeness: {data.completeness}%

@@ -10,6 +10,9 @@ import { SavedPage } from '../pages/SavedPage.js';
 import { DesignPage } from '../pages/DesignPage.js';
 import { ComparePage } from '../pages/ComparePage.js';
 import { SearchModal } from '../components/SearchModal.js';
+import { MarketProvider } from '../context/MarketContext.js';
+import { ThemeProvider } from '../context/ThemeContext.js';
+import { AuthProvider } from '../context/AuthContext.js';
 
 const LEAKAGE_PATTERNS = [
   /\bnull\b/i,
@@ -57,86 +60,114 @@ function assertNoLeakage(container: HTMLElement, routeName: string) {
   });
 }
 
+const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <ThemeProvider>
+    <AuthProvider>
+      <MarketProvider>
+        {children}
+      </MarketProvider>
+    </AuthProvider>
+  </ThemeProvider>
+);
+
 describe('M0 Leakage Tests — Zero null/undefined/NaN/Infinity across all routes', () => {
   it('Route: / (Landing Page) has zero leakage', () => {
     const { container } = render(
-      <MemoryRouter initialEntries={['/']}>
-        <LandingPage onOpenSearch={() => {}} />
-      </MemoryRouter>
+      <TestWrapper>
+        <MemoryRouter initialEntries={['/']}>
+          <LandingPage onOpenSearch={() => {}} />
+        </MemoryRouter>
+      </TestWrapper>
     );
     assertNoLeakage(container, '/');
   });
 
   it('Route: /markets (Markets Page) has zero leakage', () => {
     const { container } = render(
-      <MemoryRouter initialEntries={['/markets']}>
-        <MarketsPage />
-      </MemoryRouter>
+      <TestWrapper>
+        <MemoryRouter initialEntries={['/markets']}>
+          <MarketsPage />
+        </MemoryRouter>
+      </TestWrapper>
     );
     assertNoLeakage(container, '/markets');
   });
 
   it('Route: /company/:symbol (Company Dossier Overview) has zero leakage', () => {
     const { container } = render(
-      <MemoryRouter initialEntries={['/company/RELIANCE.NS']}>
-        <Routes>
-          <Route path="/company/:symbol" element={<CompanyPage />} />
-        </Routes>
-      </MemoryRouter>
+      <TestWrapper>
+        <MemoryRouter initialEntries={['/company/RELIANCE.NS']}>
+          <Routes>
+            <Route path="/company/:symbol" element={<CompanyPage />} />
+          </Routes>
+        </MemoryRouter>
+      </TestWrapper>
     );
     assertNoLeakage(container, '/company/RELIANCE.NS');
   });
 
   it('Route: /models (Company Dossier Valuation Tab) has zero leakage', () => {
     const { container } = render(
-      <MemoryRouter initialEntries={['/models']}>
-        <CompanyPage initialTab="valuation" />
-      </MemoryRouter>
+      <TestWrapper>
+        <MemoryRouter initialEntries={['/models']}>
+          <CompanyPage initialTab="valuation" />
+        </MemoryRouter>
+      </TestWrapper>
     );
     assertNoLeakage(container, '/models');
   });
 
   it('Route: /screener (Stock Screener) has zero leakage', () => {
     const { container } = render(
-      <MemoryRouter initialEntries={['/screener']}>
-        <ScreenerPage />
-      </MemoryRouter>
+      <TestWrapper>
+        <MemoryRouter initialEntries={['/screener']}>
+          <ScreenerPage />
+        </MemoryRouter>
+      </TestWrapper>
     );
     assertNoLeakage(container, '/screener');
   });
 
   it('Route: /saved (Saved Models) has zero leakage', () => {
     const { container } = render(
-      <MemoryRouter initialEntries={['/saved']}>
-        <SavedPage />
-      </MemoryRouter>
+      <TestWrapper>
+        <MemoryRouter initialEntries={['/saved']}>
+          <SavedPage />
+        </MemoryRouter>
+      </TestWrapper>
     );
     assertNoLeakage(container, '/saved');
   });
 
   it('Route: /compare (Comparison Page) has zero leakage', () => {
     const { container } = render(
-      <MemoryRouter initialEntries={['/compare?a=TCS.NS&b=INFY.NS']}>
-        <ComparePage />
-      </MemoryRouter>
+      <TestWrapper>
+        <MemoryRouter initialEntries={['/compare?a=TCS.NS&b=INFY.NS']}>
+          <ComparePage />
+        </MemoryRouter>
+      </TestWrapper>
     );
     assertNoLeakage(container, '/compare');
   });
 
   it('Route: /design (Design Catalog) has zero leakage', () => {
     const { container } = render(
-      <MemoryRouter initialEntries={['/design']}>
-        <DesignPage />
-      </MemoryRouter>
+      <TestWrapper>
+        <MemoryRouter initialEntries={['/design']}>
+          <DesignPage />
+        </MemoryRouter>
+      </TestWrapper>
     );
     assertNoLeakage(container, '/design');
   });
 
   it('Modal: SearchModal has zero leakage', () => {
     const { container } = render(
-      <MemoryRouter>
-        <SearchModal isOpen={true} onClose={() => {}} />
-      </MemoryRouter>
+      <TestWrapper>
+        <MemoryRouter>
+          <SearchModal isOpen={true} onClose={() => {}} />
+        </MemoryRouter>
+      </TestWrapper>
     );
     assertNoLeakage(container, 'SearchModal');
   });

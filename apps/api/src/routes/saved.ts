@@ -1,69 +1,62 @@
 import { Router } from 'express';
+import { db } from '../db/database.js';
+import { getSessionUser } from './auth.js';
 
 export const savedRouter = Router();
 
-// In-memory persistent store for saved analyses (Phase 18)
-interface SavedAnalysis {
-  id: string;
-  symbol: string;
-  name: string;
-  savedAt: string;
-  priceAtSave: number;
-  currency: string;
-  intrinsicValuePerShare: number;
-  marginOfSafety: number;
-  inputs: Record<string, any>;
-  notes?: string;
-}
+savedRouter.get('/', async (req, res) => {
+  const cookieToken = req.cookies?.hedger_session;
+  const authHeader = req.headers.authorization;
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
+  const token = bearerToken || cookieToken;
 
-let savedStore: SavedAnalysis[] = [
-  {
-    id: 'seed-1',
-    symbol: 'RELIANCE.NS',
-    name: 'Reliance Industries Ltd',
-    savedAt: new Date(Date.now() - 86400000).toISOString(),
-    priceAtSave: 1195.0,
-    currency: 'INR',
-    intrinsicValuePerShare: 1350.0,
-    marginOfSafety: 0.1297,
-    inputs: {
-      wacc: 0.11,
-      terminalGrowthRate: 0.05,
-      operatingMargin: 0.18
-    },
-    notes: 'Base case assumption with 11% cost of capital and 5% terminal growth.'
-  }
-];
-
-savedRouter.get('/', (_req, res) => {
-  res.json({ saved: savedStore });
+  const user = await getSessionUser(token);
+  const models = await db.getSavedModels(user?.id);
+  res.json({ saved: models });
 });
 
-savedRouter.post('/', (req, res) => {
-  const { symbol, name, priceAtSave, currency, intrinsicValuePerShare, marginOfSafety, inputs, notes } = req.body;
+savedRouter.get('/:id', async (req, res) => {
+  const item = await db.getSavedModelById(req.params.id);
+  if (!item) {
+    return res.status(404).json({ error: 'Saved model not found', id: req.params.id });
+  }
+  res.json(item);
+});
+
+savedRouter.post('/', async (req, res) => {
+  const cookieToken = req.cookies?.hedger_session;
+  const authHeader = req.headers.authorization;
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
+  const token = bearerToken || cookieToken;
+  const user = await getSessionUser(token);
+
+  const { symbol, name, priceAtSave, currency, intrinsicValuePerShare, marginOfSafety, engineVersion, inputs, outputs, notes } = req.body;
   if (!symbol) {
     return res.status(400).json({ error: 'Symbol is required' });
   }
 
-  const newEntry: SavedAnalysis = {
-    id: `save-${Date.now()}`,
-    symbol,
+  const newEntry = await db.saveModel({
+    id: `save-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    userId: user?.id,
+    symbol: symbol.toUpperCase(),
     name: name || symbol,
     savedAt: new Date().toISOString(),
     priceAtSave: Number(priceAtSave) || 0,
-    currency: currency || 'INR',
+    currency: currency || 'USD',
     intrinsicValuePerShare: Number(intrinsicValuePerShare) || 0,
     marginOfSafety: Number(marginOfSafety) || 0,
+    engineVersion: engineVersion || 'dcf-10y-v2.0-pure-decimal',
     inputs: inputs || {},
+    outputs: outputs || undefined,
     notes: notes || ''
-  };
+  });
 
-  savedStore.unshift(newEntry);
   res.status(201).json(newEntry);
 });
 
-savedRouter.delete('/:id', (req, res) => {
+savedRouter.delete('/:id', async (req, res) => {
   const id = req.params.id;
-  savedStore = savedStore.filter((item) => item.id !== id);
-  res.json({ success: true, remaining: savedStore.length });
+  const success = await db.deleteSavedModel(id);
+  const remaining = await db.getSavedModels();
+  res.json({ success, remaining: remaining.length });
 });

@@ -26,4 +26,6 @@ venv/
 # Screenshots & Visual Test Artifacts
 docs/screens/
 test-results/
+.vercel
+
 
