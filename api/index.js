@@ -63396,24 +63396,26 @@ async function handleAppleCallback(req, res) {
 authRouter.get("/apple/callback", handleAppleCallback);
 authRouter.post("/apple/callback", handleAppleCallback);
 authRouter.post("/oauth/exchange", async (req, res) => {
-  let { provider, email, name, avatar } = req.body;
+  let { provider, email, name, avatar, sandbox, plan } = req.body;
   if (!provider) {
     return res.status(400).json({ error: "Provider is required for OAuth exchange" });
   }
   const defaultProfiles = {
-    google: { email: "elena.rostova@gmail.com", name: "Elena Rostova" },
-    github: { email: "marcus.vance@hedger.capital", name: "Marcus Vance" },
-    apple: { email: "julian.thorne@privaterelay.appleid.com", name: "Julian Thorne" }
+    google: { email: "alex.researcher@gmail.com", name: "Alex Morgan", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop" },
+    github: { email: "marcus.vance@hedger.capital", name: "Marcus Vance", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop" },
+    apple: { email: "julian.thorne@privaterelay.appleid.com", name: "Julian Thorne", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop" }
   };
   if (!email && defaultProfiles[provider]) {
     email = defaultProfiles[provider].email;
     if (!name) name = defaultProfiles[provider].name;
+    if (!avatar) avatar = defaultProfiles[provider].avatar;
   }
   if (!email) {
     return res.status(400).json({ error: "Provider and email are required for OAuth exchange" });
   }
   const cleanEmail = String(email).trim().toLowerCase();
   const cleanName = String(name || cleanEmail.split("@")[0]).trim();
+  const assignedPlan = plan === "ultra" ? "ultra" : "pro";
   let user = await db.findUserByEmail(cleanEmail);
   if (!user) {
     user = await db.createUser({
@@ -63422,13 +63424,14 @@ authRouter.post("/oauth/exchange", async (req, res) => {
       email: cleanEmail,
       provider,
       avatar: avatar || void 0,
-      plan: "pro"
+      plan: assignedPlan
     });
   } else {
     user = await db.updateUser(user.id, {
       name: cleanName,
       provider,
-      avatar: avatar || user.avatar
+      avatar: avatar || user.avatar,
+      plan: user.plan === "ultra" ? "ultra" : assignedPlan
     }) || user;
   }
   await db.upsertOAuthAccount({
@@ -64256,6 +64259,12 @@ aiRouter.post("/chat", async (req, res) => {
     return res.status(500).json({ error: message });
   }
 });
+aiRouter.get("/thesis/saved", async (req, res) => {
+  const { userId } = await resolveUserContext(req);
+  const models = await db.getSavedModels(userId);
+  const thesisModels = models.filter((m2) => m2.engineVersion?.includes("Investment Thesis") || m2.id.startsWith("save-thesis-"));
+  return res.json({ savedTheses: thesisModels });
+});
 aiRouter.get("/thesis/:symbol", async (req, res) => {
   const symbol = String(req.params.symbol).toUpperCase();
   const cached = await db.getThesis(symbol);
@@ -64489,6 +64498,34 @@ aiRouter.post("/config-key", (req, res) => {
     nvidiaNimService.setGeminiApiKey(geminiApiKey);
   }
   return res.json({ success: true, message: "AI provider keys configured successfully" });
+});
+aiRouter.post("/thesis/save", async (req, res) => {
+  const { symbol, thesis, notes, intrinsicValue, currentPrice, currency } = req.body;
+  if (!symbol || !thesis) {
+    return res.status(400).json({ error: "Symbol and thesis content are required" });
+  }
+  const { userId } = await resolveUserContext(req);
+  const cleanSym = String(symbol).toUpperCase().trim();
+  await db.saveThesis(cleanSym, thesis, userId);
+  const savedEntry = await db.saveModel({
+    id: `save-thesis-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    userId: userId || void 0,
+    symbol: cleanSym,
+    name: `${cleanSym} Investment Thesis`,
+    savedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    priceAtSave: Number(currentPrice) || 0,
+    currency: currency || "USD",
+    intrinsicValuePerShare: Number(intrinsicValue) || 0,
+    marginOfSafety: 0,
+    engineVersion: "Institutional Investment Thesis (18-Section)",
+    inputs: { thesisLength: thesis.length, generatedAt: (/* @__PURE__ */ new Date()).toISOString() },
+    notes: notes || `Institutional investment thesis generated for ${cleanSym}.`
+  });
+  return res.json({
+    success: true,
+    savedEntry,
+    message: `Investment thesis for ${cleanSym} saved successfully.`
+  });
 });
 
 // apps/api/src/routes/support.ts

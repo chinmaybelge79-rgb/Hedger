@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { HedgerOrb } from '../components/HedgerOrb.js';
+import { OAuthSandboxGateway } from '../components/OAuthSandboxGateway.js';
 
 export const InvestmentThesisPage: React.FC = () => {
   const { symbol } = useParams<{ symbol: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, isAuthenticated, token } = useAuth();
 
   const cleanSym = (symbol || 'STOCK').toUpperCase();
   const plan = user?.plan || 'basic';
@@ -23,6 +24,9 @@ export const InvestmentThesisPage: React.FC = () => {
   const [downloadingFormat, setDownloadingFormat] = useState<('pdf' | 'docx' | 'excel' | 'sheets' | 'md') | null>(null);
   const [isAiRepairing, setIsAiRepairing] = useState<boolean>(false);
   const [repairNotice, setRepairNotice] = useState<string | null>(null);
+  const [isSavingThesis, setIsSavingThesis] = useState<boolean>(false);
+  const [isThesisSaved, setIsThesisSaved] = useState<boolean>(false);
+  const [showAuthModalForSave, setShowAuthModalForSave] = useState<boolean>(false);
 
   const steps = [
     'Initializing Hedger Intelligence fundamental synthesis engine...',
@@ -137,6 +141,46 @@ export const InvestmentThesisPage: React.FC = () => {
       setIsAiRepairing(false);
     }
     return null;
+  };
+
+  // Handle Save Thesis to PostgreSQL user account & library
+  const handleSaveThesis = async () => {
+    if (!thesisMarkdown) return;
+
+    if (!isAuthenticated) {
+      setShowAuthModalForSave(true);
+      return;
+    }
+
+    setIsSavingThesis(true);
+    try {
+      const res = await fetch('/api/ai/thesis/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          symbol: cleanSym,
+          thesis: thesisMarkdown,
+          currency: 'USD'
+        })
+      });
+
+      if (res.ok) {
+        setIsThesisSaved(true);
+        setRepairNotice(`Investment thesis for ${cleanSym} saved to your profile library.`);
+        setTimeout(() => setRepairNotice(null), 4000);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setError(errData.error || 'Failed to save investment thesis.');
+      }
+    } catch {
+      setError('Network error saving thesis. Please try again.');
+    } finally {
+      setIsSavingThesis(false);
+    }
   };
 
   // Handle Download Request with AI Auto-Repair on Error
@@ -593,6 +637,78 @@ export const InvestmentThesisPage: React.FC = () => {
                   <span>AI Repair & Verify</span>
                 </>
               )}
+            </button>
+          )}
+
+          {/* Save Thesis Button */}
+          {thesisMarkdown && (
+            <button
+              onClick={handleSaveThesis}
+              disabled={isSavingThesis}
+              className="btn btn-secondary"
+              style={{
+                height: '36px',
+                fontSize: '12px',
+                padding: '0 14px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontWeight: 500,
+                cursor: isSavingThesis ? 'not-allowed' : 'pointer',
+                color: isThesisSaved ? 'var(--positive, #10B981)' : 'var(--foreground)',
+                borderColor: isThesisSaved ? 'var(--positive, #10B981)' : undefined
+              }}
+              title={isThesisSaved ? 'Thesis saved to your account library' : 'Save this investment thesis to your profile'}
+            >
+              {isSavingThesis ? (
+                <>
+                  <span
+                    style={{
+                      width: '12px',
+                      height: '12px',
+                      border: '2px solid var(--border)',
+                      borderTopColor: 'var(--foreground)',
+                      borderRadius: '50%',
+                      display: 'inline-block',
+                      animation: 'spin 1s linear infinite'
+                    }}
+                  />
+                  <span>Saving...</span>
+                </>
+              ) : isThesisSaved ? (
+                <>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  <span>Saved</span>
+                </>
+              ) : (
+                <>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                    <polyline points="17 21 17 13 7 13 7 21" />
+                    <polyline points="7 3 7 8 15 8" />
+                  </svg>
+                  <span>Save Thesis</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {isThesisSaved && (
+            <button
+              onClick={() => navigate('/profile?tab=saved')}
+              className="btn btn-secondary"
+              style={{
+                height: '36px',
+                fontSize: '12px',
+                padding: '0 12px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <span>Saved Models →</span>
             </button>
           )}
 
@@ -1072,49 +1188,172 @@ export const InvestmentThesisPage: React.FC = () => {
 
       {/* Case 4: Generated Thesis Display */}
       {!loading && !isGenerating && thesisMarkdown && (
-        <div
-          style={{
-            borderRadius: '12px',
-            border: '1px solid var(--border)',
-            backgroundColor: 'var(--card)',
-            padding: '32px'
-          }}
-        >
-          {/* Header Action Bar */}
+        <>
+          {/* Guest Save Banner with Google Sandbox, Apple, GitHub */}
+          {!isAuthenticated && (
+            <div
+              style={{
+                marginBottom: '20px',
+                padding: '16px 20px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--card)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '2px' }}>
+                  Save this research report & assumptions to your account
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  Sign in with Google Sandbox, Apple, or GitHub to save this 18-section thesis and monitor {cleanSym} across devices.
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  onClick={() => setShowAuthModalForSave(true)}
+                  className="btn btn-primary"
+                  style={{ height: '36px', minHeight: '36px', padding: '0 16px', fontSize: '12px' }}
+                >
+                  Sign in to Save
+                </button>
+              </div>
+            </div>
+          )}
+
           <div
             style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '16px',
-              paddingBottom: '24px',
-              borderBottom: '1px solid var(--border)',
-              marginBottom: '24px'
+              borderRadius: '12px',
+              border: '1px solid var(--border)',
+              backgroundColor: 'var(--card)',
+              padding: '32px'
             }}
           >
-            <div>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Audited & Reconciled Institutional Output
-              </span>
-              <h1 style={{ fontSize: '22px', fontWeight: 600, color: 'var(--foreground)', margin: '4px 0 0 0' }}>
-                {cleanSym} — Institutional Investment Thesis
-              </h1>
+            {/* Header Action Bar */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '16px',
+                paddingBottom: '24px',
+                borderBottom: '1px solid var(--border)',
+                marginBottom: '24px'
+              }}
+            >
+              <div>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Audited & Reconciled Institutional Output
+                </span>
+                <h1 style={{ fontSize: '22px', fontWeight: 600, color: 'var(--foreground)', margin: '4px 0 0 0' }}>
+                  {cleanSym} — Institutional Investment Thesis
+                </h1>
+              </div>
+
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--foreground)' }}>
+                  18-Section Research Template
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  Multi-Horizon Estimates: 1Y · 2Y · 5Y
+                </div>
+              </div>
             </div>
 
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--foreground)' }}>
-                18-Section Research Template
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Multi-Horizon Estimates: 1Y · 2Y · 5Y
-              </div>
+            {/* Formatted Content */}
+            <div style={{ color: 'var(--foreground)' }}>
+              {renderMarkdownContent(thesisMarkdown)}
             </div>
           </div>
+        </>
+      )}
 
-          {/* Formatted Content */}
-          <div style={{ color: 'var(--foreground)' }}>
-            {renderMarkdownContent(thesisMarkdown)}
+      {/* Save Research Data & Investment Thesis Modal with Google Sandbox, Apple, GitHub */}
+      {showAuthModalForSave && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Save Research Data"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1200,
+            backgroundColor: 'rgba(0, 0, 0, 0.55)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+          onClick={() => setShowAuthModalForSave(false)}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '440px',
+              backgroundColor: 'var(--card)',
+              borderRadius: '12px',
+              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.3)',
+              border: '1px solid var(--border)',
+              padding: '32px',
+              boxSizing: 'border-box'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--foreground)', margin: '0 0 4px 0' }}>
+                  Save Research Data & Thesis
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.45 }}>
+                  Sign in with Google Sandbox, Apple, or GitHub to save this 18-section thesis and DCF assumptions to your profile.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAuthModalForSave(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '18px',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: 0
+                }}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <OAuthSandboxGateway
+              actionReason={`Save ${cleanSym} institutional thesis & assumptions to your profile`}
+              onSuccess={async () => {
+                setShowAuthModalForSave(false);
+                await handleSaveThesis();
+              }}
+            />
+
+            <div style={{ marginTop: '16px', textAlign: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setShowAuthModalForSave(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

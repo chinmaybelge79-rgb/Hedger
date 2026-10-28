@@ -127,7 +127,18 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
 });
 
 /**
- * 2b. GET /api/ai/thesis/:symbol
+ * 2b. GET /api/ai/thesis/saved
+ * Retrieves saved investment theses for the authenticated user
+ */
+aiRouter.get('/thesis/saved', async (req: Request, res: Response) => {
+  const { userId } = await resolveUserContext(req);
+  const models = await db.getSavedModels(userId);
+  const thesisModels = models.filter((m) => m.engineVersion?.includes('Investment Thesis') || m.id.startsWith('save-thesis-'));
+  return res.json({ savedTheses: thesisModels });
+});
+
+/**
+ * 2c. GET /api/ai/thesis/:symbol
  * Fetch latest generated investment thesis for a stock
  */
 aiRouter.get('/thesis/:symbol', async (req: Request, res: Response) => {
@@ -429,3 +440,44 @@ aiRouter.post('/config-key', (req: Request, res: Response) => {
 
   return res.json({ success: true, message: 'AI provider keys configured successfully' });
 });
+
+/**
+ * 8. POST /api/ai/thesis/save
+ * Persists the investment thesis and associated assumptions to the user's account in PostgreSQL
+ */
+aiRouter.post('/thesis/save', async (req: Request, res: Response) => {
+  const { symbol, thesis, notes, intrinsicValue, currentPrice, currency } = req.body;
+  if (!symbol || !thesis) {
+    return res.status(400).json({ error: 'Symbol and thesis content are required' });
+  }
+
+  const { userId } = await resolveUserContext(req);
+  const cleanSym = String(symbol).toUpperCase().trim();
+
+  // 1. Save to hedger_theses table
+  await db.saveThesis(cleanSym, thesis, userId);
+
+  // 2. Also save to hedger_saved_models so it appears in Saved Models / Library on Profile Page
+  const savedEntry = await db.saveModel({
+    id: `save-thesis-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    userId: userId || undefined,
+    symbol: cleanSym,
+    name: `${cleanSym} Investment Thesis`,
+    savedAt: new Date().toISOString(),
+    priceAtSave: Number(currentPrice) || 0,
+    currency: currency || 'USD',
+    intrinsicValuePerShare: Number(intrinsicValue) || 0,
+    marginOfSafety: 0,
+    engineVersion: 'Institutional Investment Thesis (18-Section)',
+    inputs: { thesisLength: thesis.length, generatedAt: new Date().toISOString() },
+    notes: notes || `Institutional investment thesis generated for ${cleanSym}.`
+  });
+
+  return res.json({
+    success: true,
+    savedEntry,
+    message: `Investment thesis for ${cleanSym} saved successfully.`
+  });
+});
+
+

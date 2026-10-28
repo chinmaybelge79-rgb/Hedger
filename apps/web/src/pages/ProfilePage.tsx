@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext.js';
 import { useMarket } from '../context/MarketContext.js';
 import { companyPath } from '../lib/navigation.js';
 import { CompanyLogo } from '../components/CompanyLogo.js';
+import { OAuthSandboxGateway } from '../components/OAuthSandboxGateway.js';
 import { formatPrice, getUserInitials } from '@hedger/format';
 import { getFamousSecuritySuggestions, FamousSecurity, FAMOUS_SECURITIES } from '../lib/famousSecurities.js';
 
@@ -425,13 +426,21 @@ export const ProfilePage: React.FC<{ initialTab?: 'dashboard' | 'watchlist' | 's
               >
                 Manage Membership
               </button>
-              {isAuthenticated && (
+              {isAuthenticated ? (
                 <button
                   onClick={signOut}
                   className="btn btn-secondary"
                   style={{ height: '36px', minHeight: '36px', padding: '0 14px', fontSize: '12px', color: 'var(--down, #B3261E)' }}
                 >
                   Sign Out
+                </button>
+              ) : (
+                <button
+                  onClick={() => navigate('/auth?redirect=%2Fprofile')}
+                  className="btn btn-primary"
+                  style={{ height: '36px', minHeight: '36px', padding: '0 16px', fontSize: '12px' }}
+                >
+                  Sign In
                 </button>
               )}
             </div>
@@ -954,6 +963,22 @@ export const ProfilePage: React.FC<{ initialTab?: 'dashboard' | 'watchlist' | 's
           {isLoadingModels ? (
             <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
               Loading saved models...
+            </div>
+          ) : !isAuthenticated ? (
+            <div
+              style={{
+                border: '1px solid var(--border)',
+                borderRadius: '12px',
+                padding: '32px 24px',
+                backgroundColor: 'var(--card-bg, #FFFFFF)',
+                maxWidth: '460px',
+                margin: '0 auto'
+              }}
+            >
+              <OAuthSandboxGateway
+                title="Sign in to save and access your models"
+                actionReason="Sign in with Google Sandbox, Apple, or GitHub to sync your valuation models and investment research across devices."
+              />
             </div>
           ) : savedModels.length === 0 ? (
             <div

@@ -15,7 +15,10 @@ interface AuthContextType {
   isAuthenticated: boolean;
   token: string | null;
   loading: boolean;
-  signInWithOAuth: (provider: 'google' | 'apple' | 'github', customPayload?: { email?: string; name?: string }) => Promise<void>;
+  signInWithOAuth: (
+    provider: 'google' | 'apple' | 'github',
+    customPayload?: { email?: string; name?: string; sandbox?: boolean; plan?: 'pro' | 'ultra' }
+  ) => Promise<UserProfile>;
   signInWithEmail: (email: string, password?: string) => Promise<void>;
   signUpWithEmail: (email: string, name: string, password?: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -142,14 +145,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    */
   const signInWithOAuth = async (
     provider: 'google' | 'apple' | 'github',
-    customPayload?: { email?: string; name?: string }
-  ) => {
+    customPayload?: { email?: string; name?: string; sandbox?: boolean; plan?: 'pro' | 'ultra' }
+  ): Promise<UserProfile> => {
     setLoading(true);
     try {
       const bodyPayload = {
         provider,
         ...(customPayload?.email ? { email: customPayload.email } : {}),
-        ...(customPayload?.name ? { name: customPayload.name } : {})
+        ...(customPayload?.name ? { name: customPayload.name } : {}),
+        ...(customPayload?.sandbox ? { sandbox: true } : {}),
+        ...(customPayload?.plan ? { plan: customPayload.plan } : {})
       };
 
       const res = await fetch('/api/auth/oauth/exchange', {
@@ -171,6 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setToken(data.token);
           localStorage.setItem('hedger-token', data.token);
         }
+        return data.user as UserProfile;
       } else {
         throw new Error('Invalid authentication response from server');
       }

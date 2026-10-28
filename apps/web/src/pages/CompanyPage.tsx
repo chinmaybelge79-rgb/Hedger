@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext.js';
+import { OAuthSandboxGateway } from '../components/OAuthSandboxGateway.js';
 import { HedgerChart } from '@hedger/charts';
 import type { HistoricalBar, FinancialStatement } from '@hedger/types';
 import { isValidSymbol, normalizeSymbol, companyPath } from '../lib/navigation.js';
@@ -71,6 +73,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ initialTab }) => {
   const { symbol: routeParamSymbol } = useParams<{ symbol: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user, isAuthenticated, token } = useAuth();
 
   const rawSymbol = routeParamSymbol || '';
   const isFormatValid = isValidSymbol(rawSymbol);
@@ -1469,24 +1472,38 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ initialTab }) => {
               Saved with model parameters and today’s price, so you can reopen it unchanged.
             </p>
 
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button
-                onClick={() => setSaveModalOpen(false)}
-                className="btn btn-secondary"
-                style={{ height: '44px', minHeight: '44px', padding: '0 16px', fontSize: '13px' }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveModel}
-                disabled={saveSuccess}
-                className="btn btn-primary"
-                style={{ height: '44px', minHeight: '44px', padding: '0 20px', fontSize: '13px' }}
-              >
-                {saveSuccess ? 'Saved' : 'Save model'}
-              </button>
-            </div>
+            {/* If not authenticated, show Google Sandbox, Apple, GitHub gateway */}
+            {!isAuthenticated ? (
+              <div style={{ marginBottom: '20px', padding: '16px', borderRadius: '8px', backgroundColor: 'var(--secondary)', border: '1px solid var(--border)' }}>
+                <OAuthSandboxGateway
+                  compact
+                  title="Sign in to save this valuation model"
+                  actionReason="Sign in with Google Sandbox, Apple, or GitHub to sync this model to your profile library."
+                  onSuccess={async () => {
+                    await handleSaveModel();
+                  }}
+                />
+              </div>
+            ) : (
+              /* Action Buttons */
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                <button
+                  onClick={() => setSaveModalOpen(false)}
+                  className="btn btn-secondary"
+                  style={{ height: '44px', minHeight: '44px', padding: '0 16px', fontSize: '13px' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveModel}
+                  disabled={saveSuccess}
+                  className="btn btn-primary"
+                  style={{ height: '44px', minHeight: '44px', padding: '0 20px', fontSize: '13px' }}
+                >
+                  {saveSuccess ? 'Saved' : 'Save model'}
+                </button>
+              </div>
+            )}
 
             {/* Legal Disclaimer Footer */}
             <div style={{ marginTop: '20px', padding: '14px 16px', borderTop: '1px solid var(--border)', fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>

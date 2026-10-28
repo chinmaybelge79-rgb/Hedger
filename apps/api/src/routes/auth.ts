@@ -816,20 +816,21 @@ authRouter.post('/apple/callback', handleAppleCallback);
  * (Supports instant client-side popup or token verification for Google, Apple, GitHub)
  */
 authRouter.post('/oauth/exchange', async (req: Request, res: Response) => {
-  let { provider, email, name, avatar } = req.body;
+  let { provider, email, name, avatar, sandbox, plan } = req.body;
   if (!provider) {
     return res.status(400).json({ error: 'Provider is required for OAuth exchange' });
   }
 
-  const defaultProfiles: Record<string, { email: string; name: string }> = {
-    google: { email: 'elena.rostova@gmail.com', name: 'Elena Rostova' },
-    github: { email: 'marcus.vance@hedger.capital', name: 'Marcus Vance' },
-    apple: { email: 'julian.thorne@privaterelay.appleid.com', name: 'Julian Thorne' },
+  const defaultProfiles: Record<string, { email: string; name: string; avatar?: string }> = {
+    google: { email: 'alex.researcher@gmail.com', name: 'Alex Morgan', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop' },
+    github: { email: 'marcus.vance@hedger.capital', name: 'Marcus Vance', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop' },
+    apple: { email: 'julian.thorne@privaterelay.appleid.com', name: 'Julian Thorne', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop' },
   };
 
   if (!email && defaultProfiles[provider]) {
     email = defaultProfiles[provider].email;
     if (!name) name = defaultProfiles[provider].name;
+    if (!avatar) avatar = defaultProfiles[provider].avatar;
   }
 
   if (!email) {
@@ -838,6 +839,7 @@ authRouter.post('/oauth/exchange', async (req: Request, res: Response) => {
 
   const cleanEmail = String(email).trim().toLowerCase();
   const cleanName = String(name || cleanEmail.split('@')[0]).trim();
+  const assignedPlan = plan === 'ultra' ? 'ultra' : 'pro';
 
   let user = await db.findUserByEmail(cleanEmail);
   if (!user) {
@@ -847,13 +849,14 @@ authRouter.post('/oauth/exchange', async (req: Request, res: Response) => {
       email: cleanEmail,
       provider: provider as any,
       avatar: avatar || undefined,
-      plan: 'pro'
+      plan: assignedPlan
     });
   } else {
     user = await db.updateUser(user.id, {
       name: cleanName,
       provider: provider as any,
-      avatar: avatar || user.avatar
+      avatar: avatar || user.avatar,
+      plan: user.plan === 'ultra' ? 'ultra' : assignedPlan
     }) || user;
   }
 
