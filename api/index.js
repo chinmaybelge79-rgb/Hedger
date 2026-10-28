@@ -51941,6 +51941,8 @@ import_dotenv.default.config({ path: path.resolve(__dirname2, "../../../.env") }
 var DEFAULT_NIM_TOKEN = Buffer.from("bnZhcGktOHJhOFItU0NJMDZCTzA4dGtRbVNFRERiRWprSjZwcEJ4SEE4V3hhVHRZWGhkZnByNi15S0pHNjNnbUUzNWll", "base64").toString("utf8");
 var DEFAULT_OR_TOKEN = Buffer.from("c2stb3ItdjEtNTA2MTU5NjcxMTZmZjNjMTY3YmZjNGUwNjgyMWJmOTE2NzNlYTQ5ZGQwYWNhMGU5ODdhZDEyMjliZjU2MjRhNQ==", "base64").toString("utf8");
 var DEFAULT_GEMINI_TOKEN = Buffer.from("QVEuQWI4Uk42SXdSMVZRb1N6REs3X09NQ3lNS3lTcGREVEotSTBmSTU3QWtCRFI0TGtPZUE=", "base64").toString("utf8");
+var DEFAULT_GOOGLE_CLIENT_ID = Buffer.from("ODE3NDU2MTI5NjY0LTJ1dTJ0aDVmZXRnZjVnZHRiMjFsMWtmY28xZTd1aHQ5LmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29t", "base64").toString("utf8");
+var DEFAULT_GOOGLE_CLIENT_SECRET = Buffer.from("R0NDU1BYLWNyWXRBcFlVYWtqMjdwcWc3RVJIUXFlYmQ1aXI=", "base64").toString("utf8");
 var ConfigSchema = external_exports.object({
   PORT: external_exports.string().default("3001").transform(Number),
   NODE_ENV: external_exports.enum(["development", "production", "test"]).default("development"),
@@ -51954,8 +51956,8 @@ var ConfigSchema = external_exports.object({
   NVIDIA_NIM_API_KEY: external_exports.string().default(DEFAULT_NIM_TOKEN),
   OPENROUTER_API_KEY: external_exports.string().default(DEFAULT_OR_TOKEN),
   GEMINI_API_KEY: external_exports.string().default(DEFAULT_GEMINI_TOKEN),
-  GOOGLE_CLIENT_ID: external_exports.string().optional(),
-  GOOGLE_CLIENT_SECRET: external_exports.string().optional(),
+  GOOGLE_CLIENT_ID: external_exports.string().default(DEFAULT_GOOGLE_CLIENT_ID),
+  GOOGLE_CLIENT_SECRET: external_exports.string().default(DEFAULT_GOOGLE_CLIENT_SECRET),
   GITHUB_CLIENT_ID: external_exports.string().optional(),
   GITHUB_CLIENT_SECRET: external_exports.string().optional(),
   APPLE_CLIENT_ID: external_exports.string().optional(),
@@ -51978,8 +51980,8 @@ var config = ConfigSchema.parse({
   NVIDIA_NIM_API_KEY: process.env.NVIDIA_NIM_API_KEY || process.env.NVIDIA_API_KEY,
   OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || DEFAULT_GOOGLE_CLIENT_SECRET,
   GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
   GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
   APPLE_CLIENT_ID: process.env.APPLE_CLIENT_ID,
@@ -62776,9 +62778,12 @@ authRouter.get("/google", (req, res) => {
     redirectUrl: clientOrigin
   });
   if (config.GOOGLE_CLIENT_ID) {
+    const proto = req.headers["x-forwarded-proto"] || (req.get("host")?.includes("vercel.app") ? "https" : req.protocol);
+    const host = req.get("host");
+    const redirectUri = `${proto}://${host}/api/auth/google/callback`;
     const params = new URLSearchParams({
       client_id: config.GOOGLE_CLIENT_ID,
-      redirect_uri: `${req.protocol}://${req.get("host")}/api/auth/google/callback`,
+      redirect_uri: redirectUri,
       response_type: "code",
       scope: "openid email profile",
       state,
@@ -62934,6 +62939,9 @@ authRouter.get("/google/callback", async (req, res) => {
   let userAvatar = void 0;
   if (code && config.GOOGLE_CLIENT_ID && config.GOOGLE_CLIENT_SECRET) {
     try {
+      const proto = req.headers["x-forwarded-proto"] || (req.get("host")?.includes("vercel.app") ? "https" : req.protocol);
+      const host = req.get("host");
+      const redirectUri = `${proto}://${host}/api/auth/google/callback`;
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -62941,7 +62949,7 @@ authRouter.get("/google/callback", async (req, res) => {
           code: String(code),
           client_id: config.GOOGLE_CLIENT_ID,
           client_secret: config.GOOGLE_CLIENT_SECRET,
-          redirect_uri: `${req.protocol}://${req.get("host")}/api/auth/google/callback`,
+          redirect_uri: redirectUri,
           grant_type: "authorization_code"
         })
       });

@@ -126,9 +126,12 @@ authRouter.get('/google', (req: Request, res: Response) => {
   });
 
   if (config.GOOGLE_CLIENT_ID) {
+    const proto = (req.headers['x-forwarded-proto'] as string) || (req.get('host')?.includes('vercel.app') ? 'https' : req.protocol);
+    const host = req.get('host');
+    const redirectUri = `${proto}://${host}/api/auth/google/callback`;
     const params = new URLSearchParams({
       client_id: config.GOOGLE_CLIENT_ID,
-      redirect_uri: `${req.protocol}://${req.get('host')}/api/auth/google/callback`,
+      redirect_uri: redirectUri,
       response_type: 'code',
       scope: 'openid email profile',
       state,
@@ -294,6 +297,9 @@ authRouter.get('/google/callback', async (req: Request, res: Response) => {
   // 1. Live Google code exchange if credentials are live
   if (code && config.GOOGLE_CLIENT_ID && config.GOOGLE_CLIENT_SECRET) {
     try {
+      const proto = (req.headers['x-forwarded-proto'] as string) || (req.get('host')?.includes('vercel.app') ? 'https' : req.protocol);
+      const host = req.get('host');
+      const redirectUri = `${proto}://${host}/api/auth/google/callback`;
       const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -301,7 +307,7 @@ authRouter.get('/google/callback', async (req: Request, res: Response) => {
           code: String(code),
           client_id: config.GOOGLE_CLIENT_ID,
           client_secret: config.GOOGLE_CLIENT_SECRET,
-          redirect_uri: `${req.protocol}://${req.get('host')}/api/auth/google/callback`,
+          redirect_uri: redirectUri,
           grant_type: 'authorization_code'
         })
       });
