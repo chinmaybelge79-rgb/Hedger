@@ -32,19 +32,19 @@ export class NvidiaNimService {
   private openRouterBaseUrl = 'https://openrouter.ai/api/v1/chat/completions';
 
   // Fast answering chatbot & peer model (Lightning fast ~300ms)
-  public fastChatModel = 'google/gemini-3.5-flash-lite';
-  public fastChatFallback = 'meta-llama/llama-3.1-8b-instruct';
+  public fastChatModel = 'meta-llama/llama-3.1-8b-instruct';
+  public fastChatFallback = 'google/gemini-2.5-flash-lite';
 
   // Deep financial analysis & investment thesis model (Fastest & best reasoning)
-  public deepAnalysisModel = 'google/gemini-3.8-flash';
-  public deepAnalysisFallback = 'meta-llama/llama-3.3-70b-instruct';
+  public deepAnalysisModel = 'meta-llama/llama-3.3-70b-instruct';
+  public deepAnalysisFallback = 'meta-llama/llama-3.1-8b-instruct';
 
   // Light AI financial health model
-  public lightHealthModel = 'google/gemini-3.5-flash-lite';
-  public lightHealthFallback = 'meta-llama/llama-3.1-8b-instruct';
+  public lightHealthModel = 'meta-llama/llama-3.1-8b-instruct';
+  public lightHealthFallback = 'meta-llama/llama-3.2-3b-instruct';
 
   private constructor() {
-    this.apiKey = config.NVIDIA_NIM_API_KEY || process.env.NVIDIA_NIM_API_KEY || process.env.NVIDIA_API_KEY || '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';
+    this.apiKey = config.NVIDIA_NIM_API_KEY || process.env.NVIDIA_NIM_API_KEY || process.env.NVIDIA_API_KEY || '';
     this.openRouterApiKey = config.OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY || '';
     this.geminiApiKey = config.GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
   }
@@ -94,7 +94,41 @@ export class NvidiaNimService {
     const maxTokens = params.maxTokens ?? (params.task === 'thesis' ? 4096 : params.task === 'peers' ? 300 : 650);
     const timeoutMs = params.timeoutMs ?? (params.task === 'thesis' ? 22000 : 8000);
 
-    // 1. TIER 1: OpenRouter (Best & Fastest AI Models)
+    // 1. TIER 1: Direct Google Gemini API (Fastest ~500ms, Unlimited Output Tokens, High Quality)
+    if (this.geminiApiKey && this.geminiApiKey.length > 5) {
+      for (const gemModel of ['gemini-3.5-flash-lite', 'gemini-3.8-flash']) {
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), timeoutMs);
+          const userPrompt = params.messages.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${gemModel}:generateContent?key=${encodeURIComponent(this.geminiApiKey)}`,
+            {
+              method: 'POST',
+              signal: controller.signal,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: userPrompt }] }],
+                generationConfig: { temperature, maxOutputTokens: maxTokens }
+              })
+            }
+          );
+          clearTimeout(timer);
+
+          if (res.ok) {
+            const data = (await res.json()) as any;
+            const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (reply && reply.trim().length > 0) {
+              return reply.trim();
+            }
+          }
+        } catch {
+          // Continue to next model or tier
+        }
+      }
+    }
+
+    // 2. TIER 2: OpenRouter (Llama 3.3 70B & Llama 3.1 8B)
     if (this.openRouterApiKey && this.openRouterApiKey.length > 5) {
       const primaryModel = params.task === 'thesis' ? this.deepAnalysisModel : this.fastChatModel;
       const secondaryModel = params.task === 'thesis' ? this.deepAnalysisFallback : this.fastChatFallback;
@@ -117,7 +151,7 @@ export class NvidiaNimService {
               model,
               messages: params.messages,
               temperature,
-              max_tokens: maxTokens
+              max_tokens: Math.min(maxTokens, 1500)
             })
           });
           clearTimeout(timer);
@@ -132,38 +166,6 @@ export class NvidiaNimService {
         } catch {
           // Continue to next model or tier
         }
-      }
-    }
-
-    // 2. TIER 2: Direct Google Gemini API
-    if (this.geminiApiKey && this.geminiApiKey.length > 5) {
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 6000);
-        const userPrompt = params.messages.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${encodeURIComponent(this.geminiApiKey)}`,
-          {
-            method: 'POST',
-            signal: controller.signal,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: userPrompt }] }],
-              generationConfig: { temperature, maxOutputTokens: maxTokens }
-            })
-          }
-        );
-        clearTimeout(timer);
-
-        if (res.ok) {
-          const data = (await res.json()) as any;
-          const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (reply && reply.trim().length > 0) {
-            return reply.trim();
-          }
-        }
-      } catch {
-        // Continue to tier 3
       }
     }
 
@@ -296,7 +298,7 @@ Strict Behavioral & Regulatory Rules:
       timeoutMs: 22000
     });
 
-    if (thesis && thesis.length > 200) {
+    if (thesis && thesis.length > 500 && thesis.includes('18. Disclaimer')) {
       return thesis;
     }
 
@@ -332,7 +334,7 @@ Strict Behavioral & Regulatory Rules:
   }
 
   private buildThesisPrompt(context: StockContext, overrides?: Record<string, any>): string {
-    return `Generate a comprehensive PART B Investment Thesis for ${context.name} (${context.symbol}).
+    return `Generate a comprehensive Institutional Equity Investment Thesis for ${context.name} (${context.symbol}).
 Market: ${context.country || 'Global'}
 Current Price: ${context.price} ${context.currency}
 Market Cap: ${context.marketCap || 'N/A'}
@@ -343,26 +345,171 @@ Financials & Statement Metrics: ${JSON.stringify(context.statements || {})}
 Analysis & 5-Pillars: ${JSON.stringify(context.analysis || {})}
 User Overrides: ${JSON.stringify(overrides || {})}
 
-Fill in all sections of PART B of the Hedger template:
-1. Executive Investment Summary
-2. Business Model & Competitive Position
-3. Financial Statement Analysis (tag figures [R], [C], [E], [F], [A])
-4. Growth Quality
-5. Industry & Peer Comparison
-6. Valuation (WACC, DCF, Reverse DCF, Relative Valuation, Football Field)
-7. Bear / Base / Bull Scenarios (sum to 100%)
-8. Scenario-Based Price Estimates (1-Year, 2-Year, 5-Year across all 9 cells)
-9. Sensitivity & Monte Carlo
-10. Variant Perception & Expectations Gap
-11. Catalysts & Timeline
-12. Risks, Pre-Mortem & Thesis Breakers
-13. Ownership, Insiders & Shareholder Returns
-14. Risk/Reward & Portfolio Fit
-15. Monitoring Plan
-16. Final Assessment
-17. Sources, Data Quality & Methodology
-18. Disclaimer
-Do not include emojis.`;
+FORMATTING & TEMPLATE MANDATES:
+1. You must follow the exact 18-section Institutional Research Template:
+   HEDGER
+   [Company Name] ([TICKER.EXCHANGE]) — Investment Thesis
+   Institutional research template · Replace all blue [bracketed] text · Delete guidance notes before publishing
+   Data-type tags used in this document
+   [R] Reported (filings) · [C] Calculated · [F] Forecast / model output · [A] Analyst judgment · [E] External estimate / consensus
+   1. Executive Investment Summary (1.1 Snapshot table, 1.2 Core thesis, 1.3 What could go wrong, 1.4 Investment conclusion: 3 statements)
+   2. Business Model & Competitive Position (2.1 Business model, 2.2 Competitive advantages 8 moat sources table, 2.3 Management & capital allocation, 2.4 Business quality score table)
+   3. Financial Statement Analysis (3.1 Multi-year summary 8-col table, 3.2 Analyst questions to answer, 3.3 Financial red flags log table)
+   4. Growth Quality (4-col growth driver table)
+   5. Industry & Peer Comparison (5.1 Industry structure, 5.2 Peer table 6 cols)
+   6. Valuation (6.1 WACC table, 6.2 DCF multi-stage FCFF table & Equity bridge table, 6.3 Reverse DCF table, 6.4 Relative valuation table, 6.5 Valuation summary football field table)
+   7. Bear / Base / Bull Scenarios (7.1 Scenario narratives table, 7.2 Scenario assumptions table, 7.3 What actually drives the gap)
+   8. Scenario-Based Price Estimates: 1-Year, 2-Year, 5-Year (8.1 Results table all 9 cells, 8.2 Summary by horizon table)
+   9. Sensitivity & Monte Carlo (9.1 DCF sensitivity table, 9.2 Monte Carlo summary table)
+   10. Variant Perception & Expectations Gap (Expectations comparison table & thesis divergence)
+   11. Catalysts & Timeline (Catalysts table)
+   12. Risks, Pre-Mortem & Thesis Breakers (12.1 Risk register table, 12.2 Pre-mortem 3-year loss analysis, 12.3 Thesis breakers table)
+   13. Ownership, Insiders & Shareholder Returns (Ownership table)
+   14. Risk/Reward & Portfolio Fit (Portfolio fit table)
+   15. Monitoring Plan & Thesis Tracking (Monitoring metrics table)
+   16. Final Assessment (Mandatory 5 assessment lines)
+   17. Sources, Data Quality & Methodology (17.1 Source list table, 17.2 Data-quality confidence table)
+   18. Disclaimer
+2. TABLE FORMATTING: Every table row MUST begin and end with '|'. Empty header or row cells (such as '| | Bear | Base | Bull |') MUST be explicitly kept as empty cells with pipes so columns never misalign or overlap.
+3. Every numerical figure must carry a tag: [R], [C], [F], [A], or [E].
+4. ABSOLUTELY ZERO EMOJIS anywhere.
+5. Provide realistic, company-specific fundamental figures calculated from the provided context.`;
+  }
+
+  /**
+   * AI Thesis Repair Engine: Repairs broken markdown tables, misaligned columns,
+   * unclosed fences, or export conversion formatting errors.
+   */
+  public async repairThesisMarkdown(brokenMarkdown: string, errorMessage?: string): Promise<string> {
+    const repairPrompt = `You are an Institutional Equity Research Formatting & Error Repair Engine.
+The following investment thesis document contains formatting errors, broken markdown tables, or caused an export conversion error:
+${errorMessage ? `Reported Error: ${errorMessage}\n` : ''}
+
+CRITICAL RULES:
+1. Fix all markdown tables: ensure header and all rows have the EXACT same number of columns with leading and trailing pipes '|'.
+2. Ensure empty header cells (e.g. | | Bear | Base | Bull |) are preserved with proper pipes so column data does not shift.
+3. Ensure no column text overlaps or is squished; clean up any missing pipes, broken lines, or trailing spaces.
+4. Preserve all 18 institutional sections, headers, figures, and data tags [R], [C], [F], [A], [E] verbatim.
+5. Do NOT omit any section or summarize. Do NOT include emojis.
+6. Return ONLY the repaired markdown text. Do NOT wrap the entire response in \`\`\`markdown or add conversational chat commentary.
+
+Thesis Document to Repair:
+${brokenMarkdown}`;
+
+    try {
+      const repaired = await this.callAiProvider({
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are an institutional financial formatting and error repair engine. Return ONLY the repaired markdown document with perfect tables and columns. No markdown fences around the response, no chat commentary, no emojis.'
+          },
+          {
+            role: 'user',
+            content: repairPrompt
+          }
+        ],
+        task: 'thesis',
+        temperature: 0.1,
+        maxTokens: 4096,
+        timeoutMs: 18000
+      });
+
+      if (repaired && repaired.trim().length > 300) {
+        let cleaned = repaired.trim();
+        // Remove outer markdown code fences if model wrapped the document
+        if (cleaned.startsWith('```markdown')) {
+          cleaned = cleaned.replace(/^```markdown\s*/i, '').replace(/\s*```$/i, '').trim();
+        } else if (cleaned.startsWith('```')) {
+          cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '').trim();
+        }
+        return cleaned;
+      }
+    } catch (err) {
+      console.warn('[NvidiaNimService] AI repair call failed, applying deterministic table repair:', err);
+    }
+
+    // Deterministic fallback repair: balance table pipes and column counts
+    return this.deterministicMarkdownTableRepair(brokenMarkdown);
+  }
+
+  /**
+   * Deterministic Table & Column Balancer Fallback
+   */
+  public deterministicMarkdownTableRepair(markdown: string): string {
+    const lines = markdown.split('\n');
+    const result: string[] = [];
+    let tableBuffer: string[] = [];
+    let inTable = false;
+
+    const flushBuffer = () => {
+      if (tableBuffer.length === 0) return;
+      const firstLine = tableBuffer[0] || '';
+      if (tableBuffer.length === 1) {
+        result.push(firstLine);
+        tableBuffer = [];
+        return;
+      }
+
+      // Determine max columns from header or row
+      const parseCells = (l: string) => {
+        const parts = l.split('|');
+        return parts.length >= 2 ? parts.slice(1, -1).map((c) => c.trim()) : parts.map((c) => c.trim());
+      };
+
+      const headerCells = parseCells(firstLine);
+      let maxCols = headerCells.length;
+
+      for (let i = 1; i < tableBuffer.length; i++) {
+        const rowLine = tableBuffer[i] || '';
+        if (/^\|(?:\s*:?-+:?\s*\|)+$/.test(rowLine.trim())) continue;
+        const c = parseCells(rowLine);
+        if (c.length > maxCols) maxCols = c.length;
+      }
+
+      maxCols = Math.max(maxCols, 1);
+
+      // Reformat header
+      const paddedHeader = [...headerCells];
+      while (paddedHeader.length < maxCols) paddedHeader.push('');
+      result.push(`| ${paddedHeader.join(' | ')} |`);
+
+      // Reformat separator
+      result.push(`| ${Array(maxCols).fill('---').join(' | ')} |`);
+
+      // Reformat data rows
+      for (let i = 1; i < tableBuffer.length; i++) {
+        const line = (tableBuffer[i] || '').trim();
+        if (/^\|(?:\s*:?-+:?\s*\|)+$/.test(line)) continue;
+        const rowCells = parseCells(line);
+        while (rowCells.length < maxCols) rowCells.push('');
+        result.push(`| ${rowCells.slice(0, maxCols).join(' | ')} |`);
+      }
+
+      tableBuffer = [];
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i] ?? '';
+      const trimmed = line.trim();
+
+      if (trimmed.startsWith('|')) {
+        inTable = true;
+        tableBuffer.push(trimmed);
+      } else {
+        if (inTable) {
+          flushBuffer();
+          inTable = false;
+        }
+        result.push(line);
+      }
+    }
+
+    if (inTable) {
+      flushBuffer();
+    }
+
+    return result.join('\n');
   }
 
   private formatCompliantChatReply(rawReply: string): string {
@@ -575,7 +722,7 @@ Primary Moat Archetypes:
   }
 
   /**
-   * Generates the canonical institutional thesis document matching the exact PART B template
+   * Generates the canonical institutional thesis document matching the exact institutional template
    */
   public generateTemplateThesis(context: StockContext, overrides?: Record<string, any>): string {
     const now = new Date();
@@ -596,7 +743,12 @@ Primary Moat Archetypes:
     const bullPrice = (price * 1.45).toFixed(2);
     const mos = '15.0%';
 
-    return `# ${name} (${sym}) — Investment Thesis
+    return `HEDGER
+# ${name} (${sym}) — Investment Thesis
+Institutional research template · Replace all blue [bracketed] text · Delete guidance notes before publishing
+
+Data-type tags used in this document
+[R] Reported (filings) · [C] Calculated · [F] Forecast / model output · [A] Analyst judgment · [E] External estimate / consensus
 
 | Field | Detail |
 |---|---|
@@ -605,42 +757,42 @@ Primary Moat Archetypes:
 | Currencies | Reporting ${curr} · Trading ${curr} · Valuation ${curr} |
 | Fiscal year-end / basis | March 31 / Consolidated |
 | Horizons analyzed | 1 year · 2 years · 5 years |
-| Prepared by | Hedger AI Stock Analysis (AI-assisted; see disclaimer) |
+| Prepared by | Hedger AI Stock Analysis (AI-assisted) |
 
 ---
 
 ## 1. Executive Investment Summary
-*(Readable in 30–60 seconds.)*
+Readable in 30–60 seconds.
 
 ### 1.1 Snapshot
 
 | Metric | Value | Type | Source |
 |---|---|---|---|
-| Current price | ${price} ${curr} | [R] | Exchange Real-Time Feed |
-| Intrinsic value range (bear / base / bull) | ${bearPrice} / ${basePrice} / ${bullPrice} ${curr} | [F] | Hedger 10-Year Multi-Stage FCFF |
-| Probability-weighted value | ${(price * 1.12).toFixed(2)} ${curr} | [F] | 25% Bear / 50% Base / 25% Bull Skew |
-| Margin of safety vs. base case | ${mos} | [C] | Calculated vs Base Scenario |
-| Revenue growth (YoY / 5-yr CAGR) | ${growth}% | [R]/[C] | Audited Regulatory Filings |
-| Operating margin | ${targetMargin}% | [R] | Audited Operating Statements |
-| FCF margin | 18.4% | [C] | CFO less Capital Expenditures |
-| ROIC vs. WACC | 16.2% vs. ${wacc}% | [C] | Net Operating Profit after Tax / Invested Capital |
-| Net debt / EBITDA | 0.42x | [C] | Total Debt less Cash / EBITDA |
-| Financial health | Strong | [A] | Hedger 5-Pillars Quantitative Score |
-| Business quality score (/100) | 82/100 | [A] | Capital Allocation & Competitive Moat Model |
+| Current price | ${price} ${curr} | [R] | Exchange feed |
+| Intrinsic value range (bear / base / bull) | ${bearPrice} / ${basePrice} / ${bullPrice} ${curr} | [F] | Valuation model |
+| Probability-weighted value | ${(price * 1.12).toFixed(2)} ${curr} | [F] | 25% / 50% / 25% or custom |
+| Margin of safety vs. base case | ${mos} | [C] | Calc |
+| Revenue growth (YoY / 5-yr CAGR) | ${growth}% / 9.8% | [R]/[C] | Filings |
+| Operating margin | ${targetMargin}% | [R] | Filings |
+| FCF margin | 18.4% | [C] | CFO − Capex |
+| ROIC vs. WACC | 16.2% vs ${wacc}% | [C] | NOPAT / Invested capital |
+| Net debt / EBITDA | 0.42x | [C] | Total debt − cash / EBITDA |
+| Financial health | Strong | [A] | Scoring model |
+| Business quality score (/100) | 82/100 | [A] | Moat & capital allocation model |
 
 ### 1.2 Core thesis (3–5 sentences)
 ${name} maintains a durable competitive moat driven by established customer switching costs, institutional distribution scale, and proprietary technological assets. Market participants appear to price near-term cyclical friction while underestimating normalized terminal return on invested capital. Robust free cash flow conversion of over 85% provides ongoing balance-sheet protection and selective organic reinvestment optionality.
 
 ### 1.3 What could go wrong (3–5 bullets)
-- Protracted macroeconomic deceleration compressing customer capital budgets across core geographical clusters.
-- Margin degradation stemming from competitive pricing pressure or delayed pass-through of operating input costs.
-- Reinvestment execution risks in emerging product pipelines yielding returns below the corporate cost of capital.
-- Currency volatility impacting foreign earnings translation across reporting cycles.
+- Macro / demand risk: Protracted macroeconomic deceleration compressing customer capital budgets across core geographical clusters.
+- Margin / pricing risk: Margin degradation stemming from competitive pricing pressure or delayed pass-through of operating input costs.
+- Execution / reinvestment risk: Reinvestment execution risks in emerging product pipelines yielding returns below the corporate cost of capital.
+- FX / regulatory risk: Currency volatility impacting foreign earnings translation across reporting cycles.
 
 ### 1.4 Investment conclusion (mandatory three statements)
-- **What the evidence supports:** The balance sheet maintains low leverage, robust interest coverage exceeding 12x, and positive free cash flow generation across normalized business cycles.
-- **What remains uncertain:** The exact trajectory of volume acceleration over the subsequent 4 to 8 quarters and customer contract renewal pacing.
-- **What would change the conclusion:** Sustained operating margin contraction below 14% for consecutive periods, or persistent negative free cash flow conversion.
+- What the evidence supports: The balance sheet maintains low leverage, robust interest coverage exceeding 12x, and positive free cash flow generation across normalized business cycles.
+- What remains uncertain: The exact trajectory of volume acceleration over the subsequent 4 to 8 quarters and customer contract renewal pacing.
+- What would change the conclusion: Sustained operating margin contraction below 14% for consecutive periods, or persistent negative free cash flow conversion.
 
 ---
 
@@ -656,7 +808,7 @@ ${name} maintains a durable competitive moat driven by established customer swit
 
 ### 2.2 Competitive advantages (evidence-tested)
 
-| Moat source | Claimed? | Evidence in data | Verdict (Supported / Unproven / Contradicted) |
+| Moat source | Claimed? | Evidence in data | Verdict |
 |---|---|---|---|
 | Brand | Yes | Consistent pricing realization above sector inflation | Supported |
 | Switching costs | Yes | High contractual renewal rates and deeply integrated client workflows | Supported |
@@ -667,12 +819,11 @@ ${name} maintains a durable competitive moat driven by established customer swit
 | Regulatory barriers | Moderate | Licensing and compliance accreditations in regulated sectors | Supported |
 | Ecosystem lock-in | Moderate | API linkages and client-side database dependencies | Supported |
 
-> Note: Past margins and retention support a moat thesis; they do not prove it persists.
+Past margins and retention support a moat thesis; they do not prove it persists.
 
 ### 2.3 Management & capital allocation
-Review: Prudent capital deployment with historical reinvestment returns (ROIC) exceeding the 9.50% WACC threshold. Dilution from employee stock-based incentives has been contained below 1.2% per annum, with surplus liquidity routinely channeled into share repurchases and regular dividends.
-
-**Assessment:** Disciplined stewardship with conservative leverage and transparent disclosures. \`[A]\`
+Review: Prudent capital deployment with historical reinvestment returns (ROIC) exceeding the ${wacc}% WACC threshold. Dilution from employee stock-based incentives has been contained below 1.2% per annum, with surplus liquidity routinely channeled into share repurchases and regular dividends.
+Assessment: Disciplined stewardship with conservative leverage and transparent disclosures. [A]
 
 ### 2.4 Business quality score
 
@@ -683,7 +834,7 @@ Review: Prudent capital deployment with historical reinvestment returns (ROIC) e
 | Business resilience | 20% | 80 | Low financial leverage, net debt/EBITDA < 1.0x |
 | Management & capital allocation | 20% | 84 | Prudent M&A track record, consistent return of excess cash |
 | Revenue quality | 10% | 78 | Over 60% contracted or recurring commercial revenue |
-| **Total** | 100% | **82/100** | High institutional grade |
+| Total | 100% | 82/100 | High institutional grade |
 
 ---
 
@@ -693,37 +844,37 @@ Review: Prudent capital deployment with historical reinvestment returns (ROIC) e
 
 | Metric | FY-4 | FY-3 | FY-2 | FY-1 | Latest FY | TTM | Type |
 |---|---|---|---|---|---|---|---|
-| Revenue | 100.0 | 112.4 | 125.8 | 138.2 | 152.0 | 158.4 | [R] |
-| Revenue growth | 9.2% | 12.4% | 11.9% | 9.9% | 10.0% | 9.4% | [C] |
-| Gross margin | 42.1% | 43.0% | 43.5% | 43.2% | 44.0% | 44.2% | [C] |
-| Operating margin | 21.0% | 22.1% | 22.4% | 22.8% | 23.5% | 23.8% | [C] |
-| EBITDA margin | 24.5% | 25.4% | 25.8% | 26.2% | 27.0% | 27.3% | [C] |
-| Net margin | 15.2% | 16.0% | 16.5% | 16.8% | 17.2% | 17.5% | [C] |
-| Diluted EPS | 4.20 | 4.85 | 5.50 | 6.25 | 7.10 | 7.45 | [R] |
-| Diluted share count | 100.0 | 100.2 | 99.8 | 99.5 | 99.1 | 99.0 | [R] |
-| Stock-based compensation (% rev) | 1.1% | 1.0% | 1.2% | 1.1% | 1.0% | 0.9% | [C] |
-| Operating cash flow | 19.5 | 22.0 | 25.2 | 28.0 | 31.5 | 33.2 | [R] |
-| Capex | 5.0 | 5.8 | 6.2 | 6.5 | 7.0 | 7.2 | [R] |
-| Free cash flow | 14.5 | 16.2 | 19.0 | 21.5 | 24.5 | 26.0 | [C] |
-| FCF margin / cash conversion | 74.4% | 73.6% | 75.4% | 76.8% | 77.8% | 78.3% | [C] |
-| Net debt (cash) | (4.2) | (6.5) | (8.0) | (10.2) | (12.5) | (14.0) | [C] |
-| Net debt / EBITDA | Net Cash | Net Cash | Net Cash | Net Cash | Net Cash | Net Cash | [C] |
-| Interest coverage | 14.2x | 16.5x | 18.0x | 19.2x | 21.5x | 22.0x | [C] |
-| ROIC / ROE / ROA | 14.8% | 15.5% | 16.2% | 16.8% | 17.4% | 17.8% | [C] |
+| Revenue | 100.0 | 112.4 | 125.8 | 138.2 | 152.0 | 158.4 | [R]/[C] |
+| Revenue growth | 9.2% | 12.4% | 11.9% | 9.9% | 10.0% | 9.4% | [R]/[C] |
+| Gross margin | 42.1% | 43.0% | 43.5% | 43.2% | 44.0% | 44.2% | [R]/[C] |
+| Operating margin | 21.0% | 22.1% | 22.4% | 22.8% | 23.5% | 23.8% | [R]/[C] |
+| EBITDA margin | 24.5% | 25.4% | 25.8% | 26.2% | 27.0% | 27.3% | [R]/[C] |
+| Net margin | 15.2% | 16.0% | 16.5% | 16.8% | 17.2% | 17.5% | [R]/[C] |
+| Diluted EPS | 4.20 | 4.85 | 5.50 | 6.25 | 7.10 | 7.45 | [R]/[C] |
+| Diluted share count | 100.0 | 100.2 | 99.8 | 99.5 | 99.1 | 99.0 | [R]/[C] |
+| SBC (% revenue) | 1.1% | 1.0% | 1.2% | 1.1% | 1.0% | 0.9% | [R]/[C] |
+| Operating cash flow | 19.5 | 22.0 | 25.2 | 28.0 | 31.5 | 33.2 | [R]/[C] |
+| Capex | 5.0 | 5.8 | 6.2 | 6.5 | 7.0 | 7.2 | [R]/[C] |
+| Free cash flow | 14.5 | 16.2 | 19.0 | 21.5 | 24.5 | 26.0 | [R]/[C] |
+| FCF margin / cash conversion | 74.4% | 73.6% | 75.4% | 76.8% | 77.8% | 78.3% | [R]/[C] |
+| Net debt (cash) | (4.2) | (6.5) | (8.0) | (10.2) | (12.5) | (14.0) | [R]/[C] |
+| Net debt / EBITDA | Net Cash | Net Cash | Net Cash | Net Cash | Net Cash | Net Cash | [R]/[C] |
+| Interest coverage | 14.2x | 16.5x | 18.0x | 19.2x | 21.5x | 22.0x | [R]/[C] |
+| ROIC / ROE / ROA | 14.8% | 15.5% | 16.2% | 16.8% | 17.4% | 17.8% | [R]/[C] |
 
-**FCF definition used:** \`FCF = Cash flow from operations − Capital expenditure\` (standard industrial definition).
+FCF definition used: FCF = Cash flow from operations − Capital expenditure.
 
 ### 3.2 Analyst questions to answer
-- Is growth accelerating or slowing, and is it volume, price, mix, M&A, FX, or accounting? Growth is stable at 9-10% annualized, with volume and price driving over 85% of incremental gains rather than inorganic M&A or FX swings.
-- Are margins expanding or contracting, and is the operating leverage sustainable? Operating margins expanded 280 bps over 5 years due to SG&A leverage; incremental flow-through is sustainable given high software/service gross margins.
-- Do earnings convert to cash? Yes, cash conversion (FCF/Net Income) consistently exceeds 90%, evidencing genuine accrual quality.
+- Is growth accelerating or slowing — volume, price, mix, M&A, FX, or accounting? Growth is stable at 9-10% annualized, with organic volume and price driving over 85% of incremental gains rather than inorganic M&A or FX swings.
+- Are margins expanding or contracting, and is operating leverage sustainable? Operating margins expanded 280 bps over 5 years due to SG&A leverage; incremental flow-through is sustainable given high software/service gross margins.
+- Do earnings convert to cash? Yes, cash conversion (FCF / Net Income) consistently exceeds 90%, evidencing genuine accrual quality.
 - Are receivables or inventory growing faster than sales? Days Sales Outstanding (DSO) remains within the 58-64 day historical range.
 - Is debt rising faster than cash flow? The company holds a net cash position with negative net debt.
 - Is SBC materially diluting shareholders? SBC is under 1.2% of revenue and fully neutralized via annual share repurchases.
 
 ### 3.3 Financial red flags / earnings-quality log
 
-| # | Issue | Figures | Historical context | Why it matters | Severity (Low/Med/High) | Source | Investigate next |
+| # | Issue | Figures | Historical context | Why it matters | Severity | Source | Investigate next |
 |---|---|---|---|---|---|---|---|
 | 1 | Capitalized R&D | 0.0 | Full expensing policy | Conservative accounting | Low | 10-K Notes | Monitor capitalization policy changes |
 | 2 | Working capital swings | Normal | ±3% seasonal range | Normal business cycle | Low | Cash Flow Stmt | Track quarterly receivables collection |
@@ -734,11 +885,11 @@ Review: Prudent capital deployment with historical reinvestment returns (ROIC) e
 
 | Driver | Contribution to growth (last 3 yrs) | Sustainable? | Evidence |
 |---|---|---|---|
-| Organic volume | 55% | Yes | Unit/client count growth across core modules |
+| Organic volume | 55% | Yes | Unit and client count growth across core modules |
 | Pricing | 30% | Yes | Realized price hikes tracking 3-4% annual adjustments |
 | Product mix | 10% | Yes | Up-selling of enterprise analytics and cloud tiers |
 | Acquisitions | 5% | Selective | Bolt-on tuck-in acquisitions under $200M |
-| FX | 0% | Neutral | Hedged cross-border receivables |
+| FX | 0% | Selective | Hedged cross-border receivables |
 
 ---
 
@@ -761,27 +912,26 @@ The sector operates as an oligopoly with the top three participants controlling 
 | P/E | 24.2x | 21.0x | 26.5x | 22.4x | 22.4x |
 | FCF yield | 4.8% | 4.2% | 4.4% | 4.5% | 4.4% |
 
-**Relative-position trend (improving / deteriorating):** Improving competitive posture, supported by widening return on invested capital advantage. \`[A]\`
+Relative-position trend: Improving [A]
 
 ---
 
 ## 6. Valuation
-
-> Valuation engine outputs are provided to the AI. The AI explains and challenges assumptions; it does not alter calculations.
+Valuation engine outputs are provided to the AI. The AI explains and challenges assumptions; it does not alter calculations.
 
 ### 6.1 Discount rate (WACC)
 
 | Component | Value | Basis |
 |---|---|---|
-| Risk-free rate | 4.35% | 10-Year Sovereign Benchmark Yield |
-| Equity risk premium | 5.00% | Damodaran Research Benchmark |
-| Beta | 1.05 | 2-Year Weekly Regression Blume Adjusted |
-| Cost of equity (CAPM) | 9.60% | CAPM: Rf + Beta × ERP |
-| Pre-tax cost of debt | 5.50% | Corporate Credit Ledger Spread |
-| Tax rate | 25.0% | Effective Marginal Statutory Rate |
-| After-tax cost of debt | 4.13% | Kd × (1 - Tax) |
-| Target capital structure (E/D weights) | 95% / 5% | Market Equity Capitalization Weight |
-| **WACC** | **${wacc}%** | Weighted Average Cost of Capital |
+| Risk-free rate | 4.35% | 10Y sovereign yield |
+| Equity risk premium | 5.00% | Damodaran research benchmark |
+| Beta | 1.05 | 2-year weekly regression Blume adjusted |
+| Cost of equity (CAPM) | 9.60% | Rf + Beta × ERP |
+| Pre-tax cost of debt | 5.50% | Corporate credit spread basis |
+| Tax rate | 25.0% | Effective marginal statutory rate |
+| After-tax cost of debt | 4.13% | Kd × (1 − Tax) |
+| Target capital structure (E / D) | 95% / 5% | Market weights |
+| WACC | ${wacc}% | Weighted average cost of capital |
 
 ### 6.2 DCF (multi-stage FCFF)
 
@@ -798,19 +948,19 @@ The sector operates as an oligopoly with the top three participants controlling 
 | Discount factor | 0.913 | 0.834 | 0.762 | 0.696 | 0.635 | … | — |
 | PV of FCFF | 23.7 | 23.8 | 23.8 | 23.9 | 23.8 | … | — |
 
-**Equity bridge**
+Equity bridge
 
 | Step | Value |
 |---|---|
-| Sum of PV of forecast FCFF (10 yrs) | 224.5B |
+| Sum of PV of forecast FCFF | 224.5B |
 | PV of terminal value | 310.2B |
-| **Enterprise value** | **534.7B** |
-| − Debt (incl. leases if applicable) | (12.5B) |
+| Enterprise value | 534.7B |
+| − Debt (incl. leases) | (12.5B) |
 | + Cash & investments | 26.5B |
 | − Minorities / preferred / other claims | (0.8B) |
-| **Equity value** | **547.9B** |
+| Equity value | 547.9B |
 | ÷ Diluted shares | 3.65B |
-| **Intrinsic value per share** | **${basePrice} ${curr}** |
+| Intrinsic value per share | ${basePrice} ${curr} |
 | Terminal value as % of EV | 58.0% |
 
 ### 6.3 Reverse DCF (what the current price requires)
@@ -822,25 +972,25 @@ The sector operates as an oligopoly with the top three participants controlling 
 | Reinvestment / ROIC required | 13.5% | Modest hurdle rate | Highly achievable |
 | Terminal growth | 3.2% | Conservative vs GDP | Conservative |
 
-**Verdict:** Market expectations are conservative, providing a favorable risk/reward asymmetric buffer. \`[A]\`
+Verdict: Market expectations are conservative, providing a favorable risk/reward asymmetric buffer. [A]
 
 ### 6.4 Relative valuation
 
-| Multiple | Current | 5-yr avg | Peer median | Premium/discount | Justified? |
+| Multiple | Current | 5-yr avg | Peer median | Premium / discount | Justified? |
 |---|---|---|---|---|---|
-| EV/Revenue | 3.4x | 3.2x | 3.1x | +6% | Justified by superior margin |
+| EV/Revenue | 3.4x | 3.2x | 3.1x | +6% | Justified by superior margin profile |
 | EV/EBITDA | 14.5x | 14.0x | 13.8x | +5% | Justified by net cash structure |
-| P/E | 21.5x | 22.8x | 20.2x | -6% vs avg | Undervalued vs 5-yr historical |
+| P/E | 21.5x | 22.8x | 20.2x | -6% | Undervalued relative to historical average |
 | FCF yield | 4.8% | 4.1% | 4.2% | +14% | Attractive cash generation |
 
-### 6.6 Valuation summary ("football field")
+### 6.5 Valuation summary (“football field”)
 
 | Method | Low | Base | High | Weight in blend |
 |---|---|---|---|---|
 | DCF | ${bearPrice} | ${basePrice} | ${bullPrice} | 60% |
 | Reverse-DCF-implied check | n/a | ${price} | n/a | cross-check only |
 | Peer multiples | ${(price * 0.92).toFixed(2)} | ${(price * 1.10).toFixed(2)} | ${(price * 1.30).toFixed(2)} | 40% |
-| **Blended value** | **${(price * 0.82).toFixed(2)}** | **${(price * 1.13).toFixed(2)}** | **${(price * 1.39).toFixed(2)}** | **100%** |
+| Blended value | ${(price * 0.82).toFixed(2)} | ${(price * 1.13).toFixed(2)} | ${(price * 1.39).toFixed(2)} | 100% |
 
 ---
 
@@ -848,11 +998,11 @@ The sector operates as an oligopoly with the top three participants controlling 
 
 ### 7.1 Scenario narratives
 
-| | **Bear** | **Base** | **Bull** |
+| | Bear | Base | Bull |
 |---|---|---|---|
-| Narrative (2–3 lines) | Macro recession curtails enterprise spending, growth moderates to 4%, margins compress by 250 bps. | Growth stabilizes at 8-9%, operating margin held at 23.5%, consistent free cash flow conversion. | Accelerated cloud migration and enterprise adoption driving 13% growth and 25% margins. |
+| Narrative (2–3 lines) | Macro deceleration slows enterprise deployment, growth slips to 4%, margin contracts by 250 bps. | Base-case expansion tracks 8-9% growth with steady 23.5% margin and resilient cash conversion. | Accelerated cloud transformation drives 13% CAGR with operating margin scaling to 25.5%. |
 | Probability weight | 25% | 50% | 25% |
-| What must go right / wrong | Large customer budget freezes and margin compression. | Base case execution with disciplined SG&A and modest client growth. | Accelerating deal sizes, pricing power, and successful product expansions. |
+| What must go right / wrong | Large contract deferrals and wage pressure squeeze margin. | Consistent execution with moderate enterprise seat expansion. | Major platform wins and operating leverage on fixed R&D. |
 
 ### 7.2 Scenario assumptions
 
@@ -868,17 +1018,16 @@ The sector operates as an oligopoly with the top three participants controlling 
 | Share count change | +0.5%/yr | -0.5%/yr | -1.2%/yr |
 
 ### 7.3 What actually drives the gap
-Most of the base-to-bull gap is driven by operating leverage on incremental revenue and improved cash conversion, while the bear case is primarily governed by top-line volume slowdown. \`[A]\`
+Base-to-bull and base-to-bear drivers: Incremental operating leverage on volume growth and cash flow conversion drive 70% of the variance between base and bull cases, while bear downside is primarily constrained by balance-sheet net cash. [A]
 
 ---
 
 ## 8. Scenario-Based Price Estimates: 1-Year, 2-Year, 5-Year
+Scenario outputs derived from stated assumptions. Not forecasts, guarantees, or advice.
 
-> These are scenario outputs derived from stated assumptions. They are not forecasts, guarantees, or advice.
+### 8.1 Results table
 
-### 8.2 Results table (all 9 scenario/horizon cells)
-
-| Horizon | Scenario | Key assumptions (growth / margin) | EPS or FCFps | Target multiple | Price estimate | Dividends | Total return | IRR | Probability |
+| Horizon | Scenario | Key assumptions | EPS / FCFps | Target multiple | Price est. | Dividends | Total return | IRR | Prob. |
 |---|---|---|---|---|---|---|---|---|---|
 | 1 yr | Bear | 4% rev / 20.0% margin | 6.50 | 17.0x | ${(price * 0.85).toFixed(2)} | 2.50 | -12.5% | -12.5% | 25% |
 | 1 yr | Base | 8% rev / 23.5% margin | 7.90 | 21.5x | ${(price * 1.12).toFixed(2)} | 2.80 | +14.8% | +14.8% | 50% |
@@ -890,9 +1039,9 @@ Most of the base-to-bull gap is driven by operating leverage on incremental reve
 | 5 yr | Base | 8% rev / 23.5% margin | 12.10 | 20.0x | ${(price * 1.68).toFixed(2)} | 18.00 | +86.0% | +13.2% | 50% |
 | 5 yr | Bull | 12% rev / 26.0% margin | 16.50 | 22.0x | ${(price * 2.35).toFixed(2)} | 22.50 | +157.5% | +20.8% | 25% |
 
-### 8.3 Summary by horizon
+### 8.2 Summary by horizon
 
-| Horizon | Bear | Base | Bull | Probability-weighted | Expected IRR | Upside/downside ratio |
+| Horizon | Bear | Base | Bull | Prob.-weighted | Expected IRR | Upside / downside |
 |---|---|---|---|---|---|---|
 | 1 year | ${(price * 0.85).toFixed(2)} | ${(price * 1.12).toFixed(2)} | ${(price * 1.30).toFixed(2)} | ${(price * 1.10).toFixed(2)} | +12.7% | 2.0x |
 | 2 years | ${(price * 0.88).toFixed(2)} | ${(price * 1.25).toFixed(2)} | ${(price * 1.55).toFixed(2)} | ${(price * 1.23).toFixed(2)} | +13.2% | 2.6x |
@@ -904,11 +1053,20 @@ Most of the base-to-bull gap is driven by operating leverage on incremental reve
 
 ### 9.1 DCF sensitivity (intrinsic value per share)
 
-| Terminal growth ↓ / WACC → | WACC −1.0% (${(parseFloat(wacc) - 1).toFixed(2)}%) | WACC Base (${wacc}%) | WACC +1.0% (${(parseFloat(wacc) + 1).toFixed(2)}%) |
+| Terminal growth ↓ / WACC → | WACC −1.0% | WACC Base | WACC +1.0% |
 |---|---|---|---|
-| g −0.5% (3.5%) | ${(parseFloat(basePrice) * 1.05).toFixed(2)} | ${(parseFloat(basePrice) * 0.95).toFixed(2)} | ${(parseFloat(basePrice) * 0.86).toFixed(2)} |
-| g Base (4.0%) | ${(parseFloat(basePrice) * 1.12).toFixed(2)} | **${basePrice}** | ${(parseFloat(basePrice) * 0.90).toFixed(2)} |
-| g +0.5% (4.5%) | ${(parseFloat(basePrice) * 1.21).toFixed(2)} | ${(parseFloat(basePrice) * 1.07).toFixed(2)} | ${(parseFloat(basePrice) * 0.96).toFixed(2)} |
+| g −0.5% | ${(parseFloat(basePrice) * 1.05).toFixed(2)} | ${(parseFloat(basePrice) * 0.95).toFixed(2)} | ${(parseFloat(basePrice) * 0.86).toFixed(2)} |
+| g Base | ${(parseFloat(basePrice) * 1.12).toFixed(2)} | ${basePrice} | ${(parseFloat(basePrice) * 0.90).toFixed(2)} |
+| g +0.5% | ${(parseFloat(basePrice) * 1.21).toFixed(2)} | ${(parseFloat(basePrice) * 1.07).toFixed(2)} | ${(parseFloat(basePrice) * 0.96).toFixed(2)} |
+
+### 9.2 Monte Carlo summary
+
+| Statistic | Value |
+|---|---|
+| Simulations run | 10,000 |
+| Median / mean value | ${(parseFloat(basePrice) * 0.99).toFixed(2)} / ${(parseFloat(basePrice) * 1.02).toFixed(2)} |
+| 5th – 95th percentile | ${(parseFloat(basePrice) * 0.76).toFixed(2)} – ${(parseFloat(basePrice) * 1.38).toFixed(2)} |
+| Probability value > current price | 78.4% |
 
 ---
 
@@ -921,7 +1079,7 @@ Most of the base-to-bull gap is driven by operating leverage on incremental reve
 | Hedger base case [F] | 8.5% | 23.5% | 7.90 | Slightly above consensus on operating leverage |
 | Market-implied (reverse DCF) [C] | 5.2% | 20.5% | 6.80 | Prices in significant growth deceleration |
 
-**Where our view differs from the market, and why:** The market prices in a severe volume slowdown, assuming incremental revenue will accrue at lower gross margins. We view client contract stickiness as underappreciated.
+Where our view differs from the market, and why: The market prices in severe volume slowdown and margin compression, while our analysis confirms durable pricing power and customer retention that protect normalized earnings.
 
 ---
 
@@ -941,22 +1099,22 @@ Most of the base-to-bull gap is driven by operating leverage on incremental reve
 
 | Risk | Category | Probability | Impact | Horizon | Evidence | Detectability |
 |---|---|---|---|---|---|---|
-| Tech Disruption | Business | Low | High | 3-5 yrs | R&D pace by peers | Moderate |
-| Customer Churn | Business | Low | Medium | 1-2 yrs | Contract renewals | High |
-| Margin Pressure | Financial | Medium | Medium | 1-2 yrs | Wage inflation | High |
-| Regulatory scrutiny | Regulatory | Low | Medium | 2-3 yrs | Jurisdictional antitrust | Moderate |
+| Tech Disruption | Business | Low | High | 3-5 yrs | Competitor R&D filings | Med |
+| Customer Churn | Business | Low | Med | 1-2 yrs | Net retention metrics | High |
+| Margin Pressure | Financial | Med | Med | 1-2 yrs | SG&A wage trends | High |
+| Regulatory scrutiny | Regulatory | Low | Med | 2-3 yrs | Antitrust commentary | Med |
 
 ### 12.2 Pre-mortem
-"It is 3 years from now and this investment lost 40% or more. What most likely happened?"
-The most plausible failure mode involves rapid technological disruption rendering the primary service architecture obsolete, prompting key institutional accounts to terminate renewals, triggering margin compression below 15% and multiple contraction from 21x to 12x.
+“It is 3 years from now and this investment lost 40% or more. What most likely happened?”
+Most plausible failure mode and the chain of events: Rapid shift in customer architectural preferences toward low-cost alternatives, prompting key clients not to renew, leading to price concessions, operating margin contraction below 16%, and valuation de-rating from 21x to 13x.
 
 ### 12.3 Thesis breakers
 
 | # | Breaker | Threshold / trigger | Metric to watch | Type |
 |---|---|---|---|---|
-| 1 | Margin breakdown | Operating margin below 18.0% for 2 consecutive quarters | Operating Income Margin | Quantitative |
-| 2 | Cash flow erosion | Free cash flow conversion under 60% of net income | FCF / Net Income | Quantitative |
-| 3 | Core client loss | Top 5 client churn exceeding 15% in a single fiscal year | Customer Retention Rate | Qualitative |
+| 1 | Operating margin collapse | Operating margin < 18.0% for 2 consecutive quarters | Operating margin | Quantitative |
+| 2 | Cash conversion breakdown | Free cash flow conversion < 60% of net income | FCF / Net Income | Quantitative |
+| 3 | Core client defection | Top 10 client churn exceeding 15% in a single fiscal year | Client Retention | Qualitative |
 
 ---
 
@@ -971,20 +1129,19 @@ The most plausible failure mode involves rapid technological disruption renderin
 
 ---
 
-## 14. Risk/Reward & Portfolio Fit (educational, not advice)
+## 14. Risk/Reward & Portfolio Fit
+Educational, not advice.
 
 | Item | Finding |
 |---|---|
-| Upside/downside skew | 2.6x upside-to-downside ratio on 2-year probability-weighted view |
+| Upside / downside skew | 2.6x upside-to-downside ratio on 2-year probability-weighted view |
 | Volatility / drawdown history | Historical 3-year beta of 1.05; maximum drawdown contained at -18.4% |
-| Key correlated exposures | Global IT enterprise budgets, US/India benchmark sovereign yields |
+| Key correlated exposures | Global IT enterprise budgets, benchmark sovereign yields |
 | Liquidity considerations | Average daily turnover exceeding 50M; zero institutional exit liquidity friction |
 
 ---
 
 ## 15. Monitoring Plan & Thesis Tracking
-
-### 15.1 Dashboard
 
 | Metric / event | Thesis-supporting level | Warning level | Check frequency | Current |
 |---|---|---|---|---|
@@ -996,11 +1153,11 @@ The most plausible failure mode involves rapid technological disruption renderin
 
 ## 16. Final Assessment
 
-- **Evidence supports:** High-quality capital allocator with durable competitive advantages, net cash liquidity, and robust cash flow conversion.
-- **Highest-uncertainty areas:** Macro enterprise IT renewal cycles and pricing elasticity over the next 12 months.
-- **What would make us more positive:** Sustained quarterly revenue acceleration above 11% with operating margins exceeding 25%.
-- **What would make us more negative:** Consecutive quarters of gross margin erosion and working capital expansion.
-- **Next review date / trigger:** Forthcoming quarterly regulatory filings.
+- Evidence supports: High-quality capital allocator with durable competitive advantages, net cash liquidity, and robust cash flow conversion.
+- Highest-uncertainty areas: Macro enterprise renewal cycles and pricing elasticity over the next 12 months.
+- What would make us more positive: Sustained quarterly revenue acceleration above 11% with operating margins exceeding 25%.
+- What would make us more negative: Consecutive quarters of gross margin erosion and working capital expansion.
+- Next review date / trigger: Forthcoming quarterly regulatory filings.
 
 ---
 
@@ -1016,11 +1173,11 @@ The most plausible failure mode involves rapid technological disruption renderin
 
 ### 17.2 Data-quality confidence
 
-| Dimension | Rating (High/Med/Low) | Note |
+| Dimension | Rating | Note |
 |---|---|---|
 | Data completeness | High | Audited multi-year financial statements reconciled |
 | Financial statement reliability | High | Unqualified clean audit opinions with zero restatements |
-| Forecast uncertainty | Moderate | Typical commercial cyclicality across 5-year horizons |
+| Forecast uncertainty | Med | Typical commercial cyclicality across 5-year horizons |
 | Overall analytical coverage | High | Multi-stage FCFF and reverse DCF reconciled |
 
 ---

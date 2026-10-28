@@ -263,38 +263,110 @@ aiRouter.post('/thesis/download', async (req: Request, res: Response) => {
   const docTitle = title || `${cleanSym} — Hedger Investment Thesis`;
   const exportFormat = (format.toLowerCase() as ExportFormat) || 'pdf';
 
-  if (exportFormat === 'md') {
-    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${cleanSym}_Investment_Thesis.md"`);
-    return res.send(thesis);
+  // AI Error Pre-Check & Auto-Repair for Table Alignment
+  let formattedThesis = thesis;
+  const validation = ThesisConverter.validateMarkdown(thesis);
+  if (!validation.valid && validation.issues.length > 0) {
+    console.warn('[Thesis Download] Table misalignment detected prior to export:', validation.issues);
+    try {
+      formattedThesis = await nvidiaNimService.repairThesisMarkdown(thesis, validation.issues.join('; '));
+    } catch (repairPreErr) {
+      console.warn('[Thesis Download] AI pre-repair failed, falling back to original:', repairPreErr);
+    }
   }
 
-  if (exportFormat === 'docx') {
-    const docxHtml = ThesisConverter.toDocxHtml(thesis, docTitle);
-    res.setHeader('Content-Type', 'application/vnd.ms-word; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${cleanSym}_Investment_Thesis.doc"`);
-    return res.send(docxHtml);
+  const generateExport = (content: string, fmt: ExportFormat) => {
+    if (fmt === 'md') {
+      return {
+        type: 'text/markdown; charset=utf-8',
+        filename: `${cleanSym}_Investment_Thesis.md`,
+        data: content
+      };
+    }
+    if (fmt === 'docx') {
+      return {
+        type: 'application/vnd.ms-word; charset=utf-8',
+        filename: `${cleanSym}_Investment_Thesis.doc`,
+        data: ThesisConverter.toDocxHtml(content, docTitle)
+      };
+    }
+    if (fmt === 'excel') {
+      return {
+        type: 'text/csv; charset=utf-8',
+        filename: `${cleanSym}_Investment_Thesis_Model.csv`,
+        data: ThesisConverter.toExcelCsv(content, docTitle)
+      };
+    }
+    if (fmt === 'sheets') {
+      return {
+        type: 'text/csv; charset=utf-8',
+        filename: `${cleanSym}_Investment_Thesis_Sheets.csv`,
+        data: ThesisConverter.toSheetsCsv(content, docTitle)
+      };
+    }
+    // Default PDF / HTML
+    return {
+      type: 'text/html; charset=utf-8',
+      filename: `${cleanSym}_Investment_Thesis_Institutional.html`,
+      data: ThesisConverter.toInstitutionalPdfHtml(content, docTitle)
+    };
+  };
+
+  try {
+    const exportResult = generateExport(formattedThesis, exportFormat);
+    res.setHeader('Content-Type', exportResult.type);
+    res.setHeader('Content-Disposition', `attachment; filename="${exportResult.filename}"`);
+    return res.send(exportResult.data);
+  } catch (exportErr: any) {
+    console.error('[Thesis Download] Export generation error, invoking AI Repair Engine:', exportErr);
+    try {
+      const repairedThesis = await nvidiaNimService.repairThesisMarkdown(
+        formattedThesis,
+        exportErr?.message || 'Export formatting failed'
+      );
+      const retryResult = generateExport(repairedThesis, exportFormat);
+      res.setHeader('Content-Type', retryResult.type);
+      res.setHeader('Content-Disposition', `attachment; filename="${retryResult.filename}"`);
+      return res.send(retryResult.data);
+    } catch (aiRepairErr: any) {
+      console.error('[Thesis Download] AI repair cascade also failed:', aiRepairErr);
+      return res.status(500).json({
+        error: `Export failed: ${exportErr?.message || 'Formatting error'}. AI auto-repair could not resolve document syntax.`,
+        needsAiRepair: true
+      });
+    }
+  }
+});
+
+/**
+ * 4b. POST /api/ai/thesis/repair
+ * On-demand AI Thesis Formatting & Error Repair Endpoint
+ */
+aiRouter.post('/thesis/repair', async (req: Request, res: Response) => {
+  const { thesis, error, symbol } = req.body;
+  if (!thesis) {
+    return res.status(400).json({ error: 'Thesis content is required for AI repair' });
   }
 
-  if (exportFormat === 'excel') {
-    const excelCsv = ThesisConverter.toExcelCsv(thesis, docTitle);
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${cleanSym}_Investment_Thesis_Model.csv"`);
-    return res.send(excelCsv);
+  try {
+    const repairedThesis = await nvidiaNimService.repairThesisMarkdown(
+      thesis,
+      error || 'Validate and fix table columns and markdown syntax'
+    );
+    return res.json({
+      status: 'repaired',
+      symbol: symbol || 'STOCK',
+      repairedThesis
+    });
+  } catch (err: any) {
+    const fallback = nvidiaNimService.deterministicMarkdownTableRepair(thesis);
+    return res.json({
+      status: 'fallback_repaired',
+      symbol: symbol || 'STOCK',
+      repairedThesis: fallback,
+      warning: err?.message || 'AI repair completed with deterministic fallback'
+    });
   }
-
-  if (exportFormat === 'sheets') {
-    const sheetsCsv = ThesisConverter.toSheetsCsv(thesis, docTitle);
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${cleanSym}_Investment_Thesis_Sheets.csv"`);
-    return res.send(sheetsCsv);
-  }
-
-  // Institutional PDF format
-  const pdfHtml = ThesisConverter.toInstitutionalPdfHtml(thesis, docTitle);
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="${cleanSym}_Investment_Thesis_Institutional.html"`);
-  return res.send(pdfHtml);
 });
 
 /**

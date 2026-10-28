@@ -484,9 +484,10 @@ export class MarketDataService {
           const v = volumes[i] ?? 100000;
 
           if (c != null && !isNaN(c)) {
-            const dateStr = interval === '5m' || interval === '15m'
-              ? new Date(timestamps[i] * 1000).toISOString()
-              : new Date(timestamps[i] * 1000).toISOString().split('T')[0];
+            const ts = timestamps[i] ?? 0;
+            const dateStr = (interval === '5m' || interval === '15m'
+              ? new Date(ts * 1000).toISOString()
+              : new Date(ts * 1000).toISOString().split('T')[0]) || new Date().toISOString();
             bars.push({
               date: dateStr,
               open: Number(Number(o).toFixed(2)),
@@ -552,7 +553,7 @@ export class MarketDataService {
       const volume = Math.floor(1000000 + pseudoRandom() * 5000000);
 
       bars.push({
-        date: d.toISOString().split('T')[0],
+        date: d.toISOString().split('T')[0] || '',
         open: Number(open.toFixed(2)),
         high: Number(high.toFixed(2)),
         low: Number(low.toFixed(2)),
@@ -563,6 +564,7 @@ export class MarketDataService {
 
     if (bars.length > 0) {
       const last = bars[bars.length - 1];
+      if (!last) return bars;
       const scale = basePrice / (last.close || 1);
       return bars.map((b) => ({
         date: b.date,

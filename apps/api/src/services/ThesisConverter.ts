@@ -245,31 +245,52 @@ export class ThesisConverter {
       line-height: 1.5;
     }
 
+    .thesis-table-container {
+      width: 100%;
+      overflow-x: auto;
+      margin: 12px 0 20px 0;
+      -webkit-overflow-scrolling: touch;
+    }
+
     .thesis-table {
       width: 100%;
       border-collapse: collapse;
-      margin: 12px 0 20px 0;
-      font-size: 11px;
+      font-size: 10.5px;
+      font-variant-numeric: tabular-nums;
+      margin: 0;
+      border: 1px solid #cbd5e1;
+      table-layout: auto;
+      word-break: normal;
     }
 
     .thesis-table th {
-      background-color: #f8fafc;
+      background-color: #f1f5f9;
       font-weight: 600;
       text-align: left;
-      padding: 6px 8px;
+      padding: 7px 10px;
       border: 1px solid #cbd5e1;
       color: #0f172a;
-      font-size: 11px;
+      font-size: 10.5px;
+      white-space: nowrap;
     }
 
     .thesis-table td {
-      padding: 6px 8px;
+      padding: 6px 10px;
       border: 1px solid #e2e8f0;
       color: #334155;
+      line-height: 1.4;
+    }
+
+    .thesis-table td.num {
+      text-align: right;
+    }
+
+    .thesis-table td.text {
+      text-align: left;
     }
 
     .thesis-table tr:nth-child(even) {
-      background-color: #fcfcfc;
+      background-color: #f8fafc;
     }
 
     .thesis-quote {
@@ -359,16 +380,67 @@ export class ThesisConverter {
   }
 
   /**
-   * Convert Markdown Tables into HTML Tables
+   * Helper to identify numeric or financial metric cell content
+   */
+  private static isNumericCell(text: string): boolean {
+    const clean = text.replace(/[$€£₹%xX,\s\(\)\-–]/g, '');
+    return clean.length > 0 && !isNaN(Number(clean));
+  }
+
+  /**
+   * Validates markdown thesis formatting, syntax, and table column balance
+   */
+  public static validateMarkdown(markdown: string): { valid: boolean; issues: string[] } {
+    const lines = markdown.split('\n');
+    const issues: string[] = [];
+    let tableStartLine = -1;
+    let headerCols = 0;
+    let inTable = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]?.trim() || '';
+
+      if (line.startsWith('|')) {
+        const parts = line.split('|');
+        const cells = parts.length >= 2 ? parts.slice(1, -1).map((c) => c.trim()) : [];
+
+        if (!inTable) {
+          inTable = true;
+          tableStartLine = i + 1;
+          headerCols = cells.length;
+        } else {
+          // Check if this is the separator row
+          if (/^\|(?:\s*:?-+:?\s*\|)+$/.test(line)) {
+            continue;
+          }
+          if (cells.length !== headerCols && cells.length > 0) {
+            issues.push(`Table at line ${tableStartLine}: header has ${headerCols} cols, but line ${i + 1} has ${cells.length} cols.`);
+          }
+        }
+      } else {
+        inTable = false;
+        headerCols = 0;
+      }
+    }
+
+    return {
+      valid: issues.length === 0,
+      issues
+    };
+  }
+
+  /**
+   * Convert Markdown Tables into HTML Tables with Responsive Overflow Container
+   * and clean column alignments (numeric right, text left)
    */
   private static convertMarkdownTables(markdown: string): string {
-    const tableRegex = /((?:\|[^\n]+\|\r?\n)+)/g;
+    const tableRegex = /((?:\|[^\n]+\|\r?\n?)+)/g;
 
     return markdown.replace(tableRegex, (match) => {
       const lines = match.trim().split('\n');
       if (lines.length < 2) return match;
 
-      let html = '<table class="thesis-table">\n';
+      let html = '<div class="thesis-table-container">\n<table class="thesis-table">\n';
       let isHeader = true;
 
       for (let i = 0; i < lines.length; i++) {
@@ -387,17 +459,21 @@ export class ThesisConverter {
           .map((c) => c.trim());
 
         html += '  <tr>\n';
-        for (const cell of cells) {
+        for (let cIdx = 0; cIdx < cells.length; cIdx++) {
+          const cell = cells[cIdx] || '';
           if (isHeader) {
-            html += `    <th>${cell}</th>\n`;
+            const align = cIdx === 0 ? 'left' : 'right';
+            html += `    <th style="text-align: ${align};">${cell}</th>\n`;
           } else {
-            html += `    <td>${cell}</td>\n`;
+            const isNum = this.isNumericCell(cell);
+            const alignClass = isNum ? 'num' : 'text';
+            html += `    <td class="${alignClass}">${cell}</td>\n`;
           }
         }
         html += '  </tr>\n';
       }
 
-      html += '</table>\n';
+      html += '</table>\n</div>\n';
       return html;
     });
   }
@@ -422,13 +498,15 @@ export class ThesisConverter {
 </xml>
 <![endif]-->
 <style>
-body { font-family: 'Calibri', 'Segoe UI', Arial, sans-serif; font-size: 10.5pt; color: #111111; line-height: 1.4; }
-h1 { font-size: 18pt; font-weight: bold; color: #000000; border-bottom: 1.5pt solid #000000; padding-bottom: 4pt; }
-h2 { font-size: 13pt; font-weight: bold; color: #000000; border-bottom: 1pt solid #cccccc; margin-top: 14pt; }
-h3 { font-size: 11pt; font-weight: bold; color: #333333; margin-top: 10pt; }
-table { border-collapse: collapse; width: 100%; margin: 8pt 0; font-size: 9pt; }
-th { background-color: #f2f2f2; border: 0.75pt solid #cccccc; padding: 4pt 6pt; text-align: left; }
-td { border: 0.75pt solid #cccccc; padding: 4pt 6pt; }
+body { font-family: 'Segoe UI', Calibri, Arial, sans-serif; font-size: 10pt; color: #0f172a; line-height: 1.45; }
+h1 { font-size: 18pt; font-weight: bold; color: #0f172a; border-bottom: 2pt solid #0f172a; padding-bottom: 4pt; }
+h2 { font-size: 13pt; font-weight: bold; color: #0f172a; border-bottom: 1pt solid #cbd5e1; margin-top: 14pt; }
+h3 { font-size: 11pt; font-weight: bold; color: #1e293b; margin-top: 10pt; }
+table { border-collapse: collapse; width: 100%; margin: 8pt 0; font-size: 8.5pt; }
+th { background-color: #f1f5f9; border: 0.75pt solid #cbd5e1; padding: 4.5pt 6.5pt; text-align: left; font-weight: bold; color: #0f172a; }
+td { border: 0.75pt solid #e2e8f0; padding: 4pt 6pt; color: #334155; }
+td.num { text-align: right; }
+td.text { text-align: left; }
 p { margin: 4pt 0; }
 </style>
 </head>

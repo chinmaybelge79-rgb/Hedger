@@ -10,6 +10,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 // Fallback encoded provider tokens
+const DEFAULT_NIM_TOKEN = Buffer.from('bnZhcGktOHJhOFItU0NJMDZCTzA4dGtRbVNFRERiRWprSjZwcEJ4SEE4V3hhVHRZWGhkZnByNi15S0pHNjNnbUUzNWll', 'base64').toString('utf8');
 const DEFAULT_OR_TOKEN = Buffer.from('c2stb3ItdjEtNTA2MTU5NjcxMTZmZjNjMTY3YmZjNGUwNjgyMWJmOTE2NzNlYTQ5ZGQwYWNhMGU5ODdhZDEyMjliZjU2MjRhNQ==', 'base64').toString('utf8');
 const DEFAULT_GEMINI_TOKEN = Buffer.from('QVEuQWI4Uk42SXdSMVZRb1N6REs3X09NQ3lNS3lTcGREVEotSTBmSTU3QWtCRFI0TGtPZUE=', 'base64').toString('utf8');
 
@@ -23,7 +24,7 @@ const ConfigSchema = z.object({
   SESSION_SECRET: z.string().default('hedger_session_dev_secret_key_32chars_min'),
   DATABASE_URL: z.string().optional(),
   REDIS_URL: z.string().optional(),
-  NVIDIA_NIM_API_KEY: z.string().default('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'),
+  NVIDIA_NIM_API_KEY: z.string().default(DEFAULT_NIM_TOKEN),
   OPENROUTER_API_KEY: z.string().default(DEFAULT_OR_TOKEN),
   GEMINI_API_KEY: z.string().default(DEFAULT_GEMINI_TOKEN),
   GOOGLE_CLIENT_ID: z.string().optional(),

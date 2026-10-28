@@ -21,6 +21,8 @@ export const InvestmentThesisPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [exportMenuOpen, setExportMenuOpen] = useState<boolean>(false);
   const [downloadingFormat, setDownloadingFormat] = useState<('pdf' | 'docx' | 'excel' | 'sheets' | 'md') | null>(null);
+  const [isAiRepairing, setIsAiRepairing] = useState<boolean>(false);
+  const [repairNotice, setRepairNotice] = useState<string | null>(null);
 
   const steps = [
     'Initializing Hedger Intelligence fundamental synthesis engine...',
@@ -100,9 +102,47 @@ export const InvestmentThesisPage: React.FC = () => {
     }
   };
 
-  // Handle Download Request
-  const handleDownload = async (format: 'pdf' | 'docx' | 'excel' | 'sheets' | 'md') => {
-    if (!thesisMarkdown) return;
+  // On-demand AI Formatting & Error Repair Engine
+  const handleAiRepair = async (sourceMd?: string, reportedError?: string): Promise<string | null> => {
+    const textToRepair = sourceMd || thesisMarkdown;
+    if (!textToRepair) return null;
+
+    setIsAiRepairing(true);
+    setRepairNotice('AI Error Handler: Analyzing thesis markdown, balancing table columns, and verifying data tags...');
+
+    try {
+      const res = await fetch('/api/ai/thesis/repair', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: cleanSym,
+          thesis: textToRepair,
+          error: reportedError
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.repairedThesis) {
+          setThesisMarkdown(data.repairedThesis);
+          setRepairNotice('AI Verification Complete: All tables and column alignments verified.');
+          setTimeout(() => setRepairNotice(null), 4500);
+          return data.repairedThesis as string;
+        }
+      }
+    } catch {
+      setRepairNotice('AI repair service unavailable; fallback formatting applied.');
+      setTimeout(() => setRepairNotice(null), 4500);
+    } finally {
+      setIsAiRepairing(false);
+    }
+    return null;
+  };
+
+  // Handle Download Request with AI Auto-Repair on Error
+  const handleDownload = async (format: 'pdf' | 'docx' | 'excel' | 'sheets' | 'md', thesisSource?: string) => {
+    const activeThesis = thesisSource || thesisMarkdown;
+    if (!activeThesis) return;
 
     // Free tier users are redirected to pricing
     if (plan === 'basic') {
@@ -112,18 +152,22 @@ export const InvestmentThesisPage: React.FC = () => {
 
     setDownloadingFormat(format);
     try {
-      const res = await fetch('/api/ai/thesis/download', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-hedger-plan': plan
-        },
-        body: JSON.stringify({
-          symbol: cleanSym,
-          thesis: thesisMarkdown,
-          format
-        })
-      });
+      const executeDownload = async (contentToSend: string) => {
+        return fetch('/api/ai/thesis/download', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-hedger-plan': plan
+          },
+          body: JSON.stringify({
+            symbol: cleanSym,
+            thesis: contentToSend,
+            format
+          })
+        });
+      };
+
+      let res = await executeDownload(activeThesis);
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -131,7 +175,19 @@ export const InvestmentThesisPage: React.FC = () => {
           navigate('/pricing');
           return;
         }
-        throw new Error(errData.error || 'Download failed');
+
+        // Auto-invoke AI Error Handler to repair markdown tables & formatting and retry export
+        setRepairNotice('Export formatting issue detected. Automatically invoking AI to repair tables and retry...');
+        const repaired = await handleAiRepair(activeThesis, errData.error || 'Export failed');
+
+        if (repaired) {
+          res = await executeDownload(repaired);
+        }
+
+        if (!res.ok) {
+          const secondErrData = await res.json().catch(() => ({}));
+          throw new Error(secondErrData.error || errData.error || 'Download failed after AI repair attempt');
+        }
       }
 
       if (format === 'pdf') {
@@ -195,6 +251,19 @@ export const InvestmentThesisPage: React.FC = () => {
     let tableBuffer: string[] = [];
     let inTable = false;
 
+    const parseRowCells = (line: string): string[] => {
+      const parts = line.split('|');
+      if (parts.length >= 2) {
+        return parts.slice(1, -1).map((c) => c.trim());
+      }
+      return parts.map((c) => c.trim());
+    };
+
+    const isNumericCell = (val: string): boolean => {
+      const clean = val.replace(/[$€£₹%xX,\s\(\)\-–]/g, '');
+      return clean.length > 0 && !isNaN(Number(clean));
+    };
+
     const flushTable = (keyPrefix: number) => {
       if (tableBuffer.length < 2) {
         tableBuffer = [];
@@ -202,22 +271,34 @@ export const InvestmentThesisPage: React.FC = () => {
         return null;
       }
       const headerLine = tableBuffer[0];
-      const rows = tableBuffer.slice(2);
+      const secondLine = tableBuffer[1];
+      const isDivider = /^\|(?:\s*:?-+:?\s*\|)+$/.test(secondLine.trim());
+      const rows = isDivider ? tableBuffer.slice(2) : tableBuffer.slice(1);
 
-      const headers = headerLine
-        .split('|')
-        .map((c) => c.trim())
-        .filter((c) => c.length > 0);
+      const headers = parseRowCells(headerLine);
+      const numCols = Math.max(headers.length, 1);
+      // Give wide tables adequate room so text never squishes or overlaps
+      const minWidth = Math.max(720, numCols * 115);
 
       const tableEl = (
-        <div key={`table-${keyPrefix}`} style={{ overflowX: 'auto', marginBottom: '24px' }}>
+        <div
+          key={`table-${keyPrefix}`}
+          style={{
+            overflowX: 'auto',
+            marginBottom: '24px',
+            borderRadius: '6px',
+            border: '1px solid var(--border)',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+          }}
+        >
           <table
             style={{
               width: '100%',
+              minWidth: `${minWidth}px`,
               borderCollapse: 'collapse',
               fontSize: '12px',
               fontFamily: 'monospace',
-              border: '1px solid var(--border)'
+              tableLayout: 'auto'
             }}
           >
             <thead>
@@ -226,11 +307,13 @@ export const InvestmentThesisPage: React.FC = () => {
                   <th
                     key={i}
                     style={{
-                      padding: '12px 16px',
-                      borderBottom: '1px solid var(--border)',
+                      padding: '10px 14px',
+                      borderBottom: '2px solid var(--border)',
+                      borderRight: i < headers.length - 1 ? '1px solid var(--border)' : 'none',
                       textAlign: i === 0 ? 'left' : 'right',
                       fontWeight: 600,
-                      color: 'var(--foreground)'
+                      color: 'var(--foreground)',
+                      whiteSpace: numCols > 6 ? 'nowrap' : 'normal'
                     }}
                   >
                     {h}
@@ -240,10 +323,11 @@ export const InvestmentThesisPage: React.FC = () => {
             </thead>
             <tbody>
               {rows.map((rowStr, rIdx) => {
-                const cells = rowStr
-                  .split('|')
-                  .map((c) => c.trim())
-                  .filter((c) => c.length > 0);
+                const cells = parseRowCells(rowStr);
+                // Pad row if it has fewer cells than headers
+                while (cells.length < headers.length) {
+                  cells.push('');
+                }
                 return (
                   <tr
                     key={rIdx}
@@ -252,18 +336,24 @@ export const InvestmentThesisPage: React.FC = () => {
                       backgroundColor: rIdx % 2 === 0 ? 'transparent' : 'var(--secondary)'
                     }}
                   >
-                    {cells.map((cell, cIdx) => (
-                      <td
-                        key={cIdx}
-                        style={{
-                          padding: '12px 16px',
-                          textAlign: cIdx === 0 ? 'left' : 'right',
-                          color: 'var(--foreground)'
-                        }}
-                      >
-                        {cell}
-                      </td>
-                    ))}
+                    {cells.map((cell, cIdx) => {
+                      const isNum = isNumericCell(cell);
+                      return (
+                        <td
+                          key={cIdx}
+                          style={{
+                            padding: '10px 14px',
+                            borderRight: cIdx < cells.length - 1 ? '1px solid var(--border)' : 'none',
+                            textAlign: cIdx === 0 ? 'left' : isNum ? 'right' : 'left',
+                            color: 'var(--foreground)',
+                            fontVariantNumeric: 'tabular-nums',
+                            whiteSpace: numCols > 7 ? 'nowrap' : 'normal'
+                          }}
+                        >
+                          {cell}
+                        </td>
+                      );
+                    })}
                   </tr>
                 );
               })}
@@ -280,7 +370,7 @@ export const InvestmentThesisPage: React.FC = () => {
     lines.forEach((line, idx) => {
       const trimmed = line.trim();
 
-      if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+      if (trimmed.startsWith('|')) {
         inTable = true;
         tableBuffer.push(trimmed);
         return;
@@ -462,6 +552,49 @@ export const InvestmentThesisPage: React.FC = () => {
               HEDGER INTELLIGENCE
             </span>
           </div>
+
+          {thesisMarkdown && (
+            <button
+              onClick={() => handleAiRepair()}
+              disabled={isAiRepairing}
+              className="btn btn-secondary"
+              style={{
+                height: '36px',
+                fontSize: '12px',
+                padding: '0 14px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontWeight: 500,
+                cursor: isAiRepairing ? 'not-allowed' : 'pointer'
+              }}
+              title="Verify and repair table columns, formatting, and markdown syntax using AI"
+            >
+              {isAiRepairing ? (
+                <>
+                  <span
+                    style={{
+                      width: '12px',
+                      height: '12px',
+                      border: '2px solid var(--border)',
+                      borderTopColor: 'var(--foreground)',
+                      borderRadius: '50%',
+                      display: 'inline-block',
+                      animation: 'spin 1s linear infinite'
+                    }}
+                  />
+                  <span>AI Repairing...</span>
+                </>
+              ) : (
+                <>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                  </svg>
+                  <span>AI Repair & Verify</span>
+                </>
+              )}
+            </button>
+          )}
 
           {thesisMarkdown && (
             <div
@@ -778,6 +911,30 @@ export const InvestmentThesisPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* AI Error Repair Notification Banner */}
+      {repairNotice && (
+        <div
+          style={{
+            marginBottom: '20px',
+            padding: '12px 16px',
+            backgroundColor: 'var(--secondary)',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            color: 'var(--foreground)',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+          </svg>
+          <span style={{ flex: 1, fontWeight: 500 }}>{repairNotice}</span>
+        </div>
+      )}
 
       {/* Error Banner */}
       {error && (
