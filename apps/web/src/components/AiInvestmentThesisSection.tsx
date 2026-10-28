@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
+import { useThesis } from '../context/ThesisContext.js';
 import { HedgerOrb } from './HedgerOrb.js';
 
 interface AiInvestmentThesisSectionProps {
@@ -22,12 +23,14 @@ export const AiInvestmentThesisSection: React.FC<AiInvestmentThesisSectionProps>
 }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { startGeneration, isGeneratingSymbol, getThesisForSymbol } = useThesis();
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [thesisMarkdown, setThesisMarkdown] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const plan = user?.plan || 'basic';
+  const isGlobalGenerating = isGenerating || isGeneratingSymbol(symbol);
 
   const steps = [
     'Initializing Hedger Intelligence fundamental synthesis engine...',
@@ -37,8 +40,14 @@ export const AiInvestmentThesisSection: React.FC<AiInvestmentThesisSectionProps>
     'Synthesizing 18-Section Hedger Investment Thesis...'
   ];
 
-  // Check if a thesis is already cached for this stock
+  // Sync with background thesis manager or cached thesis on mount
   useEffect(() => {
+    const bgThesis = getThesisForSymbol(symbol);
+    if (bgThesis) {
+      setThesisMarkdown(bgThesis);
+      return;
+    }
+
     fetch(`/api/ai/thesis/${encodeURIComponent(symbol)}`)
       .then((res) => {
         if (res.ok) return res.json();
@@ -52,15 +61,14 @@ export const AiInvestmentThesisSection: React.FC<AiInvestmentThesisSectionProps>
       .catch(() => {
         // ignore
       });
-  }, [symbol]);
+  }, [symbol, getThesisForSymbol]);
 
-  // Handle Live Generation
+  // Handle Live Generation (Runs in persistent background manager)
   const handleGenerate = async () => {
     setIsGenerating(true);
     setError(null);
     setActiveStep(0);
 
-    // Progressive step simulation while backend executes
     const stepInterval = setInterval(() => {
       setActiveStep((prev) => {
         if (prev < steps.length - 1) return prev + 1;
@@ -69,33 +77,14 @@ export const AiInvestmentThesisSection: React.FC<AiInvestmentThesisSectionProps>
     }, 700);
 
     try {
-      const res = await fetch('/api/ai/thesis/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-hedger-plan': plan
-        },
-        body: JSON.stringify({
-          symbol,
-          dcfInputs,
-          analysis: analysisData
-        })
-      });
-
+      const generated = await startGeneration(symbol, dcfInputs, analysisData);
       clearInterval(stepInterval);
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        if (res.status === 403 && errData.upgradeRequired) {
-          navigate('/pricing');
-          return;
-        }
-        throw new Error(errData.error || 'Failed to generate investment thesis');
+      if (generated) {
+        setThesisMarkdown(generated);
+        setActiveStep(steps.length);
+      } else {
+        throw new Error('Generation failed. Please try again.');
       }
-
-      const data = await res.json();
-      setThesisMarkdown(data.thesis);
-      setActiveStep(steps.length);
     } catch (err: unknown) {
       clearInterval(stepInterval);
       const msg = err instanceof Error ? err.message : 'Generation failed. Please try again.';
@@ -207,7 +196,7 @@ export const AiInvestmentThesisSection: React.FC<AiInvestmentThesisSectionProps>
 
             <button
               onClick={handleGenerate}
-              disabled={isGenerating}
+              disabled={isGlobalGenerating}
               className="btn btn-primary"
               style={{
                 height: '38px',
@@ -218,10 +207,10 @@ export const AiInvestmentThesisSection: React.FC<AiInvestmentThesisSectionProps>
                 border: 'none',
                 color: '#ffffff',
                 boxShadow: '0 0 16px rgba(0, 240, 255, 0.35)',
-                cursor: isGenerating ? 'not-allowed' : 'pointer'
+                cursor: isGlobalGenerating ? 'not-allowed' : 'pointer'
               }}
             >
-              {isGenerating ? 'Synthesizing Live Thesis...' : thesisMarkdown ? 'Re-Generate Live Thesis' : 'Generate Live Thesis'}
+              {isGlobalGenerating ? 'Synthesizing Live Thesis...' : thesisMarkdown ? 'Re-Generate Live Thesis' : 'Generate Live Thesis'}
             </button>
           </div>
         </div>
@@ -311,7 +300,7 @@ export const AiInvestmentThesisSection: React.FC<AiInvestmentThesisSectionProps>
         )}
 
         {/* Live Generation Progress Terminal */}
-        {isGenerating && (
+        {isGlobalGenerating && (
           <div
             style={{
               borderRadius: '12px',
@@ -394,7 +383,7 @@ export const AiInvestmentThesisSection: React.FC<AiInvestmentThesisSectionProps>
         )}
 
         {/* Case when thesis is already generated */}
-        {thesisMarkdown && !isGenerating && (
+        {thesisMarkdown && !isGlobalGenerating && (
           <div
             style={{
               padding: '20px 24px',
@@ -443,7 +432,7 @@ export const AiInvestmentThesisSection: React.FC<AiInvestmentThesisSectionProps>
         )}
 
         {/* Case when no thesis has been generated yet: Preview Traits Grid */}
-        {!thesisMarkdown && !isGenerating && (
+        {!thesisMarkdown && !isGlobalGenerating && (
           <div
             style={{
               display: 'grid',

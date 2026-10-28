@@ -258,7 +258,7 @@ export class MarketDataService {
       }
     }
 
-    // 2. Indian and global symbols route to yfinance
+    // 2. Indian and global symbols route to yfinance (with direct Yahoo v8 chart failover)
     const yfQuote = await this.yfinance.getQuote(symbol);
     if (yfQuote) {
       const price = yfQuote.price;
@@ -273,16 +273,18 @@ export class MarketDataService {
         }
       }
 
+      const roundedPrice = Math.round(yfQuote.price * 100) / 100;
+      const roundedPrevClose = Math.round((yfQuote.previousClose ?? roundedPrice) * 100) / 100;
       const inferred = inferCurrencyAndCountry(symbol);
       const quote: Quote = {
         symbol: yfQuote.symbol,
-        price: yfQuote.price,
-        change: yfQuote.change,
-        changePercent: yfQuote.changePercent,
-        open: yfQuote.open,
-        high: yfQuote.high,
-        low: yfQuote.low,
-        previousClose: yfQuote.previousClose,
+        price: roundedPrice,
+        change: Math.round((yfQuote.change ?? (roundedPrice - roundedPrevClose)) * 100) / 100,
+        changePercent: Math.round((yfQuote.changePercent ?? 0) * 10000) / 10000,
+        open: typeof yfQuote.open === 'number' ? Math.round(yfQuote.open * 100) / 100 : roundedPrice,
+        high: typeof yfQuote.high === 'number' ? Math.round(yfQuote.high * 100) / 100 : roundedPrice,
+        low: typeof yfQuote.low === 'number' ? Math.round(yfQuote.low * 100) / 100 : roundedPrice,
+        previousClose: roundedPrevClose,
         volume: yfQuote.volume,
         marketCap: mktCap,
         sharesOutstanding: shares,
@@ -290,7 +292,37 @@ export class MarketDataService {
         meta: {
           freshness: 'LIVE',
           asOf,
-          source: 'yfinance (Gateway)'
+          source: 'Yahoo Finance'
+        }
+      };
+      this.setCache(cacheKey, quote, 30);
+      return quote;
+    }
+
+    // Direct Yahoo v8 fallback before static references
+    const directQuote = await this.yfinance.getQuoteDirect(symbol);
+    if (directQuote) {
+      const price = directQuote.price;
+      const shares = directQuote.sharesOutstanding || 1000000000;
+      const mktCap = directQuote.marketCap || price * shares;
+      const inferred = inferCurrencyAndCountry(symbol);
+      const quote: Quote = {
+        symbol,
+        price,
+        change: directQuote.change,
+        changePercent: directQuote.changePercent,
+        open: directQuote.open,
+        high: directQuote.high,
+        low: directQuote.low,
+        previousClose: directQuote.previousClose,
+        volume: directQuote.volume,
+        marketCap: mktCap,
+        sharesOutstanding: shares,
+        currency: directQuote.currency || inferred.currency,
+        meta: {
+          freshness: 'LIVE',
+          asOf,
+          source: 'Yahoo Finance (Direct)'
         }
       };
       this.setCache(cacheKey, quote, 30);
@@ -306,7 +338,7 @@ export class MarketDataService {
         '9988.HK': 97.95,
         'TCS.NS': 2535.0,
         'INFY.NS': 1166.0,
-        'HDFCBANK.NS': 688.05,
+        'HDFCBANK.NS': 685.3,
         'RELIANCE.NS': 1201.8,
         'M&M.NS': 2850.0,
         'AAPL': 235.0,

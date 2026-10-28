@@ -78,10 +78,9 @@ export class NvidiaNimService {
 
   /**
    * Multi-Tier AI Provider Cascade:
-   * 1. OpenRouter (Primary - Fastest & Most Reliable, Gemini Flash Lite & Llama 3.3 70B)
-   * 2. Direct Google Gemini API (Secondary)
-   * 3. NVIDIA NIM API (Tertiary)
-   * 4. Deterministic Engine (Zero Failure Safety Net)
+   * - Chat: Google Gemini (gemini-2.5-flash) -> OpenRouter -> NVIDIA NIM -> Deterministic
+   * - Thesis: NVIDIA NIM (llama-3.3-70b-instruct) -> OpenRouter (llama-3.3-70b-instruct) -> Gemini -> Deterministic
+   * - Health: NVIDIA NIM (llama-3.1-8b-instruct) -> OpenRouter -> Gemini -> Deterministic
    */
   private async callAiProvider(params: {
     messages: { role: 'system' | 'user' | 'assistant'; content: string }[];
@@ -90,13 +89,13 @@ export class NvidiaNimService {
     maxTokens?: number;
     timeoutMs?: number;
   }): Promise<string | null> {
-    const temperature = params.temperature ?? 0.2;
-    const maxTokens = params.maxTokens ?? (params.task === 'thesis' ? 4096 : params.task === 'peers' ? 300 : 650);
-    const timeoutMs = params.timeoutMs ?? (params.task === 'thesis' ? 22000 : 8000);
+    const temperature = params.temperature ?? (params.task === 'thesis' ? 0.15 : 0.2);
+    const maxTokens = params.maxTokens ?? (params.task === 'thesis' ? 4096 : params.task === 'peers' ? 300 : 750);
+    const timeoutMs = params.timeoutMs ?? (params.task === 'thesis' ? 24000 : 8000);
 
-    // 1. TIER 1: Direct Google Gemini API (Fastest ~500ms, Unlimited Output Tokens, High Quality)
-    if (this.geminiApiKey && this.geminiApiKey.length > 5) {
-      for (const gemModel of ['gemini-3.5-flash-lite', 'gemini-3.8-flash']) {
+    const callGemini = async (): Promise<string | null> => {
+      if (!this.geminiApiKey || this.geminiApiKey.length < 5) return null;
+      for (const gemModel of ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b']) {
         try {
           const controller = new AbortController();
           const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -123,13 +122,56 @@ export class NvidiaNimService {
             }
           }
         } catch {
-          // Continue to next model or tier
+          // Continue to next model
         }
       }
-    }
+      return null;
+    };
 
-    // 2. TIER 2: OpenRouter (Llama 3.3 70B & Llama 3.1 8B)
-    if (this.openRouterApiKey && this.openRouterApiKey.length > 5) {
+    const callNvidiaNim = async (): Promise<string | null> => {
+      if (!this.apiKey || this.apiKey.length < 5) return null;
+      const nimModel =
+        params.task === 'thesis'
+          ? 'meta/llama-3.3-70b-instruct'
+          : 'meta/llama-3.1-8b-instruct';
+
+      for (const model of [nimModel, 'meta/llama-3.1-8b-instruct']) {
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+          const res = await fetch(this.nimBaseUrl, {
+            method: 'POST',
+            signal: controller.signal,
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${this.apiKey}`
+            },
+            body: JSON.stringify({
+              model,
+              messages: params.messages,
+              temperature,
+              max_tokens: maxTokens
+            })
+          });
+          clearTimeout(timer);
+
+          if (res.ok) {
+            const data = (await res.json()) as any;
+            const reply = data.choices?.[0]?.message?.content;
+            if (reply && reply.trim().length > 0) {
+              return reply.trim();
+            }
+          }
+        } catch {
+          // Continue
+        }
+      }
+      return null;
+    };
+
+    const callOpenRouter = async (): Promise<string | null> => {
+      if (!this.openRouterApiKey || this.openRouterApiKey.length < 5) return null;
       const primaryModel = params.task === 'thesis' ? this.deepAnalysisModel : this.fastChatModel;
       const secondaryModel = params.task === 'thesis' ? this.deepAnalysisFallback : this.fastChatFallback;
 
@@ -144,14 +186,14 @@ export class NvidiaNimService {
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${this.openRouterApiKey}`,
-              'HTTP-Referer': 'https://hedger.capital',
+              'HTTP-Referer': 'https://hedger-beta.vercel.app',
               'X-Title': 'Hedger Terminal'
             },
             body: JSON.stringify({
               model,
               messages: params.messages,
               temperature,
-              max_tokens: Math.min(maxTokens, 1500)
+              max_tokens: Math.min(maxTokens, 3000)
             })
           });
           clearTimeout(timer);
@@ -164,43 +206,47 @@ export class NvidiaNimService {
             }
           }
         } catch {
-          // Continue to next model or tier
+          // Continue
         }
       }
-    }
+      return null;
+    };
 
-    // 3. TIER 3: NVIDIA NIM API
-    if (this.apiKey && this.apiKey.length > 5) {
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 6000);
+    // Task-specific prioritization
+    if (params.task === 'chat') {
+      // 1. Google Gemini API (ultra-fast, excellent interactive tone)
+      const geminiResult = await callGemini();
+      if (geminiResult) return geminiResult;
 
-        const res = await fetch(this.nimBaseUrl, {
-          method: 'POST',
-          signal: controller.signal,
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.apiKey}`
-          },
-          body: JSON.stringify({
-            model: 'meta/llama-3.2-11b-vision-instruct',
-            messages: params.messages,
-            temperature,
-            max_tokens: maxTokens
-          })
-        });
-        clearTimeout(timer);
+      // 2. OpenRouter
+      const openRouterResult = await callOpenRouter();
+      if (openRouterResult) return openRouterResult;
 
-        if (res.ok) {
-          const data = (await res.json()) as any;
-          const reply = data.choices?.[0]?.message?.content;
-          if (reply && reply.trim().length > 0) {
-            return reply.trim();
-          }
-        }
-      } catch {
-        // Fall back to deterministic engine
-      }
+      // 3. NVIDIA NIM
+      const nimResult = await callNvidiaNim();
+      if (nimResult) return nimResult;
+    } else if (params.task === 'thesis') {
+      // 1. NVIDIA NIM (70B deep reasoning)
+      const nimResult = await callNvidiaNim();
+      if (nimResult) return nimResult;
+
+      // 2. OpenRouter (70B deep reasoning)
+      const openRouterResult = await callOpenRouter();
+      if (openRouterResult) return openRouterResult;
+
+      // 3. Google Gemini API
+      const geminiResult = await callGemini();
+      if (geminiResult) return geminiResult;
+    } else {
+      // Health / Peers (fast 8B)
+      const nimResult = await callNvidiaNim();
+      if (nimResult) return nimResult;
+
+      const openRouterResult = await callOpenRouter();
+      if (openRouterResult) return openRouterResult;
+
+      const geminiResult = await callGemini();
+      if (geminiResult) return geminiResult;
     }
 
     return null;
@@ -285,7 +331,16 @@ Strict Behavioral & Regulatory Rules:
       messages: [
         {
           role: 'system',
-          content: `You are an equity research analyst writing a source-backed investment thesis following the HEDGER — INVESTMENT THESIS TEMPLATE. Validated data and deterministic calculations produce every number. You never invent figures. Tag every figure [R], [C], [E], [F], [A]. Do not output emojis anywhere. Export PART B only.`
+          content: `You are HEDGER, an institutional-grade equity research and valuation agent operating under Operating Manual v1.0. You produce scenario-based price estimates across 1-year, 3-year, and 5-year horizons with calibrated probabilities (Bear, Base, Bull).
+Hard rules:
+1. Never fabricate data. If a field is missing, state MISSING and provide labelled fallback. Never invent numbers.
+2. Every number carries a tag: [R] Reported, [C] Calculated, [F] Forecast/model, [E] External estimate, [A] Analyst judgment.
+3. Every number carries a date and currency. Round raw floats to sensible precision.
+4. Valuation stance discipline: You are NOT a financial advisor. You NEVER say "buy", "sell", or "hold" as an instruction. You describe valuation stance (Attractive risk/reward, Reasonable risk/reward, Fairly valued / neutral, Stretched, Unfavourable risk/reward).
+5. Company-specific language only. Reference actual business moats, filings, and regulatory registers. Never use generic SaaS clichés on banks or conglomerates.
+6. Verify all 18 Reconciliation Gates (G1–G18) before publishing.
+7. Show the bear case first and take it seriously.
+8. ABSOLUTELY ZERO EMOJIS anywhere in the output. Export the complete 18-section Institutional Research Template.`
         },
         {
           role: 'user',
@@ -295,7 +350,7 @@ Strict Behavioral & Regulatory Rules:
       task: 'thesis',
       temperature: 0.15,
       maxTokens: 4096,
-      timeoutMs: 22000
+      timeoutMs: 24000
     });
 
     if (thesis && thesis.length > 500 && thesis.includes('18. Disclaimer')) {

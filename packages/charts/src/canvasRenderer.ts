@@ -421,7 +421,7 @@ export function renderChart(
     ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.textBaseline = 'top';
 
-    const numTicks = Math.min(5, Math.max(2, Math.floor(plotWidth / 140)));
+    const numTicks = Math.min(4, Math.max(2, Math.floor(plotWidth / 180)));
     const step = (end - start) / numTicks;
 
     for (let t = 0; t <= numTicks; t++) {

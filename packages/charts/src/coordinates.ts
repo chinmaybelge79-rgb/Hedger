@@ -27,8 +27,8 @@ export const DEFAULT_DIMENSIONS: ChartDimensions = {
   width: 800,
   height: 400,
   paddingTop: 16,
-  paddingRight: 64, // For Y-axis labels
-  paddingBottom: 28, // For X-axis dates
+  paddingRight: 76, // Generous padding for Y-axis price labels
+  paddingBottom: 32, // For X-axis date labels
   paddingLeft: 16
 };
 

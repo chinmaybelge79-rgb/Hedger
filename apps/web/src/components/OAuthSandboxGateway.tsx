@@ -36,7 +36,11 @@ export const OAuthSandboxGateway: React.FC<OAuthSandboxGatewayProps> = ({
 
   const handleOAuthClick = (provider: 'google' | 'apple' | 'github') => {
     setError(null);
-    const origin = encodeURIComponent(window.location.href);
+    const returnTarget =
+      window.location.pathname.includes('/signin') || window.location.pathname.includes('/signup')
+        ? `${window.location.origin}/markets`
+        : window.location.href;
+    const origin = encodeURIComponent(returnTarget);
     const isConfigured = Boolean(providerConfig[provider]?.configured);
 
     if (provider === 'google' || isConfigured) {

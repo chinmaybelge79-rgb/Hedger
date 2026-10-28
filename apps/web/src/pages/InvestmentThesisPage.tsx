@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
+import { useThesis } from '../context/ThesisContext.js';
 import { HedgerOrb } from '../components/HedgerOrb.js';
 import { OAuthSandboxGateway } from '../components/OAuthSandboxGateway.js';
+import { PricingUpgradeModal } from '../components/PricingUpgradeModal.js';
 
 export const InvestmentThesisPage: React.FC = () => {
   const { symbol } = useParams<{ symbol: string }>();
@@ -20,6 +22,7 @@ export const InvestmentThesisPage: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [activeStep, setActiveStep] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
+  const { startGeneration, isGeneratingSymbol, getThesisForSymbol } = useThesis();
   const [exportMenuOpen, setExportMenuOpen] = useState<boolean>(false);
   const [downloadingFormat, setDownloadingFormat] = useState<('pdf' | 'docx' | 'excel' | 'sheets' | 'md') | null>(null);
   const [isAiRepairing, setIsAiRepairing] = useState<boolean>(false);
@@ -27,6 +30,9 @@ export const InvestmentThesisPage: React.FC = () => {
   const [isSavingThesis, setIsSavingThesis] = useState<boolean>(false);
   const [isThesisSaved, setIsThesisSaved] = useState<boolean>(false);
   const [showAuthModalForSave, setShowAuthModalForSave] = useState<boolean>(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
+
+  const isGlobalGenerating = isGenerating || isGeneratingSymbol(cleanSym);
 
   const steps = [
     'Initializing Hedger Intelligence fundamental synthesis engine...',
@@ -36,8 +42,15 @@ export const InvestmentThesisPage: React.FC = () => {
     'Synthesizing 18-Section Hedger Investment Thesis...'
   ];
 
-  // Fetch cached thesis on mount if not in location state
+  // Fetch cached thesis on mount or from global background manager
   useEffect(() => {
+    const bgThesis = getThesisForSymbol(cleanSym);
+    if (bgThesis) {
+      setThesisMarkdown(bgThesis);
+      setLoading(false);
+      return;
+    }
+
     if (!thesisMarkdown) {
       fetch(`/api/ai/thesis/${encodeURIComponent(cleanSym)}`)
         .then((res) => {
@@ -58,9 +71,9 @@ export const InvestmentThesisPage: React.FC = () => {
     } else {
       setLoading(false);
     }
-  }, [cleanSym]);
+  }, [cleanSym, getThesisForSymbol]);
 
-  // Handle Live Generation
+  // Handle Live Generation (Persistent background execution)
   const handleGenerate = async () => {
     setIsGenerating(true);
     setError(null);
@@ -74,29 +87,14 @@ export const InvestmentThesisPage: React.FC = () => {
     }, 700);
 
     try {
-      const res = await fetch('/api/ai/thesis/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-hedger-plan': plan
-        },
-        body: JSON.stringify({ symbol: cleanSym })
-      });
-
+      const generated = await startGeneration(cleanSym);
       clearInterval(stepInterval);
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        if (res.status === 403 && errData.upgradeRequired) {
-          navigate('/pricing');
-          return;
-        }
-        throw new Error(errData.error || 'Failed to generate investment thesis');
+      if (generated) {
+        setThesisMarkdown(generated);
+        setActiveStep(steps.length);
+      } else {
+        throw new Error('Generation failed. Please try again.');
       }
-
-      const data = await res.json();
-      setThesisMarkdown(data.thesis);
-      setActiveStep(steps.length);
     } catch (err: unknown) {
       clearInterval(stepInterval);
       const msg = err instanceof Error ? err.message : 'Generation failed. Please try again.';
@@ -188,9 +186,9 @@ export const InvestmentThesisPage: React.FC = () => {
     const activeThesis = thesisSource || thesisMarkdown;
     if (!activeThesis) return;
 
-    // Free tier users are redirected to pricing
+    // Free tier users see upgrade modal
     if (plan === 'basic') {
-      navigate('/pricing');
+      setShowUpgradeModal(true);
       return;
     }
 
@@ -1357,6 +1355,14 @@ export const InvestmentThesisPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Institutional Pricing Upgrade Modal for Basic Free Users */}
+      <PricingUpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        featureName="Thesis Document Export (PDF / Excel / DOCX)"
+        description="Full institutional equity research dossiers, multi-scenario sensitivity tables, and financial spreadsheets require a Pro or Ultra subscription."
+      />
     </div>
   );
 };

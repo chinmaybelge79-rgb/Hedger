@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { ThemeProvider, useTheme } from './context/ThemeContext.js';
 import { AuthProvider } from './context/AuthContext.js';
 import { MarketProvider } from './context/MarketContext.js';
+import { ThesisProvider } from './context/ThesisContext.js';
 import { Navbar } from './components/Navbar.js';
 import { Footer } from './components/Footer.js';
 import { SearchModal } from './components/SearchModal.js';
@@ -114,7 +115,9 @@ export const App: React.FC = () => {
       <AuthProvider>
         <MarketProvider>
           <BrowserRouter>
-            <AppShell searchOpen={searchOpen} setSearchOpen={setSearchOpen} />
+            <ThesisProvider>
+              <AppShell searchOpen={searchOpen} setSearchOpen={setSearchOpen} />
+            </ThesisProvider>
           </BrowserRouter>
         </MarketProvider>
       </AuthProvider>

@@ -27,10 +27,22 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'signin' }) =>
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { signInWithOAuth, signInWithEmail, signUpWithEmail } = useAuth();
+  const { user, token, signInWithOAuth, signInWithEmail, signUpWithEmail } = useAuth();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const navigate = useNavigate();
+
+  // Automatic redirect if already authenticated or if redirected from OAuth callback
+  React.useEffect(() => {
+    const hasAuthToken = Boolean(token || localStorage.getItem('hedger-token'));
+    const isAuthSuccess = searchParams.get('auth_success') === '1';
+    if (user || (hasAuthToken && isAuthSuccess)) {
+      const dest = redirectTarget && !redirectTarget.includes('/signin') && !redirectTarget.includes('/signup')
+        ? redirectTarget
+        : '/markets';
+      navigate(dest, { replace: true });
+    }
+  }, [user, token, searchParams, redirectTarget, navigate]);
 
   const handleOAuth = async (provider: 'google' | 'apple' | 'github') => {
     setError(null);
@@ -453,12 +465,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'signin' }) =>
           )}
         </div>
 
-        {/* Link to Administrative Portal */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px', fontSize: '12px' }}>
-          <Link to="/admin" style={{ color: isDark ? '#71717a' : '#9CA3AF', textDecoration: 'underline' }}>
-            Administrative Portal
-          </Link>
-        </div>
 
         {/* Institutional Regulatory Footnote */}
         <div

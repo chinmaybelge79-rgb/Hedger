@@ -21,6 +21,8 @@ import {
   formatPrice,
   formatCompact
 } from '@hedger/format';
+import { useAuth } from '../context/AuthContext.js';
+import { PricingUpgradeModal } from '../components/PricingUpgradeModal.js';
 
 /**
  * Calculates a pure monochrome linear-gradient for range sliders (White Major, Black Minor).
@@ -44,6 +46,12 @@ export const ModelWorkbenchPage: React.FC = () => {
 
   const symbol = normalizeSymbol(rawSymbol || 'TCS.NS');
   const activeTab = searchParams.get('tab') || 'summary';
+
+  const { user } = useAuth();
+  const plan = user?.plan || 'basic';
+  const isBasic = plan === 'basic';
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState('Simulation Workbench & Custom Sliders');
 
   // Backend Data Package
   const [pkg, setPkg] = useState<InstitutionalDcfInputsPackage | null>(null);
@@ -202,6 +210,12 @@ export const ModelWorkbenchPage: React.FC = () => {
 
   // Sync tab with URL
   const handleTabChange = (tab: string) => {
+    if (isBasic && (tab === 'sensitivity' || tab === 'scenarios' || tab === 'reverse')) {
+      const tabTitle = tab === 'sensitivity' ? '5x5 Sensitivity Analysis Grid' : tab === 'scenarios' ? 'Monte Carlo Scenario Engine' : 'Reverse DCF Implied Growth Workbench';
+      setUpgradeFeature(tabTitle);
+      setUpgradeModalOpen(true);
+      return;
+    }
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.set('tab', tab);
@@ -265,14 +279,16 @@ export const ModelWorkbenchPage: React.FC = () => {
 
   // Determine Company Type & Routing
   const isBankModel = useMemo(() => {
-    if (!pkg) return false;
+    const symMatch = /bank|hdfc|axis|kotak|sbin|icici|jpm|bac|wfc|citi/i.test(symbol || '');
+    if (!pkg) return symMatch;
     return (
+      symMatch ||
       pkg.recommendedModel === 'residual_income' ||
       isFinancialCompany(pkg.companyType) ||
       isFinancialCompany(pkg.sector) ||
       isFinancialCompany(pkg.industry)
     );
-  }, [pkg]);
+  }, [pkg, symbol]);
 
   // Assemble pure DCF inputs
   const dcfInputs: DcfInputs = useMemo(() => {
@@ -884,7 +900,14 @@ export const ModelWorkbenchPage: React.FC = () => {
               <button
                 type="button"
                 data-testid="dcf-export-btn"
-                onClick={() => setExportMenuOpen((prev) => !prev)}
+                onClick={() => {
+                  if (isBasic) {
+                    setUpgradeFeature('Institutional DCF Spreadsheet Export');
+                    setUpgradeModalOpen(true);
+                    return;
+                  }
+                  setExportMenuOpen((prev) => !prev);
+                }}
                 style={{
                   height: '40px',
                   padding: '0 16px',
@@ -2638,6 +2661,13 @@ export const ModelWorkbenchPage: React.FC = () => {
         </div>
       )}
 
+      {/* Institutional Pricing Upgrade Modal for Basic Free Tier */}
+      <PricingUpgradeModal
+        isOpen={upgradeModalOpen}
+        onClose={() => setUpgradeModalOpen(false)}
+        featureName={upgradeFeature}
+        description="Interactive 5x5 WACC sensitivity matrices, Monte Carlo scenario simulators, and downloadable institutional Excel models require a Pro or Ultra subscription."
+      />
     </div>
   );
 };

@@ -287,11 +287,16 @@ export async function buildDcfInputs(
   let roe10yDefault: number[] = [0.15, 0.15, 0.15, 0.14, 0.14, 0.13, 0.13, 0.12, 0.12, 0.12];
   let payoutDefault = 0.20;
   if (balanceAnnual?.rows) {
-    const eqRow = balanceAnnual.rows.find((r) => /common_stock_equity|stockholders_equity/i.test(r.key));
+    const eqRow = balanceAnnual.rows.find((r) => /common_stock_equity|stockholders_equity|total_equity|equity|net_worth/i.test(r.key));
     if (eqRow && typeof eqRow.values[0] === 'number') bv0Val = Math.abs(eqRow.values[0]);
   }
+  if (bv0Val <= 0 && isFin) {
+    const pb = profile?.pbRatio && profile.pbRatio > 0 ? profile.pbRatio : 2.6;
+    const mktCap = quote?.marketCap || currentPrice * sharesVal;
+    bv0Val = Math.round(mktCap / pb);
+  }
   if (incomeAnnual?.rows && bv0Val > 0) {
-    const niRow = incomeAnnual.rows.find((r) => /net_income_common_stockholders|net_income$/i.test(r.key));
+    const niRow = incomeAnnual.rows.find((r) => /net_income_common_stockholders|net_income$|profit_after_tax/i.test(r.key));
     if (niRow && typeof niRow.values[0] === 'number') {
       const currentRoe = Math.max(0.04, Math.min(0.35, niRow.values[0] / bv0Val));
       roe10yDefault = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((yr) => {

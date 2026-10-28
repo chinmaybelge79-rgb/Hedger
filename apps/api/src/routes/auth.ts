@@ -117,18 +117,28 @@ authRouter.get('/providers', (_req: Request, res: Response) => {
  * 2. Google OAuth Gateway Initiation
  */
 authRouter.get('/google', (req: Request, res: Response) => {
-  const state = generateToken();
-  const clientOrigin = (req.query.origin as string) || config.CLIENT_ORIGIN;
+  const host = req.get('host') || '';
+  const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+  const clientOrigin = (req.query.origin as string) || (isLocal ? 'http://localhost:5173' : 'https://hedger-beta.vercel.app');
+  const safeRedirect = clientOrigin.replace(/\/(signin|signup)(\?.*)?$/, '/markets');
+
+  const statePayload = {
+    t: Date.now(),
+    redirectUrl: safeRedirect
+  };
+  const state = Buffer.from(JSON.stringify(statePayload)).toString('base64url');
+
   oauthStates.set(state, {
     provider: 'google',
     createdAt: Date.now(),
-    redirectUrl: clientOrigin
+    redirectUrl: safeRedirect
   });
 
   if (config.GOOGLE_CLIENT_ID) {
-    const proto = (req.headers['x-forwarded-proto'] as string) || (req.get('host')?.includes('vercel.app') ? 'https' : req.protocol);
-    const host = req.get('host');
-    const redirectUri = `${proto}://${host}/api/auth/google/callback`;
+    const redirectUri = isLocal
+      ? `http://${host}/api/auth/google/callback`
+      : 'https://hedger-beta.vercel.app/api/auth/google/callback';
+
     const params = new URLSearchParams({
       client_id: config.GOOGLE_CLIENT_ID,
       redirect_uri: redirectUri,
@@ -286,9 +296,29 @@ authRouter.get('/google', (req: Request, res: Response) => {
 authRouter.get('/google/callback', async (req: Request, res: Response) => {
   const { code, state, gateway, email: gatewayEmail, name: gatewayName } = req.query;
 
-  const stateData = typeof state === 'string' ? oauthStates.get(state) : null;
-  const redirectTarget = stateData?.redirectUrl || config.CLIENT_ORIGIN;
-  if (typeof state === 'string') oauthStates.delete(state);
+  const host = req.get('host') || '';
+  const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+  let redirectTarget = isLocal ? 'http://localhost:5173/markets' : 'https://hedger-beta.vercel.app/markets';
+
+  if (typeof state === 'string') {
+    try {
+      const parsed = JSON.parse(Buffer.from(state, 'base64url').toString('utf8'));
+      if (parsed.redirectUrl && typeof parsed.redirectUrl === 'string') {
+        redirectTarget = parsed.redirectUrl;
+      }
+    } catch {
+      const stateData = oauthStates.get(state);
+      if (stateData?.redirectUrl) {
+        redirectTarget = stateData.redirectUrl;
+      }
+    }
+    oauthStates.delete(state);
+  }
+
+  // Ensure redirectTarget is not signin or signup
+  if (redirectTarget.includes('/signin') || redirectTarget.includes('/signup')) {
+    redirectTarget = isLocal ? 'http://localhost:5173/markets' : 'https://hedger-beta.vercel.app/markets';
+  }
 
   let userEmail = '';
   let userName = '';
@@ -297,9 +327,10 @@ authRouter.get('/google/callback', async (req: Request, res: Response) => {
   // 1. Live Google code exchange if credentials are live
   if (code && config.GOOGLE_CLIENT_ID && config.GOOGLE_CLIENT_SECRET) {
     try {
-      const proto = (req.headers['x-forwarded-proto'] as string) || (req.get('host')?.includes('vercel.app') ? 'https' : req.protocol);
-      const host = req.get('host');
-      const redirectUri = `${proto}://${host}/api/auth/google/callback`;
+      const redirectUri = isLocal
+        ? `http://${host}/api/auth/google/callback`
+        : 'https://hedger-beta.vercel.app/api/auth/google/callback';
+
       const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -320,6 +351,8 @@ authRouter.get('/google/callback', async (req: Request, res: Response) => {
         userEmail = profile.email;
         userName = profile.name || profile.email.split('@')[0];
         userAvatar = profile.picture;
+      } else {
+        console.error('Google token exchange error:', tokenData);
       }
     } catch (err: any) {
       console.error('Google OAuth token exchange error:', err.message);
@@ -328,10 +361,11 @@ authRouter.get('/google/callback', async (req: Request, res: Response) => {
 
   // Require verified user profile from Google OAuth
   if (!userEmail) {
-    return res.redirect(`${redirectTarget}?oauth_error=Google+authentication+was+not+completed`);
+    const errSep = redirectTarget.includes('?') ? '&' : '?';
+    return res.redirect(`${redirectTarget}${errSep}oauth_error=Google+authentication+was+not+completed`);
   }
 
-  // Upsert user in Database
+  // Upsert user in Database (Basic free tier for new registrations)
   let targetUser = await db.findUserByEmail(userEmail);
   if (!targetUser) {
     targetUser = await db.createUser({
@@ -340,7 +374,7 @@ authRouter.get('/google/callback', async (req: Request, res: Response) => {
       email: userEmail,
       provider: 'google',
       avatar: userAvatar,
-      plan: 'pro'
+      plan: 'basic'
     });
   } else {
     targetUser = await db.updateUser(targetUser.id, {
@@ -364,7 +398,8 @@ authRouter.get('/google/callback', async (req: Request, res: Response) => {
   const session = await createSession(targetUser.id, req);
   setSessionCookie(res, session.token);
 
-  res.redirect(`${redirectTarget}?auth_success=1&token=${session.token}`);
+  const sep = redirectTarget.includes('?') ? '&' : '?';
+  res.redirect(`${redirectTarget}${sep}auth_success=1&token=${session.token}`);
 });
 
 /**
@@ -400,7 +435,7 @@ authRouter.post('/google/verify', async (req: Request, res: Response) => {
         email: cleanEmail,
         provider: 'google',
         avatar,
-        plan: 'pro'
+        plan: 'basic'
       });
     } else {
       targetUser = (await db.updateUser(targetUser.id, {
@@ -873,7 +908,7 @@ async function handleAppleCallback(req: Request, res: Response) {
   if (id_token && typeof id_token === 'string') {
     try {
       const parts = id_token.split('.');
-      if (parts.length === 3) {
+      if (parts.length === 3 && parts[1]) {
         const payloadJson = Buffer.from(parts[1], 'base64').toString('utf8');
         const tokenClaims = JSON.parse(payloadJson);
         if (tokenClaims.email) {
@@ -898,7 +933,7 @@ async function handleAppleCallback(req: Request, res: Response) {
 
   if (!userEmail && (gateway || gatewayEmail)) {
     userEmail = String(gatewayEmail || '').trim().toLowerCase();
-    userName = String(gatewayName || userEmail.split('@')[0]).trim();
+    userName = String(gatewayName || userEmail.split('@')[0] || '').trim();
   }
 
   if (!userEmail) {
@@ -907,7 +942,7 @@ async function handleAppleCallback(req: Request, res: Response) {
   }
 
   if (!userName) {
-    userName = userEmail.split('@')[0];
+    userName = userEmail.split('@')[0] || 'User';
   }
 
   let targetUser = await db.findUserByEmail(userEmail);
@@ -917,7 +952,7 @@ async function handleAppleCallback(req: Request, res: Response) {
       name: userName,
       email: userEmail,
       provider: 'apple',
-      plan: 'pro'
+      plan: 'basic'
     });
   } else {
     targetUser = await db.updateUser(targetUser.id, {
@@ -961,7 +996,7 @@ authRouter.post('/oauth/exchange', async (req: Request, res: Response) => {
 
   const cleanEmail = String(email).trim().toLowerCase();
   const cleanName = String(name || cleanEmail.split('@')[0]).trim();
-  const assignedPlan = plan === 'ultra' ? 'ultra' : 'pro';
+  const assignedPlan = plan === 'ultra' ? 'ultra' : plan === 'pro' ? 'pro' : 'basic';
 
   let user = await db.findUserByEmail(cleanEmail);
   if (!user) {
@@ -978,7 +1013,7 @@ authRouter.post('/oauth/exchange', async (req: Request, res: Response) => {
       name: cleanName,
       provider: provider as any,
       avatar: avatar || user.avatar,
-      plan: user.plan === 'ultra' ? 'ultra' : assignedPlan
+      plan: user.plan === 'ultra' ? 'ultra' : user.plan === 'pro' ? 'pro' : assignedPlan
     }) || user;
   }
 
@@ -1046,7 +1081,7 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
     name: (name && String(name).trim()) || cleanEmail.split('@')[0],
     email: cleanEmail,
     provider: 'email',
-    plan: 'pro', // 14-day institutional pro trial for new signups
+    plan: 'basic',
     passwordHash,
     salt
   });
