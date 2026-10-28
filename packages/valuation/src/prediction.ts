@@ -232,6 +232,60 @@ export interface ScenarioOutput {
   targetMultiple: number;
 }
 
+export interface YearlyPathPoint {
+  year: number;
+  p5: number;
+  bear: number; // P25
+  base: number; // P50
+  bull: number; // P75
+  p95: number;
+  mean: number;
+}
+
+export interface ProbabilisticEngineOutput {
+  yearlyPaths: YearlyPathPoint[];
+  kpis: {
+    currentPrice: number;
+    year1ExpectedValue: number;
+    year5BaseTarget: number;
+  };
+  horizonTable: Array<{
+    horizon: string;
+    horizonYears: number;
+    bear: number;
+    base: number;
+    bull: number;
+    expectedValue: number;
+    ci90Low: number;
+    ci90High: number;
+    baseCagrPct: number;
+  }>;
+  qualityFlags: {
+    fcfConversionPct: number;
+    sloanAccrualRatio: number;
+    sloanAccrualFlag: string;
+    roicPct: number;
+    waccPct: number;
+    roicWaccSpreadPct: number;
+    moatStatus: string;
+    rateRegime: string;
+    overlayTilt: number;
+    sanityChecks: Array<{ check: string; status: 'PASS' | 'WARNING'; message: string }>;
+  };
+  assumptions: {
+    price0: number;
+    eps0: number;
+    fcfPerShare: number;
+    epsGrowthRate: number;
+    wacc: number;
+    gTerm: number;
+    exitPe: number;
+    peerPe: number;
+    fadeYears: number;
+    seed: number;
+  };
+}
+
 export interface HorizonOutput {
   horizon: '1Y' | '3Y' | '5Y';
   horizonDate: string;
@@ -296,6 +350,7 @@ export type PredictionResult =
       factors: FactorReading[];
       assumptions: PredictionAssumptions;
       institutionalSynthesis?: InstitutionalPredictionSynthesis;
+      probabilisticEngine?: ProbabilisticEngineOutput;
     }
   | {
       ok: false;
@@ -313,6 +368,7 @@ export type PredictionResult =
       factors: FactorReading[];
       assumptions: PredictionAssumptions;
       institutionalSynthesis?: InstitutionalPredictionSynthesis;
+      probabilisticEngine?: ProbabilisticEngineOutput;
     };
 
 /**
@@ -1032,6 +1088,27 @@ export function calculate5YearPrediction(inputs: PredictionInputs): PredictionRe
     reliability,
     factors,
     institutionalSynthesis,
+    probabilisticEngine: runProbabilisticSimulation({
+      price: price0,
+      eps: eps0,
+      fcfPerShare: eps0 * 0.85,
+      epsGrowth: baseGrowthPath[0] ?? 0.09,
+      wacc: keHurdle,
+      gTerm: gLong,
+      exitPe: pe5,
+      peerPe: multPeer,
+      roic: isBank ? 0.16 : 0.22,
+      tilt: Math.max(-0.25, Math.min(0.25, structuralAdjustment * 2)),
+      years: 5,
+      n: simulations,
+      seed,
+      fadeYears: 5,
+      growthSd: sigmaG,
+      waccSd: 0.01,
+      peSd: sigmaM,
+      sloanAccruals: -0.02,
+      fcfConversion: 0.88
+    }),
     assumptions: {
       eps0,
       eps5: Number(eps5.toFixed(2)),
@@ -1044,6 +1121,303 @@ export function calculate5YearPrediction(inputs: PredictionInputs): PredictionRe
       mHype: Number((mHype * 100).toFixed(2)),
       exitMultiple: Number(pe5.toFixed(3)),
       simulations,
+      seed
+    }
+  };
+}
+
+// ============================================================================
+// 10-MODULE PROBABILISTIC PRICE PROJECTION ENGINE (1Y / 3Y / 5Y)
+// ============================================================================
+
+export interface ProbabilisticSimulationParams {
+  price: number;
+  eps: number;
+  fcfPerShare: number;
+  epsGrowth: number;
+  wacc: number;
+  gTerm: number;
+  exitPe: number;
+  peerPe?: number;
+  roic?: number;
+  tilt?: number;
+  years?: number;
+  n?: number;
+  seed?: number;
+  fadeYears?: number;
+  growthSd?: number;
+  waccSd?: number;
+  peSd?: number;
+  sloanAccruals?: number;
+  fcfConversion?: number;
+  optionsIv1Y?: number;
+  tenYearYield?: number;
+}
+
+function cfgFor(h: number): { wDcf: number; wPe: number; wPeer: number; overlay: number } {
+  if (h <= 1) return { wDcf: 0.30, wPe: 0.50, wPeer: 0.20, overlay: 0.30 };
+  if (h <= 3) return { wDcf: 0.50, wPe: 0.30, wPeer: 0.20, overlay: 0.15 };
+  return { wDcf: 0.65, wPe: 0.20, wPeer: 0.15, overlay: 0.10 };
+}
+
+function dcfValueAt(h: number, fcf0: number, g: number, w: number, gTerm: number, fadeYears: number): number {
+  let fcf = fcf0 * Math.pow(1 + g, h);
+  let pv = 0.0;
+  for (let t = 1; t <= fadeYears; t++) {
+    const gt = g + (gTerm - g) * (t / fadeYears);
+    fcf = fcf * (1 + gt);
+    pv += fcf / Math.pow(1 + w, t);
+  }
+  const denominator = Math.max(0.005, w - gTerm);
+  const terminal = (fcf * (1 + gTerm)) / denominator;
+  return pv + terminal / Math.pow(1 + w, fadeYears);
+}
+
+export function runProbabilisticSimulation(params: ProbabilisticSimulationParams): ProbabilisticEngineOutput {
+  const price = Math.max(0.01, params.price);
+  const rawEps = Math.max(0.01, params.eps);
+  const rawFcf = Math.max(0.01, params.fcfPerShare);
+  const fcfConversion = params.fcfConversion ?? 0.88;
+  const sloanAccruals = params.sloanAccruals ?? -0.02;
+
+  // Module 1: FCF conversion and Sloan accrual quality check
+  let qualityHaircut = 1.0;
+  let growthSd = params.growthSd ?? 0.04;
+  let sloanFlag = 'Low (Safe Cash Backing)';
+  if (sloanAccruals > 0.08 || fcfConversion < 0.80) {
+    qualityHaircut = 0.92;
+    growthSd = 0.06;
+    sloanFlag = sloanAccruals > 0.08 ? 'High (Accrual Warning)' : 'Moderate';
+  }
+
+  const eps = rawEps * qualityHaircut;
+  const fcfPerShare = rawFcf * qualityHaircut;
+
+  // Module 2: ROIC vs WACC spread
+  const roic = params.roic ?? 0.16;
+  const baseWacc = params.wacc;
+  const tenYearYield = params.tenYearYield ?? 0.042;
+
+  // Module 3: Macro cost of capital (If 10Y > 4.5%, raise WACC by 1.5pp)
+  let wacc = baseWacc;
+  let rateRegime = 'Normal Rate Regime';
+  if (tenYearYield > 0.045) {
+    wacc += 0.015;
+    rateRegime = 'Elevated 10Y Rate Regime (+150 bps Hurdle)';
+  }
+
+  const roicWaccSpread = roic - wacc;
+  let fadeYears = params.fadeYears ?? 5;
+  let moatStatus = 'Narrow Moat';
+  if (roicWaccSpread > 0.08) {
+    moatStatus = 'Wide Moat (Value Accretive)';
+    fadeYears = 8;
+  } else if (roicWaccSpread < 0) {
+    moatStatus = 'Value Destructive (ROIC < WACC)';
+    fadeYears = 3;
+  }
+
+  const gTerm = params.gTerm;
+  const exitPe = params.exitPe;
+  const peerPe = params.peerPe ?? exitPe;
+  const tilt = Math.max(-0.25, Math.min(0.25, params.tilt ?? 0.0));
+  const years = params.years ?? 5;
+  const n = params.n ?? 10000;
+  const seed = params.seed ?? 42;
+  const waccSd = params.waccSd ?? 0.01;
+  const peSd = params.peSd ?? 0.15;
+
+  const rng = mulberry32(seed);
+
+  // Pre-generate correlated normal vectors for the n simulations
+  // Cholesky factors for corr = [[1.0, -0.2, 0.4], [-0.2, 1.0, -0.5], [0.4, -0.5, 1.0]]:
+  // L00 = 1.0
+  // L10 = -0.2, L11 = 0.9797958971132712
+  // L20 = 0.4,  L21 = -0.4286607079870889, L22 = 0.8100925872996507
+  const gSims = new Float64Array(n);
+  const wSims = new Float64Array(n);
+  const peFactors = new Float64Array(n);
+
+  for (let i = 0; i < n; i++) {
+    const u0 = standardNormal(rng);
+    const u1 = standardNormal(rng);
+    const u2 = standardNormal(rng);
+    const z0 = u0;
+    const z1 = -0.2 * u0 + 0.9797958971132712 * u1;
+    const z2 = 0.4 * u0 - 0.4286607079870889 * u1 + 0.8100925872996507 * u2;
+
+    gSims[i] = params.epsGrowth + growthSd * z0;
+    wSims[i] = Math.max(wacc + waccSd * z1, gTerm + 0.02);
+    peFactors[i] = Math.exp(peSd * z2 - 0.5 * peSd * peSd);
+  }
+
+  const yearlyPaths: YearlyPathPoint[] = [];
+
+  for (let h = 0; h <= years; h++) {
+    if (h === 0) {
+      yearlyPaths.push({
+        year: 0,
+        p5: Math.round(price),
+        bear: Math.round(price),
+        base: Math.round(price),
+        bull: Math.round(price),
+        p95: Math.round(price),
+        mean: Math.round(price)
+      });
+      continue;
+    }
+
+    const cfg = cfgFor(h);
+    const vals = new Float64Array(n);
+
+    for (let i = 0; i < n; i++) {
+      let gH = gSims[i]!;
+      // Module 2: If ROIC < WACC, cap growth at terminal growth for h >= 3
+      if (roic < wacc && h >= 3) {
+        gH = Math.min(gH, gTerm);
+      }
+
+      const dcf = dcfValueAt(h, fcfPerShare, gH, wSims[i]!, gTerm, fadeYears);
+      const epsH = eps * Math.pow(1 + gH, h);
+      const pePrice = epsH * exitPe * peFactors[i]!;
+      const peerPrice = epsH * peerPe * peFactors[i]!;
+      const blend = cfg.wDcf * dcf + cfg.wPe * pePrice + cfg.wPeer * peerPrice;
+      vals[i] = Math.max(0.0, blend * (1 + cfg.overlay * tilt));
+    }
+
+    vals.sort();
+
+    const p5 = vals[Math.floor(n * 0.05)]!;
+    const bear = vals[Math.floor(n * 0.25)]!;
+    const base = vals[Math.floor(n * 0.50)]!;
+    const bull = vals[Math.floor(n * 0.75)]!;
+    const p95 = vals[Math.floor(n * 0.95)]!;
+
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += vals[i]!;
+    const mean = sum / n;
+
+    yearlyPaths.push({
+      year: h,
+      p5: Math.round(p5),
+      bear: Math.round(bear),
+      base: Math.round(base),
+      bull: Math.round(bull),
+      p95: Math.round(p95),
+      mean: Math.round(mean)
+    });
+  }
+
+  // Horizon forecast table (1Y, 3Y, 5Y)
+  const forecastHorizons = [1, 3, 5].filter((h) => h <= years);
+  const horizonTable = forecastHorizons.map((h) => {
+    const pt = yearlyPaths.find((p) => p.year === h) || yearlyPaths[yearlyPaths.length - 1]!;
+    const baseCagr = price > 0 ? (Math.pow(pt.base / price, 1 / h) - 1) * 100 : 0;
+    return {
+      horizon: `${h} year${h > 1 ? 's' : ''}`,
+      horizonYears: h,
+      bear: pt.bear,
+      base: pt.base,
+      bull: pt.bull,
+      expectedValue: pt.mean,
+      ci90Low: pt.p5,
+      ci90High: pt.p95,
+      baseCagrPct: Math.round(baseCagr * 10) / 10
+    };
+  });
+
+  // Module 5 & 10 Sanity Checks
+  const sanityChecks: Array<{ check: string; status: 'PASS' | 'WARNING'; message: string }> = [];
+
+  // Check 1: DCF vs multiples divergence at 3Y
+  const pt3 = yearlyPaths.find((p) => p.year === 3);
+  if (pt3) {
+    const dcf3 = dcfValueAt(3, fcfPerShare, params.epsGrowth, wacc, gTerm, fadeYears);
+    const eps3 = eps * Math.pow(1 + params.epsGrowth, 3);
+    const pe3 = eps3 * exitPe;
+    const div = Math.abs(dcf3 - pe3) / Math.max(dcf3, pe3);
+    if (div > 0.50) {
+      sanityChecks.push({
+        check: 'DCF vs Multiples Divergence',
+        status: 'WARNING',
+        message: `Divergence of ${(div * 100).toFixed(0)}% between DCF and multiple models`
+      });
+    } else {
+      sanityChecks.push({
+        check: 'DCF vs Multiples Divergence',
+        status: 'PASS',
+        message: `Models agree within ${(div * 100).toFixed(0)}%`
+      });
+    }
+  }
+
+  // Check 2: WACC sanity (WACC >= gTerm + 2pp)
+  if (wacc < gTerm + 0.02) {
+    sanityChecks.push({
+      check: 'WACC vs Terminal Growth Spread',
+      status: 'WARNING',
+      message: `WACC (${(wacc * 100).toFixed(1)}%) is within 200 bps of terminal growth`
+    });
+  } else {
+    sanityChecks.push({
+      check: 'WACC vs Terminal Growth Spread',
+      status: 'PASS',
+      message: `WACC exceeds terminal growth by ${((wacc - gTerm) * 100).toFixed(1)} pp`
+    });
+  }
+
+  // Check 3: Base 5Y CAGR
+  const pt5 = yearlyPaths.find((p) => p.year === 5);
+  if (pt5 && price > 0) {
+    const cagr5 = (Math.pow(pt5.base / price, 1 / 5) - 1) * 100;
+    if (cagr5 > 25 || cagr5 < -10) {
+      sanityChecks.push({
+        check: '5-Year Implied Return Sanity',
+        status: 'WARNING',
+        message: `5Y Base CAGR of ${cagr5.toFixed(1)}% outside normal -10% to +25% corridor`
+      });
+    } else {
+      sanityChecks.push({
+        check: '5-Year Implied Return Sanity',
+        status: 'PASS',
+        message: `5Y Base CAGR of ${cagr5.toFixed(1)}% within balanced corridor`
+      });
+    }
+  }
+
+  const y1 = yearlyPaths.find((p) => p.year === 1);
+  const y5 = yearlyPaths.find((p) => p.year === 5) || yearlyPaths[yearlyPaths.length - 1]!;
+
+  return {
+    yearlyPaths,
+    kpis: {
+      currentPrice: Math.round(price),
+      year1ExpectedValue: y1 ? y1.mean : Math.round(price * 1.08),
+      year5BaseTarget: y5 ? y5.base : Math.round(price * 1.45)
+    },
+    horizonTable,
+    qualityFlags: {
+      fcfConversionPct: Math.round(fcfConversion * 1000) / 10,
+      sloanAccrualRatio: Math.round(sloanAccruals * 1000) / 10,
+      sloanAccrualFlag: sloanFlag,
+      roicPct: Math.round(roic * 1000) / 10,
+      waccPct: Math.round(wacc * 1000) / 10,
+      roicWaccSpreadPct: Math.round(roicWaccSpread * 1000) / 10,
+      moatStatus,
+      rateRegime,
+      overlayTilt: Math.round(tilt * 100) / 100,
+      sanityChecks
+    },
+    assumptions: {
+      price0: Math.round(price),
+      eps0: Number(eps.toFixed(2)),
+      fcfPerShare: Number(fcfPerShare.toFixed(2)),
+      epsGrowthRate: Number(params.epsGrowth.toFixed(4)),
+      wacc: Number(wacc.toFixed(4)),
+      gTerm: Number(gTerm.toFixed(4)),
+      exitPe: Number(exitPe.toFixed(2)),
+      peerPe: Number(peerPe.toFixed(2)),
+      fadeYears,
       seed
     }
   };

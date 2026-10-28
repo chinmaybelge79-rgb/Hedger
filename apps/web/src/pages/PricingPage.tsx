@@ -254,22 +254,22 @@ export const PricingPage: React.FC = () => {
             <div style={{ padding: '16px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', marginBottom: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
                 <div style={{ fontSize: '32px', fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>
-                  {billingCycle === 'yearly' ? '$7.99' : '$9.99'}
+                  {billingCycle === 'yearly' ? '$24' : '$29'}
                 </div>
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>/ month</span>
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
-                {billingCycle === 'yearly' ? 'Billed annually ($95.90/yr · 20% off)' : 'Billed monthly ($9.99/mo)'}
+                {billingCycle === 'yearly' ? 'Billed annually ($288/yr · 17% off)' : 'Billed monthly ($29/mo)'}
               </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12px', color: 'var(--text)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Everything in Plus included</span></div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>25 AI Investment Theses & 10 Downloads/mo</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Custom DCF sliders & workbench</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>1,000 monthly API fetches</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>10 research report downloads/mo</span></div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Cross-Border Peer Comparison Workbench</span></div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Automatic FX conversion & fiscal year alignment</span></div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Banking Excess Returns & Dividend Discount models</span></div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Unlimited model persistence & parameter notes</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Banking Excess Returns & DDM models</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Full Monte Carlo simulation</span></div>
             </div>
           </div>
 
@@ -304,20 +304,21 @@ export const PricingPage: React.FC = () => {
             <div style={{ padding: '16px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', marginBottom: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
                 <div style={{ fontSize: '32px', fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>
-                  {billingCycle === 'yearly' ? '$15.99' : '$19.99'}
+                  {billingCycle === 'yearly' ? '$64' : '$79'}
                 </div>
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>/ month</span>
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
-                {billingCycle === 'yearly' ? 'Billed annually ($191.90/yr · 20% off)' : 'Billed monthly ($19.99/mo)'}
+                {billingCycle === 'yearly' ? 'Billed annually ($768/yr · 19% off)' : 'Billed monthly ($79/mo)'}
               </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12px', color: 'var(--text)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Everything in Pro included</span></div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Forward Portfolio Prediction & Monte Carlo stress testing</span></div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Deterministic Financial Health & Quality audits</span></div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Custom WACC and capital structure builder</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>5,000 monthly API fetches</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>20 thesis document exports</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Unlimited DCF workbenches</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Priority NVIDIA NIM reasoning</span></div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><CheckIcon /><span>Dedicated valuation methodology support</span></div>
             </div>
           </div>

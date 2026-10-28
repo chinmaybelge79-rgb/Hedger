@@ -128,6 +128,16 @@ export const ThesisProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
 
         const data = await res.json();
+        try {
+          const item = localStorage.getItem('hedger_theses_generated_symbols');
+          const list = item ? JSON.parse(item) : [];
+          if (!list.includes(sym)) {
+            list.push(sym);
+            localStorage.setItem('hedger_theses_generated_symbols', JSON.stringify(list));
+          }
+        } catch {
+          // ignore
+        }
         const readyJob: ThesisJob = {
           symbol: sym,
           status: 'ready',

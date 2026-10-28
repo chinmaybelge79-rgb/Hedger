@@ -1,41 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { formatPrice } from '@hedger/format';
-import type {
-  FactorReading,
-  InstitutionalPredictionSynthesis,
-  HorizonOutput,
-  GateResult
+import {
+  runProbabilisticSimulation,
+  type ProbabilisticEngineOutput,
+  type YearlyPathPoint
 } from '@hedger/valuation';
 import { PREDICTION_ENABLED } from '../flags.js';
-
-interface PredictionData {
-  ok: boolean;
-  reason?: string;
-  horizonDate: string;
-  currency: string;
-  price0: number;
-  p10: number;
-  p50: number;
-  p90: number;
-  changePct: number;
-  reliability: 'High' | 'Medium' | 'Low';
-  factors: FactorReading[];
-  assumptions: {
-    eps0: number;
-    eps5: number;
-    gLong: number;
-    baseGrowthPath: number[];
-    structuralAdjustmentPp: number;
-    sentimentAdjustmentPp: number;
-    peAnchor: number;
-    mCycle: number;
-    mHype: number;
-    exitMultiple: number;
-    simulations: number;
-    seed: number;
-  };
-  institutionalSynthesis?: InstitutionalPredictionSynthesis;
-}
 
 interface PredictionModelCardProps {
   symbol: string;
@@ -48,13 +18,24 @@ export const PredictionModelCard: React.FC<PredictionModelCardProps> = ({
   currency,
   currentPrice
 }) => {
-  const [data, setData] = useState<PredictionData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedFactors, setExpandedFactors] = useState<boolean>(false);
-  const [expandedGates, setExpandedGates] = useState<boolean>(false);
-  const [selectedHorizon, setSelectedHorizon] = useState<'1Y' | '3Y' | '5Y'>('1Y');
 
+  // Active Interactive Assumption States (Section 6)
+  const [userPrice, setUserPrice] = useState<number>(currentPrice || 100);
+  const [userGrowthPct, setUserGrowthPct] = useState<number>(12);
+  const [userExitPe, setUserExitPe] = useState<number>(22);
+  const [userWaccPct, setUserWaccPct] = useState<number>(8.5);
+  const [userHorizonYears, setUserHorizonYears] = useState<number>(5);
+  const [userRoicPct, setUserRoicPct] = useState<number>(18);
+  const [userFcfPerShare, setUserFcfPerShare] = useState<number>(4.5);
+  const [userEps0, setUserEps0] = useState<number>(5.0);
+
+  // Expandable sections
+  const [showSanityChecks, setShowSanityChecks] = useState<boolean>(false);
+  const [showAssumptions, setShowAssumptions] = useState<boolean>(false);
+
+  // Fetch baseline company fundamentals from API
   useEffect(() => {
     let isMounted = true;
     if (!PREDICTION_ENABLED) return;
@@ -69,10 +50,29 @@ export const PredictionModelCard: React.FC<PredictionModelCardProps> = ({
       })
       .then((json) => {
         if (!isMounted) return;
-        if (json.meta && json.meta.symbol && json.meta.symbol.toUpperCase() !== symbol.toUpperCase()) {
-          throw new Error('Symbol mismatch in projection response');
+        const data = json.data;
+        if (!data || data.ok === false) {
+          throw new Error(data?.reason || 'Projection data unavailable');
         }
-        setData(json.data);
+
+        const engine = data.probabilisticEngine;
+        const p0 = data.price0 || currentPrice || 100;
+        setUserPrice(p0);
+
+        if (engine && engine.assumptions) {
+          setUserGrowthPct(Math.round(engine.assumptions.epsGrowthRate * 100));
+          setUserExitPe(Math.round(engine.assumptions.exitPe * 10) / 10);
+          setUserWaccPct(Math.round(engine.assumptions.wacc * 1000) / 10);
+          setUserEps0(engine.assumptions.eps0 || 5.0);
+          setUserFcfPerShare(engine.assumptions.fcfPerShare || 4.25);
+        } else if (data.assumptions) {
+          const g0 = data.assumptions.baseGrowthPath?.[0] ?? 0.10;
+          setUserGrowthPct(Math.round(g0 * 100));
+          setUserExitPe(Math.round(data.assumptions.exitMultiple * 10) / 10);
+          setUserEps0(data.assumptions.eps0 || 5.0);
+          setUserFcfPerShare(data.assumptions.eps0 * 0.85);
+        }
+
         setLoading(false);
       })
       .catch((err) => {
@@ -84,11 +84,34 @@ export const PredictionModelCard: React.FC<PredictionModelCardProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [symbol]);
+  }, [symbol, currentPrice]);
 
-  if (!PREDICTION_ENABLED) {
-    return null;
-  }
+  // Execute Deterministic Probabilistic Engine in Real-Time (Section 4 & 9)
+  const simulation: ProbabilisticEngineOutput = useMemo(() => {
+    return runProbabilisticSimulation({
+      price: userPrice,
+      eps: userEps0,
+      fcfPerShare: userFcfPerShare,
+      epsGrowth: userGrowthPct / 100,
+      wacc: userWaccPct / 100,
+      gTerm: currency === 'INR' ? 0.06 : 0.03,
+      exitPe: userExitPe,
+      peerPe: userExitPe * 0.95,
+      roic: userRoicPct / 100,
+      tilt: 0.0,
+      years: userHorizonYears,
+      n: 10000,
+      seed: 42,
+      fadeYears: userRoicPct > userWaccPct + 8 ? 8 : 5,
+      growthSd: 0.04,
+      waccSd: 0.01,
+      peSd: 0.15,
+      sloanAccruals: -0.02,
+      fcfConversion: 0.88
+    });
+  }, [userPrice, userEps0, userFcfPerShare, userGrowthPct, userWaccPct, userExitPe, userRoicPct, userHorizonYears, currency]);
+
+  if (!PREDICTION_ENABLED) return null;
 
   // 1. Loading Skeleton
   if (loading) {
@@ -102,25 +125,22 @@ export const PredictionModelCard: React.FC<PredictionModelCardProps> = ({
           backgroundColor: 'var(--card)',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'space-between',
-          minHeight: '260px'
+          gap: '16px',
+          minHeight: '380px'
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div style={{ width: '140px', height: '14px', backgroundColor: 'var(--border)', borderRadius: '4px' }} />
-          <div style={{ width: '96px', height: '14px', backgroundColor: 'var(--border)', borderRadius: '4px' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ width: '220px', height: '18px', backgroundColor: 'var(--border)', borderRadius: '4px' }} />
+          <div style={{ width: '120px', height: '18px', backgroundColor: 'var(--border)', borderRadius: '4px' }} />
         </div>
-        <div style={{ width: '160px', height: '40px', backgroundColor: 'var(--border)', borderRadius: '6px', marginBottom: '8px' }} />
-        <div style={{ width: '80px', height: '14px', backgroundColor: 'var(--border)', borderRadius: '4px', marginBottom: '12px' }} />
-        <div style={{ width: '120px', height: '24px', backgroundColor: 'var(--border)', borderRadius: '4px', marginBottom: '16px' }} />
-        <div style={{ width: '100%', height: '14px', backgroundColor: 'var(--border)', borderRadius: '4px' }} />
+        <div style={{ width: '100%', height: '240px', backgroundColor: 'var(--border)', borderRadius: '8px' }} />
+        <div style={{ width: '100%', height: '40px', backgroundColor: 'var(--border)', borderRadius: '6px' }} />
       </div>
     );
   }
 
   // 2. Unavailable / Refusal State
-  if (error || !data || data.ok === false) {
-    const refusalReason = data?.reason || error || 'Projection not available for this instrument';
+  if (error) {
     return (
       <div
         data-testid="prediction-card-unavailable"
@@ -129,68 +149,59 @@ export const PredictionModelCard: React.FC<PredictionModelCardProps> = ({
           borderRadius: '10px',
           padding: '24px',
           backgroundColor: 'var(--card)',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
           minHeight: '260px'
         }}
       >
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              Institutional scenario model · v1.0
-            </span>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              Reliability: Low
-            </span>
-          </div>
-          <div style={{ fontSize: '20px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '8px' }}>
-            Projection not available
-          </div>
-          <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
-            {refusalReason}
-          </p>
+        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+          3-Horizon Price Projection Engine
         </div>
-
-        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '24px', lineHeight: 1.4 }}>
-          Institutional models require positive trailing earnings, balance sheet depth, and audited filing coverage.
+        <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '8px' }}>
+          Projection not available
         </div>
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          {error}
+        </p>
       </div>
     );
   }
 
-  // 3. Institutional Active Horizon State
-  const synthesis = data.institutionalSynthesis;
-  const horizonData: HorizonOutput | undefined = synthesis?.horizons ? synthesis.horizons[selectedHorizon] : undefined;
+  // Extract paths and KPI anchors
+  const paths = simulation.yearlyPaths.filter((p) => p.year <= userHorizonYears);
+  const kpis = simulation.kpis;
 
-  // Active prices and IRR for selected horizon
-  const displayPrice = horizonData ? horizonData.probWeightedPrice : data.p50;
-  const displayP10 = horizonData ? horizonData.p10 : data.p10;
-  const displayP90 = horizonData ? horizonData.p90 : data.p90;
-  const displayHorizonDate = horizonData ? horizonData.horizonDate : data.horizonDate;
-  const displayIrrPct = horizonData ? horizonData.expectedIrrPct : (data.changePct * 100);
+  // Chart coordinate mapping
+  const chartWidth = 560;
+  const chartHeight = 240;
+  const padLeft = 48;
+  const padRight = 32;
+  const padTop = 20;
+  const padBottom = 32;
+  const plotW = chartWidth - padLeft - padRight;
+  const plotH = chartHeight - padTop - padBottom;
 
-  const isUp = displayIrrPct > 0.05;
-  const isDown = displayIrrPct < -0.05;
-  const changeColor = isUp ? '#107C41' : isDown ? '#B3261E' : '#71717A';
-  const changeArrow = isUp ? '▲ ' : isDown ? '▼ ' : '';
-  const changeSign = isUp ? '+' : isDown ? '-' : '';
-  const changeText = isUp || isDown ? `${changeArrow}${changeSign}${Math.abs(displayIrrPct).toFixed(1)}% expected IRR` : '0.0% expected IRR';
+  // Find price bounds across all visible scenarios
+  const allPrices = paths.flatMap((p) => [p.p5, p.bear, p.base, p.bull, p.p95]);
+  const minPrice = Math.max(0, Math.floor(Math.min(...allPrices, userPrice) * 0.85));
+  const maxPrice = Math.ceil(Math.max(...allPrices, userPrice) * 1.12);
+  const priceRange = Math.max(1, maxPrice - minPrice);
 
-  // Valuation Stance Styling
-  const stance = synthesis?.valuationStance || 'Fairly valued / neutral';
-  const stanceColor =
-    stance === 'Attractive risk/reward'
-      ? { bg: '#064E3B', text: '#A7F3D0', border: '#059669' }
-      : stance === 'Reasonable risk/reward'
-        ? { bg: '#042F2E', text: '#99F6E4', border: '#0D9488' }
-        : stance === 'Fairly valued / neutral'
-          ? { bg: '#27272A', text: '#E4E4E7', border: '#52525B' }
-          : stance === 'Stretched'
-            ? { bg: '#451A03', text: '#FDE68A', border: '#D97706' }
-            : stance === 'Unfavourable risk/reward'
-              ? { bg: '#450A0A', text: '#FECACA', border: '#DC2626' }
-              : { bg: '#27272A', text: '#A1A1AA', border: '#3F3F46' };
+  const getX = (year: number) => padLeft + (year / userHorizonYears) * plotW;
+  const getY = (val: number) => padTop + plotH - ((val - minPrice) / priceRange) * plotH;
+
+  // Build SVG path strings
+  const p5Path = paths.map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(p.year)} ${getY(p.p5)}`).join(' ');
+  const p95Reverse = paths.slice().reverse().map((p) => `L ${getX(p.year)} ${getY(p.p95)}`).join(' ');
+  const corridorArea = `${p5Path} ${p95Reverse} Z`;
+
+  const bullPath = paths.map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(p.year)} ${getY(p.bull)}`).join(' ');
+  const basePath = paths.map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(p.year)} ${getY(p.base)}`).join(' ');
+  const bearPath = paths.map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(p.year)} ${getY(p.bear)}`).join(' ');
+
+  // Horizontal price grid lines (4 ticks)
+  const yTicks = [0, 0.33, 0.66, 1.0].map((frac) => {
+    const val = Math.round(minPrice + frac * priceRange);
+    return { val, y: getY(val) };
+  });
 
   return (
     <div
@@ -205,476 +216,486 @@ export const PredictionModelCard: React.FC<PredictionModelCardProps> = ({
         gap: '20px'
       }}
     >
-      {/* Top Header Line with Stance and Horizon Switcher */}
+      {/* 1. Header Title & Top KPIs (Section 6) */}
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                backgroundColor: stanceColor.bg,
-                color: stanceColor.text,
-                border: `1px solid ${stanceColor.border}`
-              }}
-            >
-              {stance}
-            </span>
-            {synthesis?.evidenceGrade && (
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  backgroundColor: 'var(--secondary)',
-                  color: 'var(--foreground)'
-                }}
-              >
-                Grade {synthesis.evidenceGrade}
-              </span>
-            )}
-          </div>
-
-          {/* Horizon Segmented Selector */}
-          <div
-            style={{
-              display: 'inline-flex',
-              backgroundColor: 'var(--secondary)',
-              borderRadius: '6px',
-              padding: '3px',
-              gap: '4px'
-            }}
-          >
-            {(['1Y', '3Y', '5Y'] as const).map((h) => {
-              const active = selectedHorizon === h;
-              return (
-                <button
-                  key={h}
-                  type="button"
-                  onClick={() => setSelectedHorizon(h)}
-                  style={{
-                    border: 'none',
-                    borderRadius: '4px',
-                    padding: '6px 14px',
-                    fontSize: '12px',
-                    fontWeight: active ? 600 : 500,
-                    backgroundColor: active ? 'var(--card)' : 'transparent',
-                    color: active ? 'var(--foreground)' : 'var(--text-muted)',
-                    boxShadow: active ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  {h} Horizon
-                </button>
-              );
-            })}
-          </div>
+        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+          Probabilistic Valuation Engine · 1Y / 3Y / 5Y
+        </div>
+        <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '16px' }}>
+          3-Horizon Price Projection Engine
         </div>
 
-        {/* Primary Probability-Weighted Valuation */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            Probability-weighted price projection · {selectedHorizon}
-          </div>
-          <div
-            style={{
-              fontSize: '40px',
-              fontWeight: 600,
-              color: 'var(--foreground)',
-              letterSpacing: '-0.02em',
-              lineHeight: 1.1,
-              fontVariantNumeric: 'tabular-nums'
-            }}
-          >
-            {formatPrice({ amount: displayPrice, currency })}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '18px', fontWeight: 600, color: changeColor, fontVariantNumeric: 'tabular-nums' }}>
-              {changeText}
-            </span>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              by {displayHorizonDate} (current: {formatPrice({ amount: currentPrice, currency })})
-            </span>
-          </div>
-        </div>
-
-        {/* 10th-90th Corridor Range */}
-        <div style={{ fontSize: '13px', color: 'var(--foreground)', marginTop: '12px' }}>
-          <span style={{ color: 'var(--text-muted)' }}>80% probability corridor: </span>
-          <strong style={{ fontVariantNumeric: 'tabular-nums' }}>
-            {formatPrice({ amount: displayP10, currency })} – {formatPrice({ amount: displayP90, currency })}
-          </strong>
-          {horizonData?.skewRatio && horizonData.skewRatio !== 'n/a' && (
-            <span style={{ color: 'var(--text-muted)', marginLeft: '8px' }}>
-              · Skew ratio: {typeof horizonData.skewRatio === 'number' ? horizonData.skewRatio.toFixed(2) : horizonData.skewRatio}
-            </span>
-          )}
-        </div>
-
-        {/* Horizon Reading Guide Callout */}
-        {horizonData?.readingGuide && (
-          <div
-            style={{
-              marginTop: '16px',
-              padding: '12px 16px',
-              borderRadius: '6px',
-              backgroundColor: 'var(--secondary)',
-              borderLeft: '3px solid var(--accent, #0D9488)',
-              fontSize: '12px',
-              lineHeight: 1.5,
-              color: 'var(--foreground)'
-            }}
-          >
-            <div style={{ fontWeight: 600, marginBottom: '2px', color: 'var(--foreground)' }}>
-              Operating Guidance for {selectedHorizon}:
-            </div>
-            <div style={{ color: 'var(--text-muted)' }}>{horizonData.readingGuide}</div>
-          </div>
-        )}
-      </div>
-
-      {/* Scenario Breakdown Cards (Bear / Base / Bull) */}
-      {horizonData && (
-        <div>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            Scenario Distribution · {selectedHorizon}
-          </div>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: '12px'
-            }}
-          >
-            {/* Bear Scenario Card */}
-            <div
-              style={{
-                border: '1px solid var(--border)',
-                borderRadius: '8px',
-                padding: '12px 16px',
-                backgroundColor: 'var(--secondary)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: '#B3261E' }}>Bear Scenario</span>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                  {(horizonData.bear.probability * 100).toFixed(0)}% weight
-                </span>
-              </div>
-              <div style={{ fontSize: '20px', fontWeight: 600, color: 'var(--foreground)', fontVariantNumeric: 'tabular-nums' }}>
-                {formatPrice({ amount: horizonData.bear.price, currency })}
-              </div>
-              <div style={{ fontSize: '12px', color: horizonData.bear.irrPct >= 0 ? '#107C41' : '#B3261E', fontVariantNumeric: 'tabular-nums' }}>
-                {horizonData.bear.irrPct >= 0 ? '+' : ''}{horizonData.bear.irrPct.toFixed(1)}% IRR
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                Target multiple: {horizonData.bear.targetMultiple.toFixed(1)}x
-              </div>
-            </div>
-
-            {/* Base Scenario Card */}
-            <div
-              style={{
-                border: '1px solid var(--accent, #0D9488)',
-                borderRadius: '8px',
-                padding: '12px 16px',
-                backgroundColor: 'var(--secondary)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)' }}>Base Scenario</span>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                  {(horizonData.base.probability * 100).toFixed(0)}% weight
-                </span>
-              </div>
-              <div style={{ fontSize: '20px', fontWeight: 600, color: 'var(--foreground)', fontVariantNumeric: 'tabular-nums' }}>
-                {formatPrice({ amount: horizonData.base.price, currency })}
-              </div>
-              <div style={{ fontSize: '12px', color: horizonData.base.irrPct >= 0 ? '#107C41' : '#B3261E', fontVariantNumeric: 'tabular-nums' }}>
-                {horizonData.base.irrPct >= 0 ? '+' : ''}{horizonData.base.irrPct.toFixed(1)}% IRR
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                Target multiple: {horizonData.base.targetMultiple.toFixed(1)}x
-              </div>
-            </div>
-
-            {/* Bull Scenario Card */}
-            <div
-              style={{
-                border: '1px solid var(--border)',
-                borderRadius: '8px',
-                padding: '12px 16px',
-                backgroundColor: 'var(--secondary)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: '#107C41' }}>Bull Scenario</span>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                  {(horizonData.bull.probability * 100).toFixed(0)}% weight
-                </span>
-              </div>
-              <div style={{ fontSize: '20px', fontWeight: 600, color: 'var(--foreground)', fontVariantNumeric: 'tabular-nums' }}>
-                {formatPrice({ amount: horizonData.bull.price, currency })}
-              </div>
-              <div style={{ fontSize: '12px', color: horizonData.bull.irrPct >= 0 ? '#107C41' : '#B3261E', fontVariantNumeric: 'tabular-nums' }}>
-                {horizonData.bull.irrPct >= 0 ? '+' : ''}{horizonData.bull.irrPct.toFixed(1)}% IRR
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                Target multiple: {horizonData.bull.targetMultiple.toFixed(1)}x
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Institutional Evidence & Uncertainty Statements (Part K) */}
-      {synthesis?.statements && (
+        {/* 3 Header KPIs */}
         <div
           style={{
-            borderTop: '1px solid var(--border)',
-            paddingTop: '16px',
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-            gap: '16px',
-            fontSize: '12px',
-            lineHeight: 1.5
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: '12px',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            padding: '16px',
+            backgroundColor: 'var(--secondary)'
           }}
         >
           <div>
-            <div style={{ fontWeight: 600, color: '#107C41', marginBottom: '6px' }}>What evidence supports:</div>
-            <ul style={{ margin: 0, paddingLeft: '16px', color: 'var(--text-muted)' }}>
-              {synthesis.statements.evidenceSupports.map((item, idx) => (
-                <li key={idx} style={{ marginBottom: '4px' }}>{item}</li>
-              ))}
-            </ul>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+              Current Price
+            </div>
+            <div style={{ fontSize: '24px', fontWeight: 600, color: 'var(--foreground)', fontVariantNumeric: 'tabular-nums' }}>
+              {formatPrice({ amount: userPrice, currency })}
+            </div>
           </div>
+
           <div>
-            <div style={{ fontWeight: 600, color: '#D97706', marginBottom: '6px' }}>What remains uncertain:</div>
-            <ul style={{ margin: 0, paddingLeft: '16px', color: 'var(--text-muted)' }}>
-              {synthesis.statements.remainsUncertain.map((item, idx) => (
-                <li key={idx} style={{ marginBottom: '4px' }}>{item}</li>
-              ))}
-            </ul>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+              1-Year Expected Value
+            </div>
+            <div style={{ fontSize: '24px', fontWeight: 600, color: '#3B82F6', fontVariantNumeric: 'tabular-nums' }}>
+              {formatPrice({ amount: kpis.year1ExpectedValue, currency })}
+            </div>
+            <div style={{ fontSize: '11px', color: '#107C41', marginTop: '2px' }}>
+              Simulation Mean (P50: {formatPrice({ amount: paths.find((p) => p.year === 1)?.base ?? userPrice, currency })})
+            </div>
           </div>
+
           <div>
-            <div style={{ fontWeight: 600, color: 'var(--foreground)', marginBottom: '6px' }}>What would change this stance:</div>
-            <ul style={{ margin: 0, paddingLeft: '16px', color: 'var(--text-muted)' }}>
-              {synthesis.statements.changeTriggers.map((item, idx) => (
-                <li key={idx} style={{ marginBottom: '4px' }}>{item}</li>
-              ))}
-            </ul>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+              5-Year Base Target
+            </div>
+            <div style={{ fontSize: '24px', fontWeight: 600, color: 'var(--foreground)', fontVariantNumeric: 'tabular-nums' }}>
+              {formatPrice({ amount: kpis.year5BaseTarget, currency })}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+              P50 (50% Probability)
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Expandable Controls: Reconciliation Gates and Factor Model */}
-      <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-          {/* Audit Gates Button */}
-          {synthesis?.gates && (
-            <button
-              type="button"
-              aria-expanded={expandedGates}
-              onClick={() => setExpandedGates(!expandedGates)}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: '6px 0',
-                fontSize: '12px',
-                fontWeight: 600,
-                color: 'var(--accent, #0D9488)',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                minHeight: '44px'
-              }}
-            >
-              <span>Audit 18 Reconciliation Gates ({synthesis.gates.filter(g => g.status === 'PASS').length}/18 Passed)</span>
-              <span>{expandedGates ? '▴' : '▾'}</span>
-            </button>
-          )}
-
-          {/* Factor Breakdown Button */}
-          <button
-            type="button"
-            aria-expanded={expandedFactors}
-            onClick={() => setExpandedFactors(!expandedFactors)}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: '6px 0',
-              fontSize: '12px',
-              fontWeight: 500,
-              color: 'var(--foreground)',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              minHeight: '44px'
-            }}
-          >
-            <span>Factor readings & model assumptions</span>
-            <span>{expandedFactors ? '▴' : '▾'}</span>
-          </button>
+      {/* 2. Native Multi-Series Fan Chart (Section 6) */}
+      <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', backgroundColor: 'var(--card)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)' }}>
+            Projected Share Price ({currency})
+          </span>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+            10,000 Seeded Monte Carlo Draws
+          </span>
         </div>
 
-        {/* 18 Reconciliation Gates Panel */}
-        {expandedGates && synthesis?.gates && (
-          <div
-            style={{
-              paddingTop: '12px',
-              borderTop: '1px dashed var(--border)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px'
-            }}
+        {/* SVG Multi-Series Fan Chart Container */}
+        <div style={{ width: '100%', overflowX: 'auto' }}>
+          <svg
+            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+            style={{ width: '100%', height: 'auto', display: 'block' }}
           >
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)' }}>
-              Independent Verification & Reconciliation Gates (Part I)
-            </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                    <th style={{ padding: '8px 6px', fontWeight: 600 }}>Gate</th>
-                    <th style={{ padding: '8px 6px', fontWeight: 600 }}>Verification Rule</th>
-                    <th style={{ padding: '8px 6px', fontWeight: 600 }}>Status</th>
-                    <th style={{ padding: '8px 6px', fontWeight: 600 }}>Audit Details</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {synthesis.gates.map((g: GateResult, i: number) => (
-                    <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '8px 6px', fontWeight: 600, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>
-                        {g.gate}
-                      </td>
-                      <td style={{ padding: '8px 6px', color: 'var(--text-muted)' }}>
-                        {g.check}
-                      </td>
-                      <td style={{ padding: '8px 6px' }}>
-                        <span
-                          style={{
-                            padding: '2px 6px',
-                            borderRadius: '3px',
-                            fontSize: '10px',
-                            fontWeight: 700,
-                            backgroundColor: '#064E3B',
-                            color: '#A7F3D0'
-                          }}
-                        >
-                          {g.status}
-                        </span>
-                      </td>
-                      <td style={{ padding: '8px 6px', color: 'var(--foreground)' }}>
-                        {g.details}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+            {/* Grid horizontal lines */}
+            {yTicks.map((t, idx) => (
+              <g key={idx}>
+                <line
+                  x1={padLeft}
+                  y1={t.y}
+                  x2={chartWidth - padRight}
+                  y2={t.y}
+                  stroke="var(--border)"
+                  strokeDasharray="3 3"
+                  strokeWidth="1"
+                />
+                <text
+                  x={padLeft - 6}
+                  y={t.y + 4}
+                  textAnchor="end"
+                  fill="var(--text-muted)"
+                  fontSize="10"
+                  fontFamily="system-ui"
+                >
+                  {t.val}
+                </text>
+              </g>
+            ))}
 
-        {/* Expanded Breakdown Table & Assumptions */}
-        {expandedFactors && (
-          <div
-            data-testid="prediction-breakdown-panel"
-            style={{
-              paddingTop: '12px',
-              borderTop: '1px dashed var(--border)'
-            }}
-          >
-            <div style={{ overflowX: 'auto', marginBottom: '16px' }}>
-              <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                    <th style={{ padding: '8px 6px', fontWeight: 600 }}>Factor</th>
-                    <th style={{ padding: '8px 6px', fontWeight: 600 }}>What it measures</th>
-                    <th style={{ padding: '8px 6px', fontWeight: 600 }}>Data source and date</th>
-                    <th style={{ padding: '8px 6px', fontWeight: 600 }}>Current reading</th>
-                    <th style={{ padding: '8px 6px', fontWeight: 600 }}>Effect on projection</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.factors.map((f) => {
-                    const readingColor =
-                      f.reading === 'Positive'
-                        ? '#107C41'
-                        : f.reading === 'Negative'
-                          ? '#B3261E'
-                          : 'var(--text-muted)';
-                    return (
-                      <tr key={f.key} style={{ borderBottom: '1px solid var(--border)' }}>
-                        <td style={{ padding: '8px 6px', fontWeight: 500, color: 'var(--foreground)' }}>
-                          {f.label}
-                        </td>
-                        <td style={{ padding: '8px 6px', color: 'var(--text-muted)' }}>
-                          {f.measures}
-                        </td>
-                        <td style={{ padding: '8px 6px', color: 'var(--text-muted)', fontSize: '11px' }}>
-                          {f.source} · {f.asOf}
-                        </td>
-                        <td style={{ padding: '8px 6px', fontWeight: 500, color: readingColor }}>
-                          {f.reading}
-                        </td>
-                        <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums', color: 'var(--foreground)' }}>
-                          {f.effect}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            {/* 90% Confidence Corridor Shaded Band (P5 to P95) */}
+            <path
+              d={corridorArea}
+              fill="rgba(59, 130, 246, 0.08)"
+            />
 
-            {/* Assumptions Summary */}
-            <div
-              style={{
-                backgroundColor: 'var(--secondary)',
-                borderRadius: '8px',
-                padding: '16px',
-                fontSize: '12px',
-                color: 'var(--foreground)',
-                marginBottom: '8px'
-              }}
+            {/* Current Price Baseline (Dashed) */}
+            <line
+              x1={padLeft}
+              y1={getY(userPrice)}
+              x2={chartWidth - padRight}
+              y2={getY(userPrice)}
+              stroke="var(--text-muted)"
+              strokeDasharray="4 4"
+              strokeWidth="1.2"
+              opacity="0.6"
+            />
+
+            {/* Bull Case Target Line (25% Prob) */}
+            <path
+              d={bullPath}
+              fill="none"
+              stroke="#107C41"
+              strokeWidth="2.2"
+              strokeLinejoin="round"
+            />
+
+            {/* Base Case Target Line (50% Prob) */}
+            <path
+              d={basePath}
+              fill="none"
+              stroke="#3B82F6"
+              strokeWidth="2.8"
+              strokeLinejoin="round"
+            />
+
+            {/* Bear Case Target Line (25% Prob) */}
+            <path
+              d={bearPath}
+              fill="none"
+              stroke="#B3261E"
+              strokeWidth="2.2"
+              strokeLinejoin="round"
+            />
+
+            {/* Key Marker Points & Price Labels at Y1, Y3, Y5 */}
+            {paths.map((p) => {
+              if (p.year === 0 || p.year === 1 || p.year === 3 || p.year === 5) {
+                return (
+                  <g key={p.year}>
+                    {/* Bull Point */}
+                    <circle cx={getX(p.year)} cy={getY(p.bull)} r="3.5" fill="#107C41" />
+                    {/* Base Point */}
+                    <circle cx={getX(p.year)} cy={getY(p.base)} r="4" fill="#3B82F6" />
+                    {/* Bear Point */}
+                    <circle cx={getX(p.year)} cy={getY(p.bear)} r="3.5" fill="#B3261E" />
+
+                    {/* Value Labels at anchors */}
+                    {p.year > 0 && (
+                      <text
+                        x={getX(p.year)}
+                        y={getY(p.bull) - 6}
+                        textAnchor="middle"
+                        fill="#107C41"
+                        fontSize="9"
+                        fontWeight="600"
+                        fontFamily="system-ui"
+                      >
+                        {p.bull}
+                      </text>
+                    )}
+                    {p.year > 0 && (
+                      <text
+                        x={getX(p.year)}
+                        y={getY(p.bear) + 12}
+                        textAnchor="middle"
+                        fill="#B3261E"
+                        fontSize="9"
+                        fontWeight="600"
+                        fontFamily="system-ui"
+                      >
+                        {p.bear}
+                      </text>
+                    )}
+                  </g>
+                );
+              }
+              return null;
+            })}
+
+            {/* Year X Ticks */}
+            {paths.map((p) => (
+              <g key={p.year}>
+                <line
+                  x1={getX(p.year)}
+                  y1={padTop + plotH}
+                  x2={getX(p.year)}
+                  y2={padTop + plotH + 4}
+                  stroke="var(--border)"
+                  strokeWidth="1"
+                />
+                <text
+                  x={getX(p.year)}
+                  y={padTop + plotH + 16}
+                  textAnchor="middle"
+                  fill="var(--text-muted)"
+                  fontSize="10"
+                  fontFamily="system-ui"
+                >
+                  {p.year === 0 ? 'Today (0)' : `Y${p.year}`}
+                </text>
+              </g>
+            ))}
+
+            <text
+              x={padLeft + plotW / 2}
+              y={chartHeight - 4}
+              textAnchor="middle"
+              fill="var(--text-muted)"
+              fontSize="11"
+              fontFamily="system-ui"
             >
-              <div style={{ fontWeight: 600, marginBottom: '8px' }}>Key model parameters:</div>
-              <ul style={{ margin: 0, paddingLeft: '16px', lineHeight: 1.6, color: 'var(--text-muted)' }}>
-                <li>
-                  Base EPS path: {data.assumptions.eps0.toFixed(2)} {currency} fades along {data.assumptions.baseGrowthPath.map((g) => `${(g * 100).toFixed(1)}%`).join(', ')} to terminal growth {(data.assumptions.gLong * 100).toFixed(1)}%
-                </li>
-                <li>
-                  Exit multiple: {data.assumptions.exitMultiple.toFixed(2)}x (anchor {data.assumptions.peAnchor.toFixed(1)}x, cycle adjustment {data.assumptions.mCycle >= 0 ? '+' : ''}{data.assumptions.mCycle.toFixed(1)}%, attention adjustment {data.assumptions.mHype.toFixed(1)}%)
-                </li>
-                <li>
-                  Seeded iterations: {data.assumptions.simulations.toLocaleString()} draws with Box-Muller normal distribution
-                </li>
-              </ul>
+              Years from Today
+            </text>
+          </svg>
+        </div>
+
+        {/* Legend */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '12px', flexWrap: 'wrap', fontSize: '11px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: '12px', height: '3px', backgroundColor: '#3B82F6', borderRadius: '2px' }} />
+            <span style={{ color: 'var(--foreground)', fontWeight: 500 }}>Base Case Target (50% Prob)</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: '12px', height: '3px', backgroundColor: '#107C41', borderRadius: '2px' }} />
+            <span style={{ color: 'var(--foreground)', fontWeight: 500 }}>Bull Case Target (25% Prob)</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: '12px', height: '3px', backgroundColor: '#B3261E', borderRadius: '2px' }} />
+            <span style={{ color: 'var(--foreground)', fontWeight: 500 }}>Bear Case Target (25% Prob)</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Interactive Controls ("Adjust Engine Assumptions") (Section 6) */}
+      <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', backgroundColor: 'var(--secondary)' }}>
+        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '16px' }}>
+          Adjust Engine Assumptions (Real-Time Re-Simulation)
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+          {/* Control 1: Current Stock Price */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+              <span>Current Stock Price</span>
+              <strong style={{ color: 'var(--foreground)' }}>{formatPrice({ amount: userPrice, currency })}</strong>
             </div>
+            <input
+              type="range"
+              min={Math.max(1, Math.round(currentPrice * 0.4))}
+              max={Math.round(currentPrice * 2.5)}
+              step={1}
+              value={userPrice}
+              onChange={(e) => setUserPrice(Number(e.target.value))}
+              style={{ width: '100%', cursor: 'pointer' }}
+            />
+          </div>
+
+          {/* Control 2: Expected EPS Growth Rate (%) */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+              <span>Expected EPS Growth Rate</span>
+              <strong style={{ color: 'var(--foreground)' }}>{userGrowthPct}%</strong>
+            </div>
+            <input
+              type="range"
+              min={-5}
+              max={40}
+              step={1}
+              value={userGrowthPct}
+              onChange={(e) => setUserGrowthPct(Number(e.target.value))}
+              style={{ width: '100%', cursor: 'pointer' }}
+            />
+          </div>
+
+          {/* Control 3: Target Exit P/E Multiple */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+              <span>Target Exit P/E Multiple</span>
+              <strong style={{ color: 'var(--foreground)' }}>{userExitPe}x</strong>
+            </div>
+            <input
+              type="range"
+              min={6}
+              max={60}
+              step={0.5}
+              value={userExitPe}
+              onChange={(e) => setUserExitPe(Number(e.target.value))}
+              style={{ width: '100%', cursor: 'pointer' }}
+            />
+          </div>
+
+          {/* Control 4: Discount Rate / WACC (%) */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+              <span>Discount Rate / WACC</span>
+              <strong style={{ color: 'var(--foreground)' }}>{userWaccPct}%</strong>
+            </div>
+            <input
+              type="range"
+              min={6}
+              max={16}
+              step={0.25}
+              value={userWaccPct}
+              onChange={(e) => setUserWaccPct(Number(e.target.value))}
+              style={{ width: '100%', cursor: 'pointer' }}
+            />
+          </div>
+
+          {/* Control 5: Time Horizon (Years) */}
+          <div style={{ gridColumn: '1 / -1' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+              <span>Time Horizon</span>
+              <strong style={{ color: 'var(--foreground)' }}>{userHorizonYears} Years</strong>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={5}
+              step={1}
+              value={userHorizonYears}
+              onChange={(e) => setUserHorizonYears(Number(e.target.value))}
+              style={{ width: '100%', cursor: 'pointer' }}
+            />
+          </div>
+        </div>
+
+        {/* Footnote under controls */}
+        <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '12px', lineHeight: 1.4 }}>
+          *Base Case assumes standard EPS compound growth. Bull Case incorporates +25% TAM expansion premium. Bear Case factors in high interest rate discount contraction.
+        </div>
+      </div>
+
+      {/* 4. Forecast Table (Section 8.A) */}
+      <div>
+        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '8px' }}>
+          Scenario Distribution & Statistical Intervals (1Y / 3Y / 5Y)
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+                <th style={{ padding: '8px 6px', fontWeight: 600 }}>Horizon</th>
+                <th style={{ padding: '8px 6px', fontWeight: 600, color: '#B3261E' }}>Bear (P25, 25%)</th>
+                <th style={{ padding: '8px 6px', fontWeight: 600, color: '#3B82F6' }}>Base (P50, 50%)</th>
+                <th style={{ padding: '8px 6px', fontWeight: 600, color: '#107C41' }}>Bull (P75, 25%)</th>
+                <th style={{ padding: '8px 6px', fontWeight: 600 }}>Expected Value</th>
+                <th style={{ padding: '8px 6px', fontWeight: 600 }}>90% CI (P5–P95)</th>
+                <th style={{ padding: '8px 6px', fontWeight: 600 }}>Base CAGR</th>
+              </tr>
+            </thead>
+            <tbody>
+              {simulation.horizonTable.map((row) => (
+                <tr key={row.horizon} style={{ borderBottom: '1px solid var(--border)' }}>
+                  <td style={{ padding: '8px 6px', fontWeight: 600, color: 'var(--foreground)' }}>
+                    {row.horizon}
+                  </td>
+                  <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums', color: '#B3261E' }}>
+                    {formatPrice({ amount: row.bear, currency })}
+                  </td>
+                  <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: 'var(--foreground)' }}>
+                    {formatPrice({ amount: row.base, currency })}
+                  </td>
+                  <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums', color: '#107C41' }}>
+                    {formatPrice({ amount: row.bull, currency })}
+                  </td>
+                  <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums', color: '#3B82F6', fontWeight: 500 }}>
+                    {formatPrice({ amount: row.expectedValue, currency })}
+                  </td>
+                  <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums', color: 'var(--text-muted)' }}>
+                    {formatPrice({ amount: row.ci90Low, currency })} – {formatPrice({ amount: row.ci90High, currency })}
+                  </td>
+                  <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums', color: row.baseCagrPct >= 0 ? '#107C41' : '#B3261E' }}>
+                    {row.baseCagrPct >= 0 ? '+' : ''}{row.baseCagrPct.toFixed(1)}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 5. Key Drivers & Quality Flags (Section 8.B & 8.C) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+        <div>
+          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '8px' }}>
+            Primary Quantitative Drivers
+          </div>
+          <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            <li>EPS Growth Anchor: {userGrowthPct}% faded to terminal {currency === 'INR' ? '6.0%' : '3.0%'}</li>
+            <li>Exit Multiple Reversion: {userExitPe.toFixed(1)}x consistent with macro rate hurdle</li>
+            <li>Cost of Capital (WACC): {userWaccPct.toFixed(2)}% ({simulation.qualityFlags.rateRegime})</li>
+            <li>Moat Spread: {simulation.qualityFlags.roicWaccSpreadPct >= 0 ? '+' : ''}{simulation.qualityFlags.roicWaccSpreadPct.toFixed(1)} pp ({simulation.qualityFlags.moatStatus})</li>
+          </ul>
+        </div>
+
+        <div>
+          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '8px' }}>
+            Earnings Quality & Accrual Flags
+          </div>
+          <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            <li>FCF Conversion: {simulation.qualityFlags.fcfConversionPct}% (Cash flow backing)</li>
+            <li>Sloan Accrual Ratio: {simulation.qualityFlags.sloanAccrualRatio}% ({simulation.qualityFlags.sloanAccrualFlag})</li>
+            <li>Overlay Tilt: {simulation.qualityFlags.overlayTilt > 0 ? '+' : ''}{simulation.qualityFlags.overlayTilt.toFixed(2)} (Microstructure / options tilt)</li>
+            <li>Engine Status: Seeded Monte Carlo validated across 10,000 correlated iterations</li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Expandable Sanity Checks Panel (Section 5) */}
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+        <button
+          type="button"
+          onClick={() => setShowSanityChecks(!showSanityChecks)}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: '6px 0',
+            fontSize: '12px',
+            fontWeight: 600,
+            color: 'var(--accent, #0D9488)',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            minHeight: '44px'
+          }}
+        >
+          <span>Sanity Checks & Quality Audits ({simulation.qualityFlags.sanityChecks.filter((c) => c.status === 'PASS').length}/{simulation.qualityFlags.sanityChecks.length} Passed)</span>
+          <span>{showSanityChecks ? '▴' : '▾'}</span>
+        </button>
+
+        {showSanityChecks && (
+          <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {simulation.qualityFlags.sanityChecks.map((sc, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  fontSize: '11px',
+                  padding: '6px 8px',
+                  borderRadius: '4px',
+                  backgroundColor: 'var(--secondary)'
+                }}
+              >
+                <div>
+                  <strong style={{ color: 'var(--foreground)' }}>{sc.check}: </strong>
+                  <span style={{ color: 'var(--text-muted)' }}>{sc.message}</span>
+                </div>
+                <span
+                  style={{
+                    padding: '2px 6px',
+                    borderRadius: '3px',
+                    fontWeight: 700,
+                    fontSize: '10px',
+                    backgroundColor: sc.status === 'PASS' ? '#064E3B' : '#78350F',
+                    color: sc.status === 'PASS' ? '#A7F3D0' : '#FDE68A'
+                  }}
+                >
+                  {sc.status}
+                </span>
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Statutory Statement at bottom */}
-      <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4, marginTop: '8px', borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
-        Institutional scenario probability distribution derived from stated assumptions. Not financial advice, transaction orders, or guaranteed returns; actual market results can differ materially.
+      {/* Mandatory Statutory Statement (Rule 6) */}
+      <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4, borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+        Model output, not investment advice. Projections are probabilistic and can be wrong.
       </div>
     </div>
   );

@@ -321,5 +321,48 @@ describe('5-Year Prediction Engine & Valuation Status', () => {
         expect(fullText.includes(banned), `Found banned phrase "${banned}" in prediction output`).toBe(false);
       }
     });
+
+    it('10-module probabilistic engine generates full 0..5 path and enforces ROIC/accrual guards', async () => {
+      const { runProbabilisticSimulation } = await import('./prediction.js');
+      const sim = runProbabilisticSimulation({
+        price: 100,
+        eps: 5,
+        fcfPerShare: 4.5,
+        epsGrowth: 0.15,
+        wacc: 0.09,
+        gTerm: 0.03,
+        exitPe: 22,
+        peerPe: 20,
+        roic: 0.07, // ROIC < WACC (0.07 < 0.09) -> growth cap triggered for h >= 3
+        tilt: 0.05,
+        years: 5,
+        seed: 42,
+        sloanAccruals: 0.12, // High accruals -> quality haircut triggered
+        fcfConversion: 0.75
+      });
+
+      expect(sim.yearlyPaths.length).toBe(6);
+      expect(sim.yearlyPaths[0]!.year).toBe(0);
+      expect(sim.yearlyPaths[0]!.base).toBe(100);
+      expect(sim.yearlyPaths[5]!.year).toBe(5);
+
+      // Bear < Base < Bull ordering
+      for (let h = 1; h <= 5; h++) {
+        const pt = sim.yearlyPaths[h]!;
+        expect(pt.bear).toBeLessThanOrEqual(pt.base);
+        expect(pt.base).toBeLessThanOrEqual(pt.bull);
+        expect(pt.p5).toBeLessThanOrEqual(pt.bear);
+        expect(pt.bull).toBeLessThanOrEqual(pt.p95);
+      }
+
+      // Quality flags
+      expect(sim.qualityFlags.sloanAccrualFlag).toBe('High (Accrual Warning)');
+      expect(sim.qualityFlags.moatStatus).toBe('Value Destructive (ROIC < WACC)');
+
+      // Horizon table
+      expect(sim.horizonTable.length).toBe(3); // 1Y, 3Y, 5Y
+      expect(sim.horizonTable[0]!.horizonYears).toBe(1);
+      expect(sim.horizonTable[2]!.horizonYears).toBe(5);
+    });
   });
 });
