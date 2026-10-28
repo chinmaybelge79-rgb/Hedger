@@ -18991,14 +18991,14 @@ var require_etag = __commonJS({
   "node_modules/.pnpm/etag@1.8.1/node_modules/etag/index.js"(exports, module) {
     "use strict";
     module.exports = etag;
-    var crypto5 = __require("crypto");
+    var crypto4 = __require("crypto");
     var Stats = __require("fs").Stats;
     var toString = Object.prototype.toString;
     function entitytag(entity) {
       if (entity.length === 0) {
         return '"0-2jmj7l5rSw0yVb/vlWAYkK/YBwk"';
       }
-      var hash = crypto5.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
+      var hash = crypto4.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
       var len = typeof entity === "string" ? Buffer.byteLength(entity, "utf8") : entity.length;
       return '"' + len.toString(16) + "-" + hash + '"';
     }
@@ -21907,11 +21907,11 @@ var require_request = __commonJS({
 // node_modules/.pnpm/cookie-signature@1.0.7/node_modules/cookie-signature/index.js
 var require_cookie_signature = __commonJS({
   "node_modules/.pnpm/cookie-signature@1.0.7/node_modules/cookie-signature/index.js"(exports) {
-    var crypto5 = __require("crypto");
+    var crypto4 = __require("crypto");
     exports.sign = function(val, secret) {
       if ("string" !== typeof val) throw new TypeError("Cookie value must be provided as a string.");
       if (null == secret) throw new TypeError("Secret key must be provided.");
-      return val + "." + crypto5.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
+      return val + "." + crypto4.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
     };
     exports.unsign = function(val, secret) {
       if ("string" !== typeof val) throw new TypeError("Signed cookie string must be provided.");
@@ -21920,7 +21920,7 @@ var require_cookie_signature = __commonJS({
       return sha1(mac) == sha1(val) ? str : false;
     };
     function sha1(str) {
-      return crypto5.createHash("sha1").update(str).digest("hex");
+      return crypto4.createHash("sha1").update(str).digest("hex");
     }
   }
 });
@@ -23169,11 +23169,11 @@ var require_lib3 = __commonJS({
 // node_modules/.pnpm/cookie-signature@1.0.6/node_modules/cookie-signature/index.js
 var require_cookie_signature2 = __commonJS({
   "node_modules/.pnpm/cookie-signature@1.0.6/node_modules/cookie-signature/index.js"(exports) {
-    var crypto5 = __require("crypto");
+    var crypto4 = __require("crypto");
     exports.sign = function(val, secret) {
       if ("string" != typeof val) throw new TypeError("Cookie value must be provided as a string.");
       if ("string" != typeof secret) throw new TypeError("Secret string must be provided.");
-      return val + "." + crypto5.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
+      return val + "." + crypto4.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
     };
     exports.unsign = function(val, secret) {
       if ("string" != typeof val) throw new TypeError("Signed cookie string must be provided.");
@@ -23182,7 +23182,7 @@ var require_cookie_signature2 = __commonJS({
       return sha1(mac) == sha1(val) ? str : false;
     };
     function sha1(str) {
-      return crypto5.createHash("sha1").update(str).digest("hex");
+      return crypto4.createHash("sha1").update(str).digest("hex");
     }
   }
 });
@@ -23353,7 +23353,7 @@ var require_main = __commonJS({
     var fs2 = __require("fs");
     var path3 = __require("path");
     var os = __require("os");
-    var crypto5 = __require("crypto");
+    var crypto4 = __require("crypto");
     var packageJson = require_package();
     var version = packageJson.version;
     var LINE = /(?:^|^)\s*(?:export\s+)?([\w.-]+)(?:\s*=\s*?|:\s+?)(\s*'(?:\\'|[^'])*'|\s*"(?:\\"|[^"])*"|\s*`(?:\\`|[^`])*`|[^#\r\n]+)?\s*(?:#.*)?(?:$|$)/mg;
@@ -23572,7 +23572,7 @@ var require_main = __commonJS({
       const authTag = ciphertext.subarray(-16);
       ciphertext = ciphertext.subarray(12, -16);
       try {
-        const aesgcm = crypto5.createDecipheriv("aes-256-gcm", key, nonce);
+        const aesgcm = crypto4.createDecipheriv("aes-256-gcm", key, nonce);
         aesgcm.setAuthTag(authTag);
         return `${aesgcm.update(ciphertext)}${aesgcm.final()}`;
       } catch (error) {
@@ -30025,7 +30025,7 @@ var require_cert_signatures = __commonJS({
 var require_sasl = __commonJS({
   "node_modules/.pnpm/pg@8.23.1/node_modules/pg/lib/crypto/sasl.js"(exports, module) {
     "use strict";
-    var crypto5 = require_utils4();
+    var crypto4 = require_utils4();
     var { signatureAlgorithmHashFromCertificate } = require_cert_signatures();
     function saslprep(password) {
       const nonAsciiSpace = /[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000]/g;
@@ -30043,7 +30043,7 @@ var require_sasl = __commonJS({
       if (mechanism === "SCRAM-SHA-256-PLUS" && typeof stream.getPeerCertificate !== "function") {
         throw new Error("SASL: Mechanism SCRAM-SHA-256-PLUS requires a certificate");
       }
-      const clientNonce = crypto5.randomBytes(18).toString("base64");
+      const clientNonce = crypto4.randomBytes(18).toString("base64");
       const gs2Header = mechanism === "SCRAM-SHA-256-PLUS" ? "p=tls-server-end-point" : stream ? "y" : "n";
       return {
         mechanism,
@@ -30085,20 +30085,20 @@ var require_sasl = __commonJS({
         const peerCert = stream.getPeerCertificate().raw;
         let hashName = signatureAlgorithmHashFromCertificate(peerCert);
         if (hashName === "MD5" || hashName === "SHA-1") hashName = "SHA-256";
-        const certHash = await crypto5.hashByName(hashName, peerCert);
+        const certHash = await crypto4.hashByName(hashName, peerCert);
         const bindingData = Buffer.concat([Buffer.from("p=tls-server-end-point,,"), Buffer.from(certHash)]);
         channelBinding = bindingData.toString("base64");
       }
       const clientFinalMessageWithoutProof = "c=" + channelBinding + ",r=" + sv.nonce;
       const authMessage = clientFirstMessageBare + "," + serverFirstMessage + "," + clientFinalMessageWithoutProof;
       const saltBytes = Buffer.from(sv.salt, "base64");
-      const saltedPassword = await crypto5.deriveKey(saslprep(password), saltBytes, sv.iteration);
-      const clientKey = await crypto5.hmacSha256(saltedPassword, "Client Key");
-      const storedKey = await crypto5.sha256(clientKey);
-      const clientSignature = await crypto5.hmacSha256(storedKey, authMessage);
+      const saltedPassword = await crypto4.deriveKey(saslprep(password), saltBytes, sv.iteration);
+      const clientKey = await crypto4.hmacSha256(saltedPassword, "Client Key");
+      const storedKey = await crypto4.sha256(clientKey);
+      const clientSignature = await crypto4.hmacSha256(storedKey, authMessage);
       const clientProof = xorBuffers(Buffer.from(clientKey), Buffer.from(clientSignature)).toString("base64");
-      const serverKey = await crypto5.hmacSha256(saltedPassword, "Server Key");
-      const serverSignatureBytes = await crypto5.hmacSha256(serverKey, authMessage);
+      const serverKey = await crypto4.hmacSha256(saltedPassword, "Server Key");
+      const serverSignatureBytes = await crypto4.hmacSha256(serverKey, authMessage);
       session.message = "SASLResponse";
       session.serverSignature = Buffer.from(serverSignatureBytes).toString("base64");
       session.response = clientFinalMessageWithoutProof + ",p=" + clientProof;
@@ -32337,7 +32337,7 @@ var require_client = __commonJS({
     var Query2 = require_query2();
     var defaults2 = require_defaults();
     var Connection2 = require_connection();
-    var crypto5 = require_utils4();
+    var crypto4 = require_utils4();
     var activeQueryDeprecationNotice = nodeUtils.deprecate(
       () => {
       },
@@ -32592,7 +32592,7 @@ var require_client = __commonJS({
       _handleAuthMD5Password(msg) {
         this._getPassword(async () => {
           try {
-            const hashedPassword = await crypto5.postgresMd5PasswordHash(this.user, this.password, msg.salt);
+            const hashedPassword = await crypto4.postgresMd5PasswordHash(this.user, this.password, msg.salt);
             this.connection.password(hashedPassword);
           } catch (e2) {
             this.emit("error", e2);
@@ -51938,11 +51938,6 @@ var NEVER = INVALID;
 var __filename = fileURLToPath(import.meta.url);
 var __dirname2 = path.dirname(__filename);
 import_dotenv.default.config({ path: path.resolve(__dirname2, "../../../.env") });
-var DEFAULT_NIM_TOKEN = Buffer.from("bnZhcGktOHJhOFItU0NJMDZCTzA4dGtRbVNFRERiRWprSjZwcEJ4SEE4V3hhVHRZWGhkZnByNi15S0pHNjNnbUUzNWll", "base64").toString("utf8");
-var DEFAULT_OR_TOKEN = Buffer.from("c2stb3ItdjEtNTA2MTU5NjcxMTZmZjNjMTY3YmZjNGUwNjgyMWJmOTE2NzNlYTQ5ZGQwYWNhMGU5ODdhZDEyMjliZjU2MjRhNQ==", "base64").toString("utf8");
-var DEFAULT_GEMINI_TOKEN = Buffer.from("QVEuQWI4Uk42SXdSMVZRb1N6REs3X09NQ3lNS3lTcGREVEotSTBmSTU3QWtCRFI0TGtPZUE=", "base64").toString("utf8");
-var DEFAULT_GOOGLE_CLIENT_ID = Buffer.from("ODE3NDU2MTI5NjY0LTJ1dTJ0aDVmZXRnZjVnZHRiMjFsMWtmY28xZTd1aHQ5LmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29t", "base64").toString("utf8");
-var DEFAULT_GOOGLE_CLIENT_SECRET = Buffer.from("R0NDU1BYLWNyWXRBcFlVYWtqMjdwcWc3RVJIUXFlYmQ1aXI=", "base64").toString("utf8");
 var ConfigSchema = external_exports.object({
   PORT: external_exports.string().default("3001").transform(Number),
   NODE_ENV: external_exports.enum(["development", "production", "test"]).default("development"),
@@ -51953,11 +51948,11 @@ var ConfigSchema = external_exports.object({
   SESSION_SECRET: external_exports.string().default("hedger_session_dev_secret_key_32chars_min"),
   DATABASE_URL: external_exports.string().optional(),
   REDIS_URL: external_exports.string().optional(),
-  NVIDIA_NIM_API_KEY: external_exports.string().default(DEFAULT_NIM_TOKEN),
-  OPENROUTER_API_KEY: external_exports.string().default(DEFAULT_OR_TOKEN),
-  GEMINI_API_KEY: external_exports.string().default(DEFAULT_GEMINI_TOKEN),
-  GOOGLE_CLIENT_ID: external_exports.string().default(DEFAULT_GOOGLE_CLIENT_ID),
-  GOOGLE_CLIENT_SECRET: external_exports.string().default(DEFAULT_GOOGLE_CLIENT_SECRET),
+  NVIDIA_NIM_API_KEY: external_exports.string().optional(),
+  OPENROUTER_API_KEY: external_exports.string().optional(),
+  GEMINI_API_KEY: external_exports.string().optional(),
+  GOOGLE_CLIENT_ID: external_exports.string().optional(),
+  GOOGLE_CLIENT_SECRET: external_exports.string().optional(),
   GITHUB_CLIENT_ID: external_exports.string().optional(),
   GITHUB_CLIENT_SECRET: external_exports.string().optional(),
   APPLE_CLIENT_ID: external_exports.string().optional(),
@@ -51980,8 +51975,8 @@ var config = ConfigSchema.parse({
   NVIDIA_NIM_API_KEY: process.env.NVIDIA_NIM_API_KEY || process.env.NVIDIA_API_KEY,
   OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || DEFAULT_GOOGLE_CLIENT_SECRET,
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
   GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
   APPLE_CLIENT_ID: process.env.APPLE_CLIENT_ID,
@@ -61742,7 +61737,6 @@ var esm_default = import_lib.default;
 // apps/api/src/db/database.ts
 var import_ioredis = __toESM(require_built3(), 1);
 import path2 from "path";
-import crypto2 from "crypto";
 import { fileURLToPath as fileURLToPath2 } from "url";
 var __filename2 = fileURLToPath2(import.meta.url);
 var __dirname3 = path2.dirname(__filename2);
@@ -61886,9 +61880,9 @@ var DatabaseService = class {
     `;
     await client.query(ddl);
     console.log("[DatabaseService] PostgreSQL schema verified successfully.");
-    const hashChinusha4love = crypto2.pbkdf2Sync("Chinusha4love$$", "hedger_static_salt_2026", 1e5, 64, "sha512").toString("hex");
-    const hashLive4Chinmay = crypto2.pbkdf2Sync("Live4Chinmay$$", "hedger_static_salt_2026", 1e5, 64, "sha512").toString("hex");
-    const hashSumit = crypto2.pbkdf2Sync("Sumit4ultra$$", "hedger_static_salt_2026", 1e5, 64, "sha512").toString("hex");
+    const hashChinusha = "7dc77041587c821f6e3a3143b5f490855294d39df575c90fc28818bc7b189ee7dfe6f6511ae7fdc876fdecc8fff44767e3c888611b1abbf1f0a5a81eaad285d4";
+    const hashChinmay = "1a8e340288454ac303b0c2d83725a7f0963800abf9d9c52cb4e11c2a98652fbbb4be4fd96a9edaa45aee8ed8485ef77c7d1db2a8c51d7bdcd7253f6754846a56";
+    const hashSumit = "1e9b3194029a4bc172143b9f8798ae9822b25749598e0eeddf8e6bdd552b666b6c7d578630ecef3469225bf5b699f4e0b1e208daa1599c3c576c07d6e2d421bf";
     await client.query(`
       DELETE FROM hedger_users WHERE email = 'medimianusha@gmail.com';
       DELETE FROM hedger_saved_models WHERE id LIKE 'seed-%';
@@ -61900,7 +61894,7 @@ var DatabaseService = class {
         'email',
         NULL,
         'ultra',
-        '${hashChinusha4love}',
+        '${hashChinusha}',
         'hedger_static_salt_2026',
         NOW(),
         NOW()
@@ -61919,7 +61913,7 @@ var DatabaseService = class {
         'email',
         NULL,
         'plus',
-        '${hashLive4Chinmay}',
+        '${hashChinmay}',
         'hedger_static_salt_2026',
         NOW(),
         NOW()
@@ -61938,7 +61932,7 @@ var DatabaseService = class {
         'email',
         NULL,
         'ultra',
-        '${hashLive4Chinmay}',
+        '${hashChinmay}',
         'hedger_static_salt_2026',
         NOW(),
         NOW()
@@ -61989,9 +61983,9 @@ var DatabaseService = class {
     `);
   }
   initSeedFallback() {
-    const hashChinusha4love = crypto2.pbkdf2Sync("Chinusha4love$$", "hedger_static_salt_2026", 1e5, 64, "sha512").toString("hex");
-    const hashLive4Chinmay = crypto2.pbkdf2Sync("Live4Chinmay$$", "hedger_static_salt_2026", 1e5, 64, "sha512").toString("hex");
-    const hashSumit = crypto2.pbkdf2Sync("Sumit4ultra$$", "hedger_static_salt_2026", 1e5, 64, "sha512").toString("hex");
+    const hashChinusha = "7dc77041587c821f6e3a3143b5f490855294d39df575c90fc28818bc7b189ee7dfe6f6511ae7fdc876fdecc8fff44767e3c888611b1abbf1f0a5a81eaad285d4";
+    const hashChinmay = "1a8e340288454ac303b0c2d83725a7f0963800abf9d9c52cb4e11c2a98652fbbb4be4fd96a9edaa45aee8ed8485ef77c7d1db2a8c51d7bdcd7253f6754846a56";
+    const hashSumit = "1e9b3194029a4bc172143b9f8798ae9822b25749598e0eeddf8e6bdd552b666b6c7d578630ecef3469225bf5b699f4e0b1e208daa1599c3c576c07d6e2d421bf";
     this.inMemoryFallbackUsers.delete("usr_anusha");
     this.inMemoryFallbackUsers.set("usr_chinusha", {
       id: "usr_chinusha",
@@ -61999,7 +61993,7 @@ var DatabaseService = class {
       email: "chinusha@gmail.com",
       provider: "email",
       plan: "ultra",
-      passwordHash: hashChinusha4love,
+      passwordHash: hashChinusha,
       salt: "hedger_static_salt_2026",
       createdAt: (/* @__PURE__ */ new Date()).toISOString(),
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
@@ -62033,7 +62027,7 @@ var DatabaseService = class {
         email: "chinu@hedger.capital",
         provider: "email",
         plan: "plus",
-        passwordHash: hashLive4Chinmay,
+        passwordHash: hashChinmay,
         salt: "hedger_static_salt_2026",
         createdAt: (/* @__PURE__ */ new Date()).toISOString(),
         updatedAt: (/* @__PURE__ */ new Date()).toISOString()
@@ -62046,7 +62040,7 @@ var DatabaseService = class {
         email: "chinmaybelge79@gmail.com",
         provider: "email",
         plan: "ultra",
-        passwordHash: hashLive4Chinmay,
+        passwordHash: hashChinmay,
         salt: "hedger_static_salt_2026",
         createdAt: (/* @__PURE__ */ new Date()).toISOString(),
         updatedAt: (/* @__PURE__ */ new Date()).toISOString()
@@ -62691,13 +62685,13 @@ var db = new DatabaseService();
 
 // apps/api/src/routes/auth.ts
 var import_express5 = __toESM(require_express2(), 1);
-import crypto3 from "crypto";
+import crypto2 from "crypto";
 var oauthStates = /* @__PURE__ */ new Map();
 function hashPassword(password, salt) {
-  return crypto3.pbkdf2Sync(password, salt, 1e5, 64, "sha512").toString("hex");
+  return crypto2.pbkdf2Sync(password, salt, 1e5, 64, "sha512").toString("hex");
 }
 function generateToken() {
-  return crypto3.randomBytes(32).toString("hex");
+  return crypto2.randomBytes(32).toString("hex");
 }
 async function createSession(userId, req) {
   const token = generateToken();
@@ -63611,7 +63605,7 @@ authRouter.post("/signup", async (req, res) => {
   if (existing) {
     return res.status(409).json({ error: "An account with this email address already exists" });
   }
-  const salt = crypto3.randomBytes(16).toString("hex");
+  const salt = crypto2.randomBytes(16).toString("hex");
   const passwordHash = hashPassword(String(password), salt);
   const newUser = await db.createUser({
     id: `usr_em_${Date.now().toString(36)}`,
@@ -64738,11 +64732,18 @@ supportRouter.post("/tickets", async (req, res) => {
 
 // apps/api/src/routes/admin.ts
 var import_express9 = __toESM(require_express2(), 1);
-import crypto4 from "crypto";
+import crypto3 from "crypto";
 var adminRouter = (0, import_express9.Router)();
 var adminSessions = /* @__PURE__ */ new Set();
-var ADMIN_USERNAME = "GODDESS";
-var ADMIN_PASSWORD = "Live4Anusha$$";
+var ADMIN_USERNAME = process.env.ADMIN_USERNAME || "GODDESS";
+var ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || "a05a0d1d016fee4d2aee00b44a0eeeb2fa251a646927d186b4a903b703a3b30d";
+function verifyAdminCredentials(user, pass) {
+  if (user.trim() !== ADMIN_USERNAME) return false;
+  const hash = crypto3.createHash("sha256").update(pass).digest("hex");
+  const bufA = Buffer.from(hash);
+  const bufB = Buffer.from(ADMIN_PASSWORD_HASH);
+  return bufA.length === bufB.length && crypto3.timingSafeEqual(bufA, bufB);
+}
 function requireAdmin(req, res, next) {
   const cookieToken = req.cookies?.hedger_admin_token;
   const authHeader = req.headers.authorization;
@@ -64758,11 +64759,11 @@ adminRouter.post("/login", async (req, res) => {
   if (!username || !password) {
     return res.status(400).json({ error: "Username and password required" });
   }
-  if (username.trim() !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+  if (!verifyAdminCredentials(username, password)) {
     await db.logActivity(void 0, "ADMIN_LOGIN_FAILED", { usernameAttempt: username }, req.ip);
     return res.status(401).json({ error: "Invalid administrative credentials" });
   }
-  const token = `adm_${crypto4.randomBytes(32).toString("hex")}`;
+  const token = `adm_${crypto3.randomBytes(32).toString("hex")}`;
   adminSessions.add(token);
   res.cookie("hedger_admin_token", token, {
     httpOnly: true,

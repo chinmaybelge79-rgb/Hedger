@@ -1,3 +1,4 @@
+import { TEST_PASS } from "./test-credentials.js";
 import { test, expect } from '@playwright/test';
 
 test.describe('Application Lock, 3 Users & GODDESS Admin Portal', () => {
@@ -50,7 +51,7 @@ test.describe('Application Lock, 3 Users & GODDESS Admin Portal', () => {
 
     // Sign in manually as Chinusha
     await page.locator('input[type="email"]').fill('chinusha@gmail.com');
-    await page.locator('input[type="password"]').fill('Chinusha4love$$');
+    await page.locator('input[type="password"]').fill(TEST_PASS.ultra);
     await page.getByRole('button', { name: "Let's Start →" }).click();
 
     // Wait for redirect to /markets
@@ -83,7 +84,7 @@ test.describe('Application Lock, 3 Users & GODDESS Admin Portal', () => {
 
     // Sign in as Chinu
     await page.locator('input[type="email"]').fill('chinu@hedger.capital');
-    await page.locator('input[type="password"]').fill('Live4Chinmay$$');
+    await page.locator('input[type="password"]').fill(TEST_PASS.founder);
     await page.getByRole('button', { name: "Let's Start →" }).click();
 
     // Wait for redirect to /markets
@@ -126,8 +127,8 @@ test.describe('Application Lock, 3 Users & GODDESS Admin Portal', () => {
     await page.getByRole('button', { name: 'Authenticate →' }).click();
     await expect(page.getByText('Invalid administrative credentials')).toBeVisible();
 
-    // 2. Submit valid credentials: GODDESS / Live4Anusha$$
-    await page.locator('input[type="password"]').fill('Live4Anusha$$');
+    // 2. Submit valid credentials: GODDESS / admin_pass
+    await page.locator('input[type="password"]').fill(TEST_PASS.admin);
     await page.getByRole('button', { name: 'Authenticate →' }).click();
 
     // 3. Verify Admin Control Plane renders
@@ -190,7 +191,7 @@ test.describe('Application Lock, 3 Users & GODDESS Admin Portal', () => {
 
     // Manually enter credentials for chinusha@gmail.com
     await page.locator('input[type="email"]').fill('chinusha@gmail.com');
-    await page.locator('input[type="password"]').fill('Chinusha4love$$');
+    await page.locator('input[type="password"]').fill(TEST_PASS.ultra);
     await page.getByRole('button', { name: "Let's Start →" }).click();
 
     // Verify user is redirected directly to the requested task: /company/NVDA

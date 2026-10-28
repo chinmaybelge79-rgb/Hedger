@@ -1,10 +1,11 @@
+import { TEST_PASS } from "./test-credentials.js";
 import { test, expect } from '@playwright/test';
 
 async function signIn(page: any) {
   await page.goto('http://localhost:5173/signin');
   await page.waitForLoadState('networkidle');
   await page.locator('input[type="email"]').fill('chinusha@gmail.com');
-  await page.locator('input[type="password"]').fill('Chinusha4love$$');
+  await page.locator('input[type="password"]').fill(TEST_PASS.ultra);
   await page.getByRole('button', { name: "Let's Start →" }).click();
   await page.waitForURL('**/markets', { timeout: 10000 });
 }

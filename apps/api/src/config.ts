@@ -9,13 +9,6 @@ const __dirname = path.dirname(__filename);
 // Load root .env
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
-// Fallback encoded provider tokens
-const DEFAULT_NIM_TOKEN = Buffer.from('bnZhcGktOHJhOFItU0NJMDZCTzA4dGtRbVNFRERiRWprSjZwcEJ4SEE4V3hhVHRZWGhkZnByNi15S0pHNjNnbUUzNWll', 'base64').toString('utf8');
-const DEFAULT_OR_TOKEN = Buffer.from('c2stb3ItdjEtNTA2MTU5NjcxMTZmZjNjMTY3YmZjNGUwNjgyMWJmOTE2NzNlYTQ5ZGQwYWNhMGU5ODdhZDEyMjliZjU2MjRhNQ==', 'base64').toString('utf8');
-const DEFAULT_GEMINI_TOKEN = Buffer.from('QVEuQWI4Uk42SXdSMVZRb1N6REs3X09NQ3lNS3lTcGREVEotSTBmSTU3QWtCRFI0TGtPZUE=', 'base64').toString('utf8');
-const DEFAULT_GOOGLE_CLIENT_ID = Buffer.from('ODE3NDU2MTI5NjY0LTJ1dTJ0aDVmZXRnZjVnZHRiMjFsMWtmY28xZTd1aHQ5LmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29t', 'base64').toString('utf8');
-const DEFAULT_GOOGLE_CLIENT_SECRET = Buffer.from('R0NDU1BYLWNyWXRBcFlVYWtqMjdwcWc3RVJIUXFlYmQ1aXI=', 'base64').toString('utf8');
-
 const ConfigSchema = z.object({
   PORT: z.string().default('3001').transform(Number),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -26,11 +19,11 @@ const ConfigSchema = z.object({
   SESSION_SECRET: z.string().default('hedger_session_dev_secret_key_32chars_min'),
   DATABASE_URL: z.string().optional(),
   REDIS_URL: z.string().optional(),
-  NVIDIA_NIM_API_KEY: z.string().default(DEFAULT_NIM_TOKEN),
-  OPENROUTER_API_KEY: z.string().default(DEFAULT_OR_TOKEN),
-  GEMINI_API_KEY: z.string().default(DEFAULT_GEMINI_TOKEN),
-  GOOGLE_CLIENT_ID: z.string().default(DEFAULT_GOOGLE_CLIENT_ID),
-  GOOGLE_CLIENT_SECRET: z.string().default(DEFAULT_GOOGLE_CLIENT_SECRET),
+  NVIDIA_NIM_API_KEY: z.string().optional(),
+  OPENROUTER_API_KEY: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
   GITHUB_CLIENT_ID: z.string().optional(),
   GITHUB_CLIENT_SECRET: z.string().optional(),
   APPLE_CLIENT_ID: z.string().optional(),
@@ -58,8 +51,8 @@ export const config = ConfigSchema.parse({
   NVIDIA_NIM_API_KEY: process.env.NVIDIA_NIM_API_KEY || process.env.NVIDIA_API_KEY,
   OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || DEFAULT_GOOGLE_CLIENT_SECRET,
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
   GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
   APPLE_CLIENT_ID: process.env.APPLE_CLIENT_ID,

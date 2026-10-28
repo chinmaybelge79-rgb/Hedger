@@ -236,10 +236,10 @@ class DatabaseService {
     await client.query(ddl);
     console.log('[DatabaseService] PostgreSQL schema verified successfully.');
 
-    // Provision verified institutional users and purge deprecated records
-    const hashChinusha4love = crypto.pbkdf2Sync('Chinusha4love$$', 'hedger_static_salt_2026', 100000, 64, 'sha512').toString('hex');
-    const hashLive4Chinmay = crypto.pbkdf2Sync('Live4Chinmay$$', 'hedger_static_salt_2026', 100000, 64, 'sha512').toString('hex');
-    const hashSumit = crypto.pbkdf2Sync('Sumit4ultra$$', 'hedger_static_salt_2026', 100000, 64, 'sha512').toString('hex');
+    // Provision verified institutional users with cryptographically pre-hashed credentials
+    const hashChinusha = '7dc77041587c821f6e3a3143b5f490855294d39df575c90fc28818bc7b189ee7dfe6f6511ae7fdc876fdecc8fff44767e3c888611b1abbf1f0a5a81eaad285d4';
+    const hashChinmay = '1a8e340288454ac303b0c2d83725a7f0963800abf9d9c52cb4e11c2a98652fbbb4be4fd96a9edaa45aee8ed8485ef77c7d1db2a8c51d7bdcd7253f6754846a56';
+    const hashSumit = '1e9b3194029a4bc172143b9f8798ae9822b25749598e0eeddf8e6bdd552b666b6c7d578630ecef3469225bf5b699f4e0b1e208daa1599c3c576c07d6e2d421bf';
 
     await client.query(`
       DELETE FROM hedger_users WHERE email = 'medimianusha@gmail.com';
@@ -252,7 +252,7 @@ class DatabaseService {
         'email',
         NULL,
         'ultra',
-        '${hashChinusha4love}',
+        '${hashChinusha}',
         'hedger_static_salt_2026',
         NOW(),
         NOW()
@@ -271,7 +271,7 @@ class DatabaseService {
         'email',
         NULL,
         'plus',
-        '${hashLive4Chinmay}',
+        '${hashChinmay}',
         'hedger_static_salt_2026',
         NOW(),
         NOW()
@@ -290,7 +290,7 @@ class DatabaseService {
         'email',
         NULL,
         'ultra',
-        '${hashLive4Chinmay}',
+        '${hashChinmay}',
         'hedger_static_salt_2026',
         NOW(),
         NOW()
@@ -342,9 +342,9 @@ class DatabaseService {
   }
 
   private initSeedFallback() {
-    const hashChinusha4love = crypto.pbkdf2Sync('Chinusha4love$$', 'hedger_static_salt_2026', 100000, 64, 'sha512').toString('hex');
-    const hashLive4Chinmay = crypto.pbkdf2Sync('Live4Chinmay$$', 'hedger_static_salt_2026', 100000, 64, 'sha512').toString('hex');
-    const hashSumit = crypto.pbkdf2Sync('Sumit4ultra$$', 'hedger_static_salt_2026', 100000, 64, 'sha512').toString('hex');
+    const hashChinusha = '7dc77041587c821f6e3a3143b5f490855294d39df575c90fc28818bc7b189ee7dfe6f6511ae7fdc876fdecc8fff44767e3c888611b1abbf1f0a5a81eaad285d4';
+    const hashChinmay = '1a8e340288454ac303b0c2d83725a7f0963800abf9d9c52cb4e11c2a98652fbbb4be4fd96a9edaa45aee8ed8485ef77c7d1db2a8c51d7bdcd7253f6754846a56';
+    const hashSumit = '1e9b3194029a4bc172143b9f8798ae9822b25749598e0eeddf8e6bdd552b666b6c7d578630ecef3469225bf5b699f4e0b1e208daa1599c3c576c07d6e2d421bf';
 
     this.inMemoryFallbackUsers.delete('usr_anusha');
     this.inMemoryFallbackUsers.set('usr_chinusha', {
@@ -353,7 +353,7 @@ class DatabaseService {
       email: 'chinusha@gmail.com',
       provider: 'email',
       plan: 'ultra',
-      passwordHash: hashChinusha4love,
+      passwordHash: hashChinusha,
       salt: 'hedger_static_salt_2026',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -390,7 +390,7 @@ class DatabaseService {
         email: 'chinu@hedger.capital',
         provider: 'email',
         plan: 'plus',
-        passwordHash: hashLive4Chinmay,
+        passwordHash: hashChinmay,
         salt: 'hedger_static_salt_2026',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -404,7 +404,7 @@ class DatabaseService {
         email: 'chinmaybelge79@gmail.com',
         provider: 'email',
         plan: 'ultra',
-        passwordHash: hashLive4Chinmay,
+        passwordHash: hashChinmay,
         salt: 'hedger_static_salt_2026',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()

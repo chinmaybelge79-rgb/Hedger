@@ -65,8 +65,8 @@ On any server (AWS EC2, DigitalOcean Droplet, Hetzner, GCP VM) with Docker insta
    NODE_ENV=production
    PORT=3001
    POSTGRES_PASSWORD=your_strong_postgres_password_here
-   SESSION_SECRET=at_least_32_characters_random_hex_string
-   NVIDIA_NIM_API_KEY=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
+   SESSION_SECRET=your_32_chars_random_session_secret
+   NVIDIA_NIM_API_KEY=your_nvidia_nim_api_key_here
    ALLOWED_ORIGINS=https://hedger.capital,https://www.hedger.capital
    ```
 

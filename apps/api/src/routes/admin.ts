@@ -7,8 +7,16 @@ export const adminRouter = Router();
 // Store active admin sessions in memory
 const adminSessions = new Set<string>();
 
-const ADMIN_USERNAME = 'GODDESS';
-const ADMIN_PASSWORD = 'Live4Anusha$$';
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'GODDESS';
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || 'a05a0d1d016fee4d2aee00b44a0eeeb2fa251a646927d186b4a903b703a3b30d';
+
+function verifyAdminCredentials(user: string, pass: string): boolean {
+  if (user.trim() !== ADMIN_USERNAME) return false;
+  const hash = crypto.createHash('sha256').update(pass).digest('hex');
+  const bufA = Buffer.from(hash);
+  const bufB = Buffer.from(ADMIN_PASSWORD_HASH);
+  return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
+}
 
 // Middleware to protect admin routes
 function requireAdmin(req: Request, res: Response, next: () => void) {
@@ -32,7 +40,7 @@ adminRouter.post('/login', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Username and password required' });
   }
 
-  if (username.trim() !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+  if (!verifyAdminCredentials(username, password)) {
     await db.logActivity(undefined, 'ADMIN_LOGIN_FAILED', { usernameAttempt: username }, req.ip);
     return res.status(401).json({ error: 'Invalid administrative credentials' });
   }
