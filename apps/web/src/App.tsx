@@ -22,6 +22,7 @@ import { ProfilePage } from './pages/ProfilePage.js';
 import { ProvenancePage } from './pages/ProvenancePage.js';
 import { ApiDocsPage } from './pages/ApiDocsPage.js';
 import { TermsPage } from './pages/TermsPage.js';
+import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage.js';
 import { AuthPage } from './pages/AuthPage.js';
 import { AboutPage } from './pages/AboutPage.js';
 import { CapitalStructurePage } from './pages/CapitalStructurePage.js';
@@ -67,7 +68,9 @@ const AppShell: React.FC<{ searchOpen: boolean; setSearchOpen: (open: boolean) =
           <Route path="/api-docs" element={<ApiDocsPage />} />
           <Route path="/api" element={<ApiDocsPage />} />
           <Route path="/terms" element={<TermsPage />} />
-          <Route path="/privacy" element={<TermsPage />} />
+          <Route path="/terms-of-service" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/models/capital-structure" element={<ApplicationLockGate><CapitalStructurePage /></ApplicationLockGate>} />
           <Route path="/support" element={<ApplicationLockGate><MethodologySupportPage /></ApplicationLockGate>} />

@@ -17,7 +17,7 @@ export const TermsPage: React.FC = () => {
           <nav style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
             <Link to="/" style={{ color: 'inherit', textDecoration: 'none' }}>Home</Link>
             <span>/</span>
-            <span style={{ color: 'var(--foreground)', fontWeight: 600 }}>Terms & Privacy</span>
+            <span style={{ color: 'var(--foreground)', fontWeight: 600 }}>Terms of Service</span>
           </nav>
 
           <h1 style={{ fontSize: '32px', fontWeight: 700, letterSpacing: '-0.025em', color: 'var(--foreground)', margin: '0 0 12px 0' }}>
@@ -96,8 +96,15 @@ export const TermsPage: React.FC = () => {
                 Institutional Privacy Protections
               </h2>
             </div>
-            <p style={{ fontSize: '14px', lineHeight: 1.6, color: 'var(--text-muted)', margin: 0 }}>
+            <p style={{ fontSize: '14px', lineHeight: 1.6, color: 'var(--text-muted)', margin: '0 0 12px 0' }}>
               Custom assumptions, portfolio watchlists, and proprietary model parameters are retained strictly within local device storage or private, encrypted session contexts. Hedger maintains zero advertising trackers, third-party analytics beacons, or behavioral broker monetization. Your financial research workflows remain confidential.
+            </p>
+            <p style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-muted)', margin: 0 }}>
+              For complete details on Google OAuth user data protections, GDPR/CCPA rights, and data retention policies, review our dedicated{' '}
+              <Link to="/privacy" style={{ color: 'var(--foreground)', fontWeight: 600, textDecoration: 'underline' }}>
+                Privacy Policy
+              </Link>
+              .
             </p>
           </div>
 

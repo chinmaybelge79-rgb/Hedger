@@ -171,7 +171,14 @@ export const Footer: React.FC = () => {
             style={{ color: 'inherit', textDecoration: 'none' }}
             className={isDark ? "hover:text-white transition-colors" : "hover:text-black transition-colors"}
           >
-            Terms & Privacy
+            Terms of Service
+          </Link>
+          <Link
+            to="/privacy"
+            style={{ color: 'inherit', textDecoration: 'none' }}
+            className={isDark ? "hover:text-white transition-colors" : "hover:text-black transition-colors"}
+          >
+            Privacy Policy
           </Link>
         </div>
       </div>

@@ -470,6 +470,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'signin' }) =>
           }}
         >
           <p style={{ fontSize: '11px', color: isDark ? '#71717a' : '#9CA3AF', margin: 0, lineHeight: 1.4 }}>
+            By continuing, you acknowledge Hedger&apos;s{' '}
+            <Link to="/terms" style={{ color: isDark ? '#FFFFFF' : '#111827', textDecoration: 'underline' }}>
+              Terms of Service
+            </Link>{' '}
+            and{' '}
+            <Link to="/privacy" style={{ color: isDark ? '#FFFFFF' : '#111827', textDecoration: 'underline' }}>
+              Privacy Policy
+            </Link>
+            .
+          </p>
+          <p style={{ fontSize: '10px', color: isDark ? '#52525b' : '#9CA3AF', margin: '6px 0 0 0', lineHeight: 1.4 }}>
             Enterprise Single Sign-On and OAuth session tokens are cryptographically secured with PostgreSQL and Redis.
           </p>
         </div>
