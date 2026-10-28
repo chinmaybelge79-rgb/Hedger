@@ -8,7 +8,7 @@ export const adminRouter = Router();
 const adminSessions = new Set<string>();
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'GODDESS';
-const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || 'f9fab668cdfd67b0aac1ba171c81ef28b4d267cdab82dfad6c23aeeb38843ebf';
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || 'f3119f5ff30d2cb9a721853cb66e836a95e4c761d7dbc88a57edc93b4e6e0e14';
 
 function verifyAdminCredentials(user: string, pass: string): boolean {
   if (user.trim().toLowerCase() !== ADMIN_USERNAME.toLowerCase()) return false;

@@ -64563,7 +64563,7 @@ import crypto3 from "crypto";
 var adminRouter = (0, import_express9.Router)();
 var adminSessions = /* @__PURE__ */ new Set();
 var ADMIN_USERNAME = process.env.ADMIN_USERNAME || "GODDESS";
-var ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || "f9fab668cdfd67b0aac1ba171c81ef28b4d267cdab82dfad6c23aeeb38843ebf";
+var ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || "f3119f5ff30d2cb9a721853cb66e836a95e4c761d7dbc88a57edc93b4e6e0e14";
 function verifyAdminCredentials(user, pass) {
   if (user.trim().toLowerCase() !== ADMIN_USERNAME.toLowerCase()) return false;
   if (process.env.ADMIN_PASSWORD && pass === process.env.ADMIN_PASSWORD) return true;
