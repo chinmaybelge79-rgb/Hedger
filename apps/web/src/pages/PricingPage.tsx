@@ -185,12 +185,12 @@ export const PricingPage: React.FC = () => {
             <div style={{ padding: '16px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', marginBottom: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
                 <div style={{ fontSize: '32px', fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>
-                  {billingCycle === 'yearly' ? '$3.99' : '$4.99'}
+                  {billingCycle === 'yearly' ? '$7.99' : '$9.99'}
                 </div>
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>/ month</span>
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
-                {billingCycle === 'yearly' ? 'Billed annually ($47.90/yr · 20% off)' : 'Billed monthly ($4.99/mo)'}
+                {billingCycle === 'yearly' ? 'Billed annually ($95.90/yr · 20% off)' : 'Billed monthly ($9.99/mo)'}
               </div>
             </div>
 
@@ -254,12 +254,12 @@ export const PricingPage: React.FC = () => {
             <div style={{ padding: '16px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', marginBottom: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
                 <div style={{ fontSize: '32px', fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>
-                  {billingCycle === 'yearly' ? '$24' : '$29'}
+                  {billingCycle === 'yearly' ? '$15.99' : '$19.99'}
                 </div>
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>/ month</span>
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
-                {billingCycle === 'yearly' ? 'Billed annually ($288/yr · 17% off)' : 'Billed monthly ($29/mo)'}
+                {billingCycle === 'yearly' ? 'Billed annually ($191.90/yr · 20% off)' : 'Billed monthly ($19.99/mo)'}
               </div>
             </div>
 
@@ -304,12 +304,12 @@ export const PricingPage: React.FC = () => {
             <div style={{ padding: '16px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', marginBottom: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
                 <div style={{ fontSize: '32px', fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>
-                  {billingCycle === 'yearly' ? '$64' : '$79'}
+                  {billingCycle === 'yearly' ? '$39.99' : '$49.99'}
                 </div>
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>/ month</span>
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
-                {billingCycle === 'yearly' ? 'Billed annually ($768/yr · 19% off)' : 'Billed monthly ($79/mo)'}
+                {billingCycle === 'yearly' ? 'Billed annually ($479.90/yr · 20% off)' : 'Billed monthly ($49.99/mo)'}
               </div>
             </div>
 

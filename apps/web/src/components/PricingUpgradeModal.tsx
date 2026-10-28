@@ -14,7 +14,7 @@ export const PricingUpgradeModal: React.FC<PricingUpgradeModalProps> = ({
   isOpen,
   onClose,
   featureName = 'Custom DCF Simulation & Workbench',
-  description = 'Advanced simulation sliders, Monte Carlo engines, and downloadable financial reports are reserved for Pro and Ultra subscribers.'
+  description = 'Advanced simulation sliders, Monte Carlo engines, and downloadable financial reports are reserved for Plus, Pro and Ultra subscribers.'
 }) => {
   const navigate = useNavigate();
   const { updatePlan } = useAuth();
@@ -23,7 +23,7 @@ export const PricingUpgradeModal: React.FC<PricingUpgradeModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSelect = (plan: 'pro' | 'ultra') => {
+  const handleSelect = (plan: 'plus' | 'pro' | 'ultra') => {
     updatePlan(plan);
     onClose();
   };
@@ -49,7 +49,9 @@ export const PricingUpgradeModal: React.FC<PricingUpgradeModalProps> = ({
       <div
         style={{
           width: '100%',
-          maxWidth: '560px',
+          maxWidth: '760px',
+          maxHeight: '92vh',
+          overflowY: 'auto',
           backgroundColor: isDark ? '#121215' : '#FFFFFF',
           border: isDark ? '1px solid #27272a' : '1px solid #E5E7EB',
           borderRadius: '16px',
@@ -100,11 +102,54 @@ export const PricingUpgradeModal: React.FC<PricingUpgradeModalProps> = ({
           Unlock {featureName}
         </h2>
         <p style={{ fontSize: '13px', color: isDark ? '#A1A1AA' : '#6B7280', margin: '0 0 24px 0', lineHeight: 1.5 }}>
-          {description} Basic Free tier includes canonical securities and delayed overviews. Upgrade to access live customizable assumptions and programmatic REST API limits.
+          {description} Basic Free tier includes 1 complimentary research thesis and delayed overviews. Upgrade to access live customizable assumptions and programmatic REST API limits.
         </p>
 
         {/* Upgrade Cards Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+          {/* Plus Tier */}
+          <div
+            style={{
+              padding: '16px',
+              borderRadius: '12px',
+              border: isDark ? '1px solid #27272A' : '1px solid #E5E7EB',
+              backgroundColor: isDark ? '#18181B' : '#F9FAFB',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between'
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '2px' }}>Plus</div>
+              <div style={{ fontSize: '22px', fontWeight: 800, color: isDark ? '#FFFFFF' : '#111827', margin: '6px 0' }}>
+                $9.99 <span style={{ fontSize: '11px', fontWeight: 500, color: isDark ? '#A1A1AA' : '#6B7280' }}>/ month</span>
+              </div>
+              <ul style={{ margin: '12px 0 0 0', paddingLeft: '16px', fontSize: '11px', color: isDark ? '#D4D4D8' : '#374151', lineHeight: 1.6 }}>
+                <li>Real-time price streaming (NSE & US)</li>
+                <li>Unlimited DCF & Reverse DCF</li>
+                <li>3 AI Theses & 1 Report Download/mo</li>
+                <li>5x5 WACC sensitivity grid</li>
+              </ul>
+            </div>
+            <button
+              onClick={() => handleSelect('plus')}
+              style={{
+                width: '100%',
+                padding: '10px',
+                marginTop: '16px',
+                backgroundColor: isDark ? '#27272A' : '#E5E7EB',
+                color: isDark ? '#FFFFFF' : '#111827',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Upgrade to Plus
+            </button>
+          </div>
+
           {/* Pro Tier */}
           <div
             style={{
@@ -114,13 +159,29 @@ export const PricingUpgradeModal: React.FC<PricingUpgradeModalProps> = ({
               backgroundColor: isDark ? 'rgba(59, 130, 246, 0.05)' : '#F0F7FF',
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'space-between'
+              justifyContent: 'space-between',
+              position: 'relative'
             }}
           >
             <div>
-              <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '2px' }}>Pro</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '2px' }}>Pro</div>
+                <span
+                  style={{
+                    fontSize: '9px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    backgroundColor: isDark ? '#3B82F6' : '#2563EB',
+                    color: '#FFFFFF'
+                  }}
+                >
+                  Popular
+                </span>
+              </div>
               <div style={{ fontSize: '22px', fontWeight: 800, color: isDark ? '#FFFFFF' : '#111827', margin: '6px 0' }}>
-                $29 <span style={{ fontSize: '11px', fontWeight: 500, color: isDark ? '#A1A1AA' : '#6B7280' }}>/ month</span>
+                $19.99 <span style={{ fontSize: '11px', fontWeight: 500, color: isDark ? '#A1A1AA' : '#6B7280' }}>/ month</span>
               </div>
               <ul style={{ margin: '12px 0 0 0', paddingLeft: '16px', fontSize: '11px', color: isDark ? '#D4D4D8' : '#374151', lineHeight: 1.6 }}>
                 <li>Custom DCF sliders & workbench</li>
@@ -163,7 +224,7 @@ export const PricingUpgradeModal: React.FC<PricingUpgradeModalProps> = ({
             <div>
               <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '2px' }}>Ultra</div>
               <div style={{ fontSize: '22px', fontWeight: 800, color: isDark ? '#FFFFFF' : '#111827', margin: '6px 0' }}>
-                $79 <span style={{ fontSize: '11px', fontWeight: 500, color: isDark ? '#A1A1AA' : '#6B7280' }}>/ month</span>
+                $49.99 <span style={{ fontSize: '11px', fontWeight: 500, color: isDark ? '#A1A1AA' : '#6B7280' }}>/ month</span>
               </div>
               <ul style={{ margin: '12px 0 0 0', paddingLeft: '16px', fontSize: '11px', color: isDark ? '#D4D4D8' : '#374151', lineHeight: 1.6 }}>
                 <li>5,000 monthly API fetches</li>

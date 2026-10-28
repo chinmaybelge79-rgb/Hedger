@@ -614,13 +614,13 @@ export const PlatformServicesPromise: React.FC<PlatformServicesPromiseProps> = (
                   Basic (Free)
                 </th>
                 <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text)', textAlign: 'center' }}>
-                  Plus ($4.99)
+                  Plus ($9.99)
                 </th>
                 <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--accent, #1D1D1F)', textAlign: 'center', backgroundColor: 'rgba(29, 29, 31, 0.04)' }}>
-                  Pro ($9.99)
+                  Pro ($19.99)
                 </th>
                 <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text)', textAlign: 'center' }}>
-                  Ultra ($19.99)
+                  Ultra ($49.99)
                 </th>
               </tr>
             </thead>
@@ -710,21 +710,21 @@ export const PlatformServicesPromise: React.FC<PlatformServicesPromiseProps> = (
                 className="btn btn-secondary"
                 style={{ height: '36px', minHeight: '36px', padding: '0 12px', fontSize: '12px' }}
               >
-                Plus ($4.99)
+                Plus ($9.99)
               </button>
               <button
                 onClick={() => onSelectPlan('pro')}
                 className="btn btn-primary"
                 style={{ height: '36px', minHeight: '36px', padding: '0 16px', fontSize: '12px', fontWeight: 600 }}
               >
-                Pro ($9.99)
+                Pro ($19.99)
               </button>
               <button
                 onClick={() => onSelectPlan('ultra')}
                 className="btn btn-secondary"
                 style={{ height: '36px', minHeight: '36px', padding: '0 12px', fontSize: '12px' }}
               >
-                Ultra ($19.99)
+                Ultra ($49.99)
               </button>
             </div>
           </div>
