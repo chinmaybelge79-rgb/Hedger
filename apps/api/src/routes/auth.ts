@@ -102,7 +102,7 @@ authRouter.get('/providers', (_req: Request, res: Response) => {
     },
     apple: {
       enabled: true,
-      configured: true,
+      configured: Boolean(config.APPLE_CLIENT_ID),
       name: 'Apple ID',
       authUrl: '/api/auth/apple'
     },
@@ -368,6 +368,86 @@ authRouter.get('/google/callback', async (req: Request, res: Response) => {
 });
 
 /**
+ * 3b. Google ID Token Verification (Google Identity Services / One Tap / Popup)
+ */
+authRouter.post('/google/verify', async (req: Request, res: Response) => {
+  const { credential } = req.body;
+  if (!credential) {
+    return res.status(400).json({ error: 'Google credential token is required' });
+  }
+
+  try {
+    const verifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+    if (!verifyRes.ok) {
+      const errText = await verifyRes.text();
+      return res.status(401).json({ error: 'Invalid Google credential token', details: errText });
+    }
+
+    const payload: any = await verifyRes.json();
+    const cleanEmail = String(payload.email || '').trim().toLowerCase();
+    const cleanName = String(payload.name || cleanEmail.split('@')[0]).trim();
+    const avatar = payload.picture;
+
+    if (!cleanEmail) {
+      return res.status(400).json({ error: 'No verified email found in Google token' });
+    }
+
+    let targetUser = await db.findUserByEmail(cleanEmail);
+    if (!targetUser) {
+      targetUser = await db.createUser({
+        id: `usr_g_${Date.now().toString(36)}`,
+        name: cleanName,
+        email: cleanEmail,
+        provider: 'google',
+        avatar,
+        plan: 'pro'
+      });
+    } else {
+      targetUser = (await db.updateUser(targetUser.id, {
+        name: cleanName,
+        provider: 'google',
+        avatar: avatar || targetUser.avatar
+      })) || targetUser;
+    }
+
+    await db.upsertOAuthAccount({
+      id: `oauth_g_${targetUser.id}`,
+      userId: targetUser.id,
+      provider: 'google',
+      providerUserId: payload.sub || cleanEmail,
+      email: cleanEmail,
+      profileData: { name: cleanName, avatar, sub: payload.sub },
+      createdAt: new Date().toISOString()
+    });
+
+    const session = await createSession(targetUser.id, req);
+    setSessionCookie(res, session.token);
+
+    const savedModels = await db.getSavedModels(targetUser.id);
+    const safeUser: UserProfile = {
+      id: targetUser.id,
+      name: targetUser.name,
+      email: targetUser.email,
+      provider: targetUser.provider,
+      avatar: targetUser.avatar,
+      plan: targetUser.plan,
+      savedModelsCount: savedModels.length,
+      createdAt: targetUser.createdAt,
+      updatedAt: targetUser.updatedAt
+    };
+
+    return res.json({
+      success: true,
+      token: session.token,
+      user: safeUser
+    });
+  } catch (err: any) {
+    console.error('Google token verification error:', err.message);
+    return res.status(500).json({ error: 'Failed to verify Google credentials' });
+  }
+});
+
+/**
  * 4. GitHub OAuth Gateway Initiation
  */
 authRouter.get('/github', (req: Request, res: Response) => {
@@ -621,6 +701,19 @@ authRouter.get('/apple', (req: Request, res: Response) => {
     redirectUrl: clientOrigin
   });
 
+  if (config.APPLE_CLIENT_ID) {
+    const redirectUri = `${req.protocol}://${req.get('host')}/api/auth/apple/callback`;
+    const params = new URLSearchParams({
+      client_id: config.APPLE_CLIENT_ID,
+      redirect_uri: redirectUri,
+      response_type: 'code id_token',
+      response_mode: 'form_post',
+      scope: 'name email',
+      state
+    });
+    return res.redirect(`https://appleid.apple.com/auth/authorize?${params.toString()}`);
+  }
+
   // Institutional Apple ID Gateway Screen (Apple minimalist design)
   res.send(`
     <!DOCTYPE html>
@@ -767,14 +860,55 @@ authRouter.get('/apple', (req: Request, res: Response) => {
  */
 async function handleAppleCallback(req: Request, res: Response) {
   const query = req.method === 'POST' ? req.body : req.query;
-  const { state, gateway, email: gatewayEmail, name: gatewayName } = query;
+  const { state, gateway, email: gatewayEmail, name: gatewayName, id_token, user: userParam } = query;
 
   const stateData = typeof state === 'string' ? oauthStates.get(state) : null;
   const redirectTarget = stateData?.redirectUrl || config.CLIENT_ORIGIN;
   if (typeof state === 'string') oauthStates.delete(state);
 
-  const userEmail = String(gatewayEmail || 'julian.thorne@privaterelay.appleid.com').trim().toLowerCase();
-  const userName = String(gatewayName || 'Julian Thorne').trim();
+  let userEmail = '';
+  let userName = '';
+
+  // Extract from Apple id_token JWT if provided
+  if (id_token && typeof id_token === 'string') {
+    try {
+      const parts = id_token.split('.');
+      if (parts.length === 3) {
+        const payloadJson = Buffer.from(parts[1], 'base64').toString('utf8');
+        const tokenClaims = JSON.parse(payloadJson);
+        if (tokenClaims.email) {
+          userEmail = String(tokenClaims.email).trim().toLowerCase();
+        }
+      }
+    } catch (err: any) {
+      console.error('Failed to parse Apple ID token:', err.message);
+    }
+  }
+
+  // Extract user name from Apple's initial user payload
+  if (userParam) {
+    try {
+      const parsedUser = typeof userParam === 'string' ? JSON.parse(userParam) : userParam;
+      if (parsedUser?.name) {
+        const { firstName, lastName } = parsedUser.name;
+        userName = [firstName, lastName].filter(Boolean).join(' ');
+      }
+    } catch (err) {}
+  }
+
+  if (!userEmail && (gateway || gatewayEmail)) {
+    userEmail = String(gatewayEmail || '').trim().toLowerCase();
+    userName = String(gatewayName || userEmail.split('@')[0]).trim();
+  }
+
+  if (!userEmail) {
+    userEmail = 'julian.thorne@privaterelay.appleid.com';
+    userName = 'Julian Thorne';
+  }
+
+  if (!userName) {
+    userName = userEmail.split('@')[0];
+  }
 
   let targetUser = await db.findUserByEmail(userEmail);
   if (!targetUser) {

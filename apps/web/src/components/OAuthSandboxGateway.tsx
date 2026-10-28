@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth, UserProfile } from '../context/AuthContext.js';
 import { useTheme } from '../context/ThemeContext.js';
 
@@ -54,6 +54,35 @@ export const OAuthSandboxGateway: React.FC<OAuthSandboxGatewayProps> = ({
   const [customEmail, setCustomEmail] = useState<string>('');
   const [customName, setCustomName] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [providerConfig, setProviderConfig] = useState<{
+    google?: { configured: boolean; authUrl: string };
+    github?: { configured: boolean; authUrl: string };
+    apple?: { configured: boolean; authUrl: string };
+  }>({});
+
+  useEffect(() => {
+    fetch('/api/auth/providers')
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((data) => setProviderConfig(data))
+      .catch(() => {});
+  }, []);
+
+  const handleLiveOAuth = (provider: 'google' | 'apple' | 'github') => {
+    setError(null);
+    const origin = encodeURIComponent(window.location.href);
+    const isConfigured = Boolean(providerConfig[provider]?.configured);
+
+    if (isConfigured) {
+      window.location.href = `/api/auth/${provider}?origin=${origin}`;
+      return;
+    }
+
+    // If live credentials are not yet configured on server, launch gateway screen or fallback to sandbox
+    handleProviderLogin(provider, {
+      sandbox: true,
+      plan: 'pro'
+    });
+  };
 
   const handleProviderLogin = async (
     provider: 'google' | 'apple' | 'github',
@@ -89,6 +118,10 @@ export const OAuthSandboxGateway: React.FC<OAuthSandboxGatewayProps> = ({
       plan: 'pro'
     });
   };
+
+  const isGoogleLive = Boolean(providerConfig.google?.configured);
+  const isGithubLive = Boolean(providerConfig.github?.configured);
+  const isAppleLive = Boolean(providerConfig.apple?.configured);
 
   return (
     <div
@@ -163,7 +196,7 @@ export const OAuthSandboxGateway: React.FC<OAuthSandboxGatewayProps> = ({
         </div>
       )}
 
-      {/* Primary Action 1: Google Login Sandbox */}
+      {/* Primary Action 1: Google Sign In (Live OAuth / Sandbox) */}
       <div
         style={{
           border: isDark ? '1px solid #27272a' : '1px solid #E5E7EB',
@@ -174,14 +207,7 @@ export const OAuthSandboxGateway: React.FC<OAuthSandboxGatewayProps> = ({
       >
         <button
           type="button"
-          onClick={() =>
-            handleProviderLogin('google', {
-              email: 'alex.researcher@gmail.com',
-              name: 'Alex Morgan',
-              sandbox: true,
-              plan: 'pro'
-            })
-          }
+          onClick={() => handleLiveOAuth('google')}
           disabled={loadingProvider !== null}
           style={{
             height: '44px',
@@ -221,7 +247,11 @@ export const OAuthSandboxGateway: React.FC<OAuthSandboxGatewayProps> = ({
               />
             </svg>
             <span>
-              {loadingProvider === 'google' ? 'Authenticating Sandbox...' : 'Google Login Sandbox'}
+              {loadingProvider === 'google'
+                ? 'Authenticating...'
+                : isGoogleLive
+                ? 'Continue with Google'
+                : 'Continue with Google (Sandbox)'}
             </span>
           </div>
 
@@ -233,12 +263,18 @@ export const OAuthSandboxGateway: React.FC<OAuthSandboxGatewayProps> = ({
                 letterSpacing: '0.04em',
                 padding: '2px 6px',
                 borderRadius: '4px',
-                backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#DBEAFE',
-                color: isDark ? '#93c5fd' : '#1D4ED8',
-                border: isDark ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid #BFDBFE'
+                backgroundColor: isGoogleLive
+                  ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5')
+                  : (isDark ? 'rgba(59, 130, 246, 0.2)' : '#DBEAFE'),
+                color: isGoogleLive
+                  ? (isDark ? '#6ee7b7' : '#047857')
+                  : (isDark ? '#93c5fd' : '#1D4ED8'),
+                border: isGoogleLive
+                  ? (isDark ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid #A7F3D0')
+                  : (isDark ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid #BFDBFE')
               }}
             >
-              SANDBOX
+              {isGoogleLive ? 'LIVE OAUTH' : 'SANDBOX'}
             </span>
             <button
               type="button"
@@ -371,16 +407,10 @@ export const OAuthSandboxGateway: React.FC<OAuthSandboxGatewayProps> = ({
         )}
       </div>
 
-      {/* Action 2: Apple Sign-In */}
+      {/* Action 2: Apple Sign-In (Live OAuth / Sandbox) */}
       <button
         type="button"
-        onClick={() =>
-          handleProviderLogin('apple', {
-            email: 'julian.thorne@privaterelay.appleid.com',
-            name: 'Julian Thorne',
-            plan: 'pro'
-          })
-        }
+        onClick={() => handleLiveOAuth('apple')}
         disabled={loadingProvider !== null}
         style={{
           height: '44px',
@@ -388,8 +418,8 @@ export const OAuthSandboxGateway: React.FC<OAuthSandboxGatewayProps> = ({
           width: '100%',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          gap: '10px',
+          justifyContent: 'space-between',
+          padding: '0 14px',
           backgroundColor: isDark ? '#18181b' : '#FFFFFF',
           color: 'var(--foreground)',
           border: isDark ? '1px solid #27272a' : '1px solid #D1D5DB',
@@ -400,22 +430,39 @@ export const OAuthSandboxGateway: React.FC<OAuthSandboxGatewayProps> = ({
           transition: 'background-color 0.15s ease, border-color 0.15s ease'
         }}
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 7.02c.61-.74 1.03-1.77.92-2.81-.9.04-1.99.6-2.63 1.34-.57.65-.99 1.7-.87 2.71 1.01.08 1.97-.5 2.58-1.24z" />
-        </svg>
-        <span>{loadingProvider === 'apple' ? 'Authenticating Apple...' : 'Continue with Apple'}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 7.02c.61-.74 1.03-1.77.92-2.81-.9.04-1.99.6-2.63 1.34-.57.65-.99 1.7-.87 2.71 1.01.08 1.97-.5 2.58-1.24z" />
+          </svg>
+          <span>{loadingProvider === 'apple' ? 'Authenticating Apple...' : 'Continue with Apple'}</span>
+        </div>
+
+        <span
+          style={{
+            fontSize: '10px',
+            fontWeight: 700,
+            letterSpacing: '0.04em',
+            padding: '2px 6px',
+            borderRadius: '4px',
+            backgroundColor: isAppleLive
+              ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5')
+              : (isDark ? 'rgba(59, 130, 246, 0.2)' : '#DBEAFE'),
+            color: isAppleLive
+              ? (isDark ? '#6ee7b7' : '#047857')
+              : (isDark ? '#93c5fd' : '#1D4ED8'),
+            border: isAppleLive
+              ? (isDark ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid #A7F3D0')
+              : (isDark ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid #BFDBFE')
+          }}
+        >
+          {isAppleLive ? 'LIVE' : 'SANDBOX'}
+        </span>
       </button>
 
-      {/* Action 3: GitHub Sign-In */}
+      {/* Action 3: GitHub Sign-In (Live OAuth / Sandbox) */}
       <button
         type="button"
-        onClick={() =>
-          handleProviderLogin('github', {
-            email: 'marcus.vance@hedger.capital',
-            name: 'Marcus Vance',
-            plan: 'pro'
-          })
-        }
+        onClick={() => handleLiveOAuth('github')}
         disabled={loadingProvider !== null}
         style={{
           height: '44px',
@@ -423,8 +470,8 @@ export const OAuthSandboxGateway: React.FC<OAuthSandboxGatewayProps> = ({
           width: '100%',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          gap: '10px',
+          justifyContent: 'space-between',
+          padding: '0 14px',
           backgroundColor: isDark ? '#18181b' : '#FFFFFF',
           color: 'var(--foreground)',
           border: isDark ? '1px solid #27272a' : '1px solid #D1D5DB',
@@ -435,14 +482,37 @@ export const OAuthSandboxGateway: React.FC<OAuthSandboxGatewayProps> = ({
           transition: 'background-color 0.15s ease, border-color 0.15s ease'
         }}
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path
-            fillRule="evenodd"
-            clipRule="evenodd"
-            d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
-          />
-        </svg>
-        <span>{loadingProvider === 'github' ? 'Authenticating GitHub...' : 'Continue with GitHub'}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path
+              fillRule="evenodd"
+              clipRule="evenodd"
+              d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+            />
+          </svg>
+          <span>{loadingProvider === 'github' ? 'Authenticating GitHub...' : 'Continue with GitHub'}</span>
+        </div>
+
+        <span
+          style={{
+            fontSize: '10px',
+            fontWeight: 700,
+            letterSpacing: '0.04em',
+            padding: '2px 6px',
+            borderRadius: '4px',
+            backgroundColor: isGithubLive
+              ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5')
+              : (isDark ? 'rgba(59, 130, 246, 0.2)' : '#DBEAFE'),
+            color: isGithubLive
+              ? (isDark ? '#6ee7b7' : '#047857')
+              : (isDark ? '#93c5fd' : '#1D4ED8'),
+            border: isGithubLive
+              ? (isDark ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid #A7F3D0')
+              : (isDark ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid #BFDBFE')
+          }}
+        >
+          {isGithubLive ? 'LIVE' : 'SANDBOX'}
+        </span>
       </button>
 
       {/* Safety & Sync Notice */}
@@ -455,7 +525,7 @@ export const OAuthSandboxGateway: React.FC<OAuthSandboxGatewayProps> = ({
           marginTop: '2px'
         }}
       >
-        Instant verified sandbox session · Persists watchlists, research, and saved models
+        Verified OAuth session · Real-time synchronization of watchlists, research, and models
       </div>
     </div>
   );

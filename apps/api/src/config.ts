@@ -31,8 +31,17 @@ const ConfigSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GITHUB_CLIENT_ID: z.string().optional(),
   GITHUB_CLIENT_SECRET: z.string().optional(),
+  APPLE_CLIENT_ID: z.string().optional(),
+  APPLE_TEAM_ID: z.string().optional(),
+  APPLE_KEY_ID: z.string().optional(),
+  APPLE_PRIVATE_KEY: z.string().optional(),
   CLIENT_ORIGIN: z.string().default('http://localhost:5173')
 });
+
+const defaultClientOrigin =
+  process.env.CLIENT_ORIGIN ||
+  process.env.VITE_APP_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5173');
 
 export const config = ConfigSchema.parse({
   PORT: process.env.PORT,
@@ -51,5 +60,9 @@ export const config = ConfigSchema.parse({
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
   GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
-  CLIENT_ORIGIN: process.env.CLIENT_ORIGIN || process.env.VITE_APP_URL || 'http://localhost:5173'
+  APPLE_CLIENT_ID: process.env.APPLE_CLIENT_ID,
+  APPLE_TEAM_ID: process.env.APPLE_TEAM_ID,
+  APPLE_KEY_ID: process.env.APPLE_KEY_ID,
+  APPLE_PRIVATE_KEY: process.env.APPLE_PRIVATE_KEY,
+  CLIENT_ORIGIN: defaultClientOrigin
 });

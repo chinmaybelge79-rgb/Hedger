@@ -13,6 +13,7 @@ import { supportRouter } from './routes/support.js';
 import { adminRouter } from './routes/admin.js';
 
 const app = express();
+app.set('trust proxy', 1);
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());

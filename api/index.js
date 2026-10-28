@@ -51958,8 +51958,13 @@ var ConfigSchema = external_exports.object({
   GOOGLE_CLIENT_SECRET: external_exports.string().optional(),
   GITHUB_CLIENT_ID: external_exports.string().optional(),
   GITHUB_CLIENT_SECRET: external_exports.string().optional(),
+  APPLE_CLIENT_ID: external_exports.string().optional(),
+  APPLE_TEAM_ID: external_exports.string().optional(),
+  APPLE_KEY_ID: external_exports.string().optional(),
+  APPLE_PRIVATE_KEY: external_exports.string().optional(),
   CLIENT_ORIGIN: external_exports.string().default("http://localhost:5173")
 });
+var defaultClientOrigin = process.env.CLIENT_ORIGIN || process.env.VITE_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:5173");
 var config = ConfigSchema.parse({
   PORT: process.env.PORT,
   NODE_ENV: process.env.NODE_ENV,
@@ -51977,7 +51982,11 @@ var config = ConfigSchema.parse({
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
   GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
-  CLIENT_ORIGIN: process.env.CLIENT_ORIGIN || process.env.VITE_APP_URL || "http://localhost:5173"
+  APPLE_CLIENT_ID: process.env.APPLE_CLIENT_ID,
+  APPLE_TEAM_ID: process.env.APPLE_TEAM_ID,
+  APPLE_KEY_ID: process.env.APPLE_KEY_ID,
+  APPLE_PRIVATE_KEY: process.env.APPLE_PRIVATE_KEY,
+  CLIENT_ORIGIN: defaultClientOrigin
 });
 
 // apps/api/src/routes/instruments.ts
@@ -62748,7 +62757,7 @@ authRouter.get("/providers", (_req, res) => {
     },
     apple: {
       enabled: true,
-      configured: true,
+      configured: Boolean(config.APPLE_CLIENT_ID),
       name: "Apple ID",
       authUrl: "/api/auth/apple"
     },
@@ -62988,6 +62997,74 @@ authRouter.get("/google/callback", async (req, res) => {
   setSessionCookie(res, session.token);
   res.redirect(`${redirectTarget}?auth_success=1&token=${session.token}`);
 });
+authRouter.post("/google/verify", async (req, res) => {
+  const { credential } = req.body;
+  if (!credential) {
+    return res.status(400).json({ error: "Google credential token is required" });
+  }
+  try {
+    const verifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+    if (!verifyRes.ok) {
+      const errText = await verifyRes.text();
+      return res.status(401).json({ error: "Invalid Google credential token", details: errText });
+    }
+    const payload = await verifyRes.json();
+    const cleanEmail = String(payload.email || "").trim().toLowerCase();
+    const cleanName = String(payload.name || cleanEmail.split("@")[0]).trim();
+    const avatar = payload.picture;
+    if (!cleanEmail) {
+      return res.status(400).json({ error: "No verified email found in Google token" });
+    }
+    let targetUser = await db.findUserByEmail(cleanEmail);
+    if (!targetUser) {
+      targetUser = await db.createUser({
+        id: `usr_g_${Date.now().toString(36)}`,
+        name: cleanName,
+        email: cleanEmail,
+        provider: "google",
+        avatar,
+        plan: "pro"
+      });
+    } else {
+      targetUser = await db.updateUser(targetUser.id, {
+        name: cleanName,
+        provider: "google",
+        avatar: avatar || targetUser.avatar
+      }) || targetUser;
+    }
+    await db.upsertOAuthAccount({
+      id: `oauth_g_${targetUser.id}`,
+      userId: targetUser.id,
+      provider: "google",
+      providerUserId: payload.sub || cleanEmail,
+      email: cleanEmail,
+      profileData: { name: cleanName, avatar, sub: payload.sub },
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    const session = await createSession(targetUser.id, req);
+    setSessionCookie(res, session.token);
+    const savedModels = await db.getSavedModels(targetUser.id);
+    const safeUser = {
+      id: targetUser.id,
+      name: targetUser.name,
+      email: targetUser.email,
+      provider: targetUser.provider,
+      avatar: targetUser.avatar,
+      plan: targetUser.plan,
+      savedModelsCount: savedModels.length,
+      createdAt: targetUser.createdAt,
+      updatedAt: targetUser.updatedAt
+    };
+    return res.json({
+      success: true,
+      token: session.token,
+      user: safeUser
+    });
+  } catch (err) {
+    console.error("Google token verification error:", err.message);
+    return res.status(500).json({ error: "Failed to verify Google credentials" });
+  }
+});
 authRouter.get("/github", (req, res) => {
   const state = generateToken();
   const clientOrigin = req.query.origin || config.CLIENT_ORIGIN;
@@ -63218,6 +63295,18 @@ authRouter.get("/apple", (req, res) => {
     createdAt: Date.now(),
     redirectUrl: clientOrigin
   });
+  if (config.APPLE_CLIENT_ID) {
+    const redirectUri = `${req.protocol}://${req.get("host")}/api/auth/apple/callback`;
+    const params = new URLSearchParams({
+      client_id: config.APPLE_CLIENT_ID,
+      redirect_uri: redirectUri,
+      response_type: "code id_token",
+      response_mode: "form_post",
+      scope: "name email",
+      state
+    });
+    return res.redirect(`https://appleid.apple.com/auth/authorize?${params.toString()}`);
+  }
   res.send(`
     <!DOCTYPE html>
     <html lang="en">
@@ -63359,12 +63448,47 @@ authRouter.get("/apple", (req, res) => {
 });
 async function handleAppleCallback(req, res) {
   const query = req.method === "POST" ? req.body : req.query;
-  const { state, gateway, email: gatewayEmail, name: gatewayName } = query;
+  const { state, gateway, email: gatewayEmail, name: gatewayName, id_token, user: userParam } = query;
   const stateData = typeof state === "string" ? oauthStates.get(state) : null;
   const redirectTarget = stateData?.redirectUrl || config.CLIENT_ORIGIN;
   if (typeof state === "string") oauthStates.delete(state);
-  const userEmail = String(gatewayEmail || "julian.thorne@privaterelay.appleid.com").trim().toLowerCase();
-  const userName = String(gatewayName || "Julian Thorne").trim();
+  let userEmail = "";
+  let userName = "";
+  if (id_token && typeof id_token === "string") {
+    try {
+      const parts = id_token.split(".");
+      if (parts.length === 3) {
+        const payloadJson = Buffer.from(parts[1], "base64").toString("utf8");
+        const tokenClaims = JSON.parse(payloadJson);
+        if (tokenClaims.email) {
+          userEmail = String(tokenClaims.email).trim().toLowerCase();
+        }
+      }
+    } catch (err) {
+      console.error("Failed to parse Apple ID token:", err.message);
+    }
+  }
+  if (userParam) {
+    try {
+      const parsedUser = typeof userParam === "string" ? JSON.parse(userParam) : userParam;
+      if (parsedUser?.name) {
+        const { firstName, lastName } = parsedUser.name;
+        userName = [firstName, lastName].filter(Boolean).join(" ");
+      }
+    } catch (err) {
+    }
+  }
+  if (!userEmail && (gateway || gatewayEmail)) {
+    userEmail = String(gatewayEmail || "").trim().toLowerCase();
+    userName = String(gatewayName || userEmail.split("@")[0]).trim();
+  }
+  if (!userEmail) {
+    userEmail = "julian.thorne@privaterelay.appleid.com";
+    userName = "Julian Thorne";
+  }
+  if (!userName) {
+    userName = userEmail.split("@")[0];
+  }
   let targetUser = await db.findUserByEmail(userEmail);
   if (!targetUser) {
     targetUser = await db.createUser({
@@ -64766,6 +64890,7 @@ adminRouter.delete("/sessions/:token", requireAdmin, async (req, res) => {
 
 // apps/api/src/server.ts
 var app = (0, import_express10.default)();
+app.set("trust proxy", 1);
 app.use((0, import_cors.default)({ origin: true, credentials: true }));
 app.use(import_express10.default.json());
 app.use((0, import_cookie_parser.default)());
