@@ -64563,9 +64563,10 @@ import crypto3 from "crypto";
 var adminRouter = (0, import_express9.Router)();
 var adminSessions = /* @__PURE__ */ new Set();
 var ADMIN_USERNAME = process.env.ADMIN_USERNAME || "GODDESS";
-var ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || "a05a0d1d016fee4d2aee00b44a0eeeb2fa251a646927d186b4a903b703a3b30d";
+var ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || "f9fab668cdfd67b0aac1ba171c81ef28b4d267cdab82dfad6c23aeeb38843ebf";
 function verifyAdminCredentials(user, pass) {
-  if (user.trim() !== ADMIN_USERNAME) return false;
+  if (user.trim().toLowerCase() !== ADMIN_USERNAME.toLowerCase()) return false;
+  if (process.env.ADMIN_PASSWORD && pass === process.env.ADMIN_PASSWORD) return true;
   const hash = crypto3.createHash("sha256").update(pass).digest("hex");
   const bufA = Buffer.from(hash);
   const bufB = Buffer.from(ADMIN_PASSWORD_HASH);
