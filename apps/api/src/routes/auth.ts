@@ -326,15 +326,9 @@ authRouter.get('/google/callback', async (req: Request, res: Response) => {
     }
   }
 
-  // 2. Gateway mode fallback
-  if (!userEmail && (gateway || gatewayEmail)) {
-    userEmail = String(gatewayEmail || 'elena.rostova@gmail.com').trim().toLowerCase();
-    userName = String(gatewayName || userEmail.split('@')[0]).trim();
-  }
-
+  // Require verified user profile from Google OAuth
   if (!userEmail) {
-    userEmail = 'institutional.analyst@gmail.com';
-    userName = 'Elena Rostova';
+    return res.redirect(`${redirectTarget}?oauth_error=Google+authentication+was+not+completed`);
   }
 
   // Upsert user in Database
@@ -961,20 +955,8 @@ authRouter.post('/oauth/exchange', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Provider is required for OAuth exchange' });
   }
 
-  const defaultProfiles: Record<string, { email: string; name: string; avatar?: string }> = {
-    google: { email: 'alex.researcher@gmail.com', name: 'Alex Morgan', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop' },
-    github: { email: 'marcus.vance@hedger.capital', name: 'Marcus Vance', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop' },
-    apple: { email: 'julian.thorne@privaterelay.appleid.com', name: 'Julian Thorne', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop' },
-  };
-
-  if (!email && defaultProfiles[provider]) {
-    email = defaultProfiles[provider].email;
-    if (!name) name = defaultProfiles[provider].name;
-    if (!avatar) avatar = defaultProfiles[provider].avatar;
-  }
-
   if (!email) {
-    return res.status(400).json({ error: 'Provider and email are required for OAuth exchange' });
+    return res.status(400).json({ error: 'Verified email is required for OAuth authentication' });
   }
 
   const cleanEmail = String(email).trim().toLowerCase();

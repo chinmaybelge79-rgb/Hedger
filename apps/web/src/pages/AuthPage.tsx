@@ -228,11 +228,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'signin' }) =>
           </div>
         )}
 
-        {/* OAuth Gateway (Google Sandbox, Apple, GitHub) */}
+        {/* OAuth Gateway (Google, Apple, GitHub) */}
         <div style={{ marginBottom: '20px' }}>
           <OAuthSandboxGateway
             onSuccess={() => navigate(redirectTarget)}
-            subtitle="Sign in with Google Sandbox, Apple, or GitHub to save your models, watchlists, and research data."
+            subtitle="Sign in with Google, Apple, or GitHub to access and sync your research models and watchlists."
           />
         </div>
 

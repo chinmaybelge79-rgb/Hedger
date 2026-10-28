@@ -61880,172 +61880,14 @@ var DatabaseService = class {
     `;
     await client.query(ddl);
     console.log("[DatabaseService] PostgreSQL schema verified successfully.");
-    const hashChinusha = "7dc77041587c821f6e3a3143b5f490855294d39df575c90fc28818bc7b189ee7dfe6f6511ae7fdc876fdecc8fff44767e3c888611b1abbf1f0a5a81eaad285d4";
-    const hashChinmay = "1a8e340288454ac303b0c2d83725a7f0963800abf9d9c52cb4e11c2a98652fbbb4be4fd96a9edaa45aee8ed8485ef77c7d1db2a8c51d7bdcd7253f6754846a56";
-    const hashSumit = "1e9b3194029a4bc172143b9f8798ae9822b25749598e0eeddf8e6bdd552b666b6c7d578630ecef3469225bf5b699f4e0b1e208daa1599c3c576c07d6e2d421bf";
     await client.query(`
-      DELETE FROM hedger_users WHERE email = 'medimianusha@gmail.com';
+      DELETE FROM hedger_users WHERE id IN ('usr_chinusha', 'usr_sumit', 'usr_sumit_hedger', 'usr_chinu', 'usr_founder_chinmay') 
+         OR email IN ('chinusha@gmail.com', 'sumit@gmail.com', 'sumit@hedger.capital', 'chinu@hedger.capital', 'medimianusha@gmail.com', 'alex.researcher@gmail.com', 'elena.rostova@gmail.com', 'sarah.quant@gmail.com');
       DELETE FROM hedger_saved_models WHERE id LIKE 'seed-%';
-      INSERT INTO hedger_users (id, email, name, provider, avatar, plan, password_hash, salt, created_at, updated_at)
-      VALUES (
-        'usr_chinusha',
-        'chinusha@gmail.com',
-        'Chinusha',
-        'email',
-        NULL,
-        'ultra',
-        '${hashChinusha}',
-        'hedger_static_salt_2026',
-        NOW(),
-        NOW()
-      )
-      ON CONFLICT (email) DO UPDATE SET
-        password_hash = EXCLUDED.password_hash,
-        salt = EXCLUDED.salt,
-        plan = 'ultra',
-        updated_at = NOW();
-
-      INSERT INTO hedger_users (id, email, name, provider, avatar, plan, password_hash, salt, created_at, updated_at)
-      VALUES (
-        'usr_chinu',
-        'chinu@hedger.capital',
-        'Chinu',
-        'email',
-        NULL,
-        'plus',
-        '${hashChinmay}',
-        'hedger_static_salt_2026',
-        NOW(),
-        NOW()
-      )
-      ON CONFLICT (email) DO UPDATE SET
-        password_hash = EXCLUDED.password_hash,
-        salt = EXCLUDED.salt,
-        plan = 'plus',
-        updated_at = NOW();
-
-      INSERT INTO hedger_users (id, email, name, provider, avatar, plan, password_hash, salt, created_at, updated_at)
-      VALUES (
-        'usr_founder_chinmay',
-        'chinmaybelge79@gmail.com',
-        'Chinmay Belge',
-        'email',
-        NULL,
-        'ultra',
-        '${hashChinmay}',
-        'hedger_static_salt_2026',
-        NOW(),
-        NOW()
-      )
-      ON CONFLICT (email) DO UPDATE SET
-        password_hash = EXCLUDED.password_hash,
-        salt = EXCLUDED.salt,
-        plan = 'ultra',
-        updated_at = NOW();
-
-      INSERT INTO hedger_users (id, email, name, provider, avatar, plan, password_hash, salt, created_at, updated_at)
-      VALUES (
-        'usr_sumit',
-        'sumit@gmail.com',
-        'Sumit',
-        'email',
-        NULL,
-        'ultra',
-        '${hashSumit}',
-        'hedger_static_salt_2026',
-        NOW(),
-        NOW()
-      )
-      ON CONFLICT (email) DO UPDATE SET
-        password_hash = EXCLUDED.password_hash,
-        salt = EXCLUDED.salt,
-        plan = 'ultra',
-        updated_at = NOW();
-
-      INSERT INTO hedger_users (id, email, name, provider, avatar, plan, password_hash, salt, created_at, updated_at)
-      VALUES (
-        'usr_sumit_hedger',
-        'sumit@hedger.capital',
-        'Sumit',
-        'email',
-        NULL,
-        'ultra',
-        '${hashSumit}',
-        'hedger_static_salt_2026',
-        NOW(),
-        NOW()
-      )
-      ON CONFLICT (email) DO UPDATE SET
-        password_hash = EXCLUDED.password_hash,
-        salt = EXCLUDED.salt,
-        plan = 'ultra',
-        updated_at = NOW();
     `);
   }
   initSeedFallback() {
-    const hashChinusha = "7dc77041587c821f6e3a3143b5f490855294d39df575c90fc28818bc7b189ee7dfe6f6511ae7fdc876fdecc8fff44767e3c888611b1abbf1f0a5a81eaad285d4";
-    const hashChinmay = "1a8e340288454ac303b0c2d83725a7f0963800abf9d9c52cb4e11c2a98652fbbb4be4fd96a9edaa45aee8ed8485ef77c7d1db2a8c51d7bdcd7253f6754846a56";
-    const hashSumit = "1e9b3194029a4bc172143b9f8798ae9822b25749598e0eeddf8e6bdd552b666b6c7d578630ecef3469225bf5b699f4e0b1e208daa1599c3c576c07d6e2d421bf";
-    this.inMemoryFallbackUsers.delete("usr_anusha");
-    this.inMemoryFallbackUsers.set("usr_chinusha", {
-      id: "usr_chinusha",
-      name: "Chinusha",
-      email: "chinusha@gmail.com",
-      provider: "email",
-      plan: "ultra",
-      passwordHash: hashChinusha,
-      salt: "hedger_static_salt_2026",
-      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-    });
-    this.inMemoryFallbackUsers.set("usr_sumit", {
-      id: "usr_sumit",
-      name: "Sumit",
-      email: "sumit@gmail.com",
-      provider: "email",
-      plan: "ultra",
-      passwordHash: hashSumit,
-      salt: "hedger_static_salt_2026",
-      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-    });
-    this.inMemoryFallbackUsers.set("usr_sumit_hedger", {
-      id: "usr_sumit_hedger",
-      name: "Sumit",
-      email: "sumit@hedger.capital",
-      provider: "email",
-      plan: "ultra",
-      passwordHash: hashSumit,
-      salt: "hedger_static_salt_2026",
-      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-    });
-    if (!this.inMemoryFallbackUsers.has("usr_chinu")) {
-      this.inMemoryFallbackUsers.set("usr_chinu", {
-        id: "usr_chinu",
-        name: "Chinu",
-        email: "chinu@hedger.capital",
-        provider: "email",
-        plan: "plus",
-        passwordHash: hashChinmay,
-        salt: "hedger_static_salt_2026",
-        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-      });
-    }
-    if (!this.inMemoryFallbackUsers.has("usr_founder_chinmay")) {
-      this.inMemoryFallbackUsers.set("usr_founder_chinmay", {
-        id: "usr_founder_chinmay",
-        name: "Chinmay Belge",
-        email: "chinmaybelge79@gmail.com",
-        provider: "email",
-        plan: "ultra",
-        passwordHash: hashChinmay,
-        salt: "hedger_static_salt_2026",
-        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-      });
-    }
+    this.inMemoryFallbackUsers = /* @__PURE__ */ new Map();
     this.inMemoryFallbackModels = [];
   }
   // ==========================================
@@ -62961,13 +62803,8 @@ authRouter.get("/google/callback", async (req, res) => {
       console.error("Google OAuth token exchange error:", err.message);
     }
   }
-  if (!userEmail && (gateway || gatewayEmail)) {
-    userEmail = String(gatewayEmail || "elena.rostova@gmail.com").trim().toLowerCase();
-    userName = String(gatewayName || userEmail.split("@")[0]).trim();
-  }
   if (!userEmail) {
-    userEmail = "institutional.analyst@gmail.com";
-    userName = "Elena Rostova";
+    return res.redirect(`${redirectTarget}?oauth_error=Google+authentication+was+not+completed`);
   }
   let targetUser = await db.findUserByEmail(userEmail);
   if (!targetUser) {
@@ -63526,18 +63363,8 @@ authRouter.post("/oauth/exchange", async (req, res) => {
   if (!provider) {
     return res.status(400).json({ error: "Provider is required for OAuth exchange" });
   }
-  const defaultProfiles = {
-    google: { email: "alex.researcher@gmail.com", name: "Alex Morgan", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop" },
-    github: { email: "marcus.vance@hedger.capital", name: "Marcus Vance", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop" },
-    apple: { email: "julian.thorne@privaterelay.appleid.com", name: "Julian Thorne", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop" }
-  };
-  if (!email && defaultProfiles[provider]) {
-    email = defaultProfiles[provider].email;
-    if (!name) name = defaultProfiles[provider].name;
-    if (!avatar) avatar = defaultProfiles[provider].avatar;
-  }
   if (!email) {
-    return res.status(400).json({ error: "Provider and email are required for OAuth exchange" });
+    return res.status(400).json({ error: "Verified email is required for OAuth authentication" });
   }
   const cleanEmail = String(email).trim().toLowerCase();
   const cleanName = String(name || cleanEmail.split("@")[0]).trim();
